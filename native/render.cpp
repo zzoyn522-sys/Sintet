@@ -394,12 +394,12 @@ void icon(ImDrawList* d, ImVec2 p, int kind, float s, ImU32 color) {
  }
 }
 void logo(ImDrawList* d, ImVec2 p, float s, ImU32 color) {
- const float unit=28*s/518;
+ const float unit=35*s/518;
  ImVec2 points[sizeof sintetMarkCube / sizeof *sintetMarkCube];
  for(const auto& contour:sintetMarkContours){
   for(int i=0;i<contour.count;i++){
    const auto& point=contour.points[i];
-   points[i]=ImVec2(p.x+(point.x+259)*unit,p.y+3*s+(point.y+210)*unit);
+   points[i]=ImVec2(p.x+(point.x+259)*unit,p.y+(point.y+210)*unit);
   }
   d->AddConcavePolyFilled(points,contour.count,color);
  }

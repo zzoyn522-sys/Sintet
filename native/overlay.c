@@ -41,7 +41,7 @@ static void draw_brand(HDC dc,int x,int y,int width,COLORREF color){
 }
 static void draw(HDC dc){WCHAR nick[64],build[96];AcquireSRWLockShared(&profile_lock);wcscpy_s(nick,64,player);wcscpy_s(build,96,version);ReleaseSRWLockShared(&profile_lock);
  fill(dc,0,0,820,520,28,RGB(17,17,18));fill(dc,1,1,818,518,26,RGB(22,22,23));
- draw_brand(dc,30,30,31,RGB(240,240,240));text(dc,72,29,140,32,23,600,RGB(235,235,235),L"Sintet",DT_LEFT);
+ draw_brand(dc,28,28,37,RGB(240,240,240));text(dc,72,29,140,32,23,600,RGB(235,235,235),L"Sintet",DT_LEFT);
  fill(dc,616,27,116,30,28,RGB(31,42,34));fill(dc,628,39,5,5,5,RGB(119,190,139));text(dc,641,32,83,24,12,500,RGB(157,195,168),preview_mode?L"Предпросмотр":L"В игре",DT_LEFT);
  fill(dc,756,26,32,32,32,RGB(41,41,43));text(dc,756,29,32,26,21,400,RGB(156,156,160),L"×",DT_CENTER);
  fill(dc,28,85,194,370,18,RGB(17,17,18));
