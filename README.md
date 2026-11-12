@@ -28,6 +28,12 @@
 - Друзья, лобби и оверлей в Minecraft. Видимость оверлея можно отключить в настройках.
 - Оформления с собственными фонами, шрифтами и фильтрами. Настройки темы можно экспортировать в `.sldcfg`.
 
+## Лобби, друзья и оверлей
+
+![Rich Presence и список друзей](docs/screenshots/rich-presence.png)
+
+![Оверлей Sintet в Minecraft с лобби и медиаплеером](docs/screenshots/in-game-overlay.png)
+
 ## Кастомное оформление
 
 <p align="center">
@@ -45,6 +51,10 @@
 Скриншоты в этом блоке сняты с интерфейса лаунчера на демонстрационных данных.
 
 </details>
+
+## Предупреждение Windows SmartScreen
+
+EXE лаунчера и установщика пока выпускаются без сертификата подписи кода Windows. SmartScreen может показать предупреждение при первом запуске. Скачивай файлы с сайта Sintet или из GitHub Releases и сверяй SHA-256 выпуска. [Как работает SmartScreen](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
 ## Исходники и обновления
 
