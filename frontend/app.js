@@ -1,4 +1,6 @@
 const $=s=>document.querySelector(s);
+// Internal drags are disabled. Files dropped from Explorer still use the Wails handler.
+document.addEventListener('dragstart', event => event.preventDefault());
 const storage={get(k,f){try{return localStorage.getItem('sintet.'+k)??f}catch{return f}},set(k,v){try{localStorage.setItem('sintet.'+k,v)}catch{}}};
 function page(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('hidden',p.id!==id));document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===id))}
 document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>page(b.dataset.page));

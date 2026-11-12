@@ -141,7 +141,6 @@
   try{await navigator.clipboard.writeText(account.id);toast('ID скопирован')}
   catch{toast('Не удалось скопировать ID')}
  });
- dialog.addEventListener('dragstart',event=>event.preventDefault());
  const content=document.querySelector('#account-dialog-content');
  const stack=document.querySelector('#account-stack');
  if(typeof ResizeObserver==='function'&&typeof dialog.animate==='function'){
