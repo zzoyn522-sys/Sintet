@@ -30,27 +30,29 @@
 
 ## Лобби, друзья и оверлей
 
+![Лобби на стандартной теме](docs/screenshots/lobby.png)
+
 ![Rich Presence и список друзей](docs/screenshots/rich-presence.png)
 
-![Оверлей Sintet в Minecraft с лобби и медиаплеером](docs/screenshots/in-game-overlay.png)
+![Оверлей Sintet в Minecraft со списком друзей и медиаплеером](docs/screenshots/in-game-overlay.png)
 
-## Кастомное оформление
+## Мастерская и редактор оформления
 
 <p align="center">
-  <img src="docs/screenshots/custom-workshop.png" alt="Мастерская с пользовательским фоном и шрифтом" width="49%">
-  <img src="docs/screenshots/custom-lobby.png" alt="Лобби с тем же пользовательским оформлением" width="49%">
+  <img src="docs/screenshots/workshop.png" alt="Каталог модов и фильтры на стандартной теме" width="49%">
+  <img src="docs/screenshots/appearance.png" alt="Настройки панелей на стандартной теме" width="49%">
 </p>
 
-<details>
-<summary>Ещё скриншоты</summary>
+## Тема «санчез»
 
-![Выбор источника установки в мастерской](docs/screenshots/workshop.png)
+<p align="center">
+  <img src="docs/screenshots/custom-home.png" alt="Главный экран с красной фоновой волной" width="49%">
+  <img src="docs/screenshots/custom-lobby.png" alt="Лобби в теме «санчез»" width="49%">
+  <img src="docs/screenshots/custom-workshop.png" alt="Каталог модов в теме «санчез»" width="49%">
+  <img src="docs/screenshots/custom-appearance.png" alt="Настройки волны в теме «санчез»" width="49%">
+</p>
 
-![Настройки фильтров фона](docs/screenshots/appearance.png)
-
-Скриншоты в этом блоке сняты с интерфейса лаунчера на демонстрационных данных.
-
-</details>
+Снимки лаунчера сделаны на демонстрационных данных.
 
 ## Предупреждение Windows SmartScreen
 
