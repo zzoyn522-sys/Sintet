@@ -1,0 +1,15 @@
+<!--
+  Monobank icon from Lawnicons by lawnchairlauncher, licensed under Apache-2.0.
+  Source: https://www.svgviewer.dev/s/360269/monobank
+  View box cropped to the original wordmark. Path geometry is unchanged.
+  See monobank.LICENSE.txt.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="12 74 168 44" fill="none" stroke="#000" stroke-width="8" stroke-linecap="round">
+  <path d="M20 110.3V81.7m91.02 28.6-.12-28.6"/>
+  <g stroke-linejoin="round">
+    <path d="M20 87.41s10.78-7.26 16.24-3.27c1.52 1.11 2.31 2.98 2.31 4.86v21.3"/>
+    <path d="M111.02 87.41s10.78-7.26 16.24-3.27c1.52 1.11 2.31 2.98 2.31 4.86v21.3M38.8 87.41s10.78-7.26 16.24-3.27c1.52 1.11 2.31 2.98 2.31 4.86v21.3"/>
+    <circle cx="84.18" cy="96" r="14.3"/>
+    <circle cx="157.7" cy="96" r="14.3"/>
+  </g>
+</svg>

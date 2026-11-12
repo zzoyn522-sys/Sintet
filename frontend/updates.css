@@ -1,0 +1,11 @@
+.update-button{--update-progress:0%;display:grid;place-items:center;position:relative;width:30px;height:30px;flex:none;padding:0;margin:0 5px;border:1px solid #3988ed;border-radius:50%;background:#1c71d0;color:#fff;box-shadow:0 2px 12px #1474df35;cursor:pointer;transition:opacity .18s,transform .18s,background .18s,box-shadow .18s;--wails-draggable:no-drag}
+.update-button[hidden]{display:none!important}
+.update-button:hover:not(:disabled){background:#328bf0;box-shadow:0 3px 16px #1474df65;transform:translateY(-1px)}
+.update-button:disabled{cursor:progress}
+.update-button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.update-button.downloading{background:conic-gradient(#72b5ff var(--update-progress),#ffffff25 0);border:2px solid #287fe4;box-shadow:inset 0 0 0 2px #151515}
+.update-button.downloading svg{animation:update-spin 1.4s linear infinite}
+.update-button #update-percent{position:absolute;inset:0;display:grid;place-items:center;font-size:8px;font-weight:700;font-variant-numeric:tabular-nums;background:#18191b;border-radius:50%;opacity:0}
+.update-button.downloading #update-percent{opacity:1}
+@keyframes update-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.update-button{transition:none}.update-button.downloading svg{animation:none}}

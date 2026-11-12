@@ -1,0 +1,10 @@
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <stdio.h>
+static HMODULE library;
+static unsigned int (WINAPI *stop_overlay)(void);
+static LRESULT CALLBACK proc(HWND window,UINT msg,WPARAM w,LPARAM l){if(msg==WM_DESTROY){PostQuitMessage(0);return 0;}if(msg==WM_PAINT){PAINTSTRUCT ps;HDC dc=BeginPaint(window,&ps);RECT r;GetClientRect(window,&r);FillRect(dc,&r,(HBRUSH)GetStockObject(DKGRAY_BRUSH));SetTextColor(dc,RGB(230,230,230));SetBkMode(dc,TRANSPARENT);DrawTextW(dc,L"Sintet Overlay test host\n\nPress Shift+Tab to open the overlay.\nEscape returns to this window.",-1,&r,DT_CENTER|DT_WORDBREAK);EndPaint(window,&ps);return 0;}return DefWindowProcW(window,msg,w,l);}
+int WINAPI wWinMain(HINSTANCE instance,HINSTANCE previous,LPWSTR command,int show){(void)previous;(void)command;(void)show;WCHAR path[MAX_PATH];GetModuleFileNameW(NULL,path,MAX_PATH);WCHAR *slash=wcsrchr(path,L'\\');if(!slash)return 1;wcscpy_s(slash+1,MAX_PATH-(slash+1-path),L"sintet-overlay.dll");library=LoadLibraryExW(path,NULL,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);if(!library)return 2;
+ unsigned int (WINAPI *start)(void)=(void*)GetProcAddress(library,"SintetOverlayStart");void(WINAPI *set_game)(unsigned int,const WCHAR*,const WCHAR*)=(void*)GetProcAddress(library,"SintetOverlaySetGame");stop_overlay=(void*)GetProcAddress(library,"SintetOverlayStop");if(!start||!set_game||!stop_overlay||!start())return 3;
+ set_game(GetCurrentProcessId(),L"Sintet",L"Integration test host");WNDCLASSW cls={0};cls.hInstance=instance;cls.lpfnWndProc=proc;cls.lpszClassName=L"Sintet.Overlay.TestHost";cls.hCursor=LoadCursorW(NULL,IDC_ARROW);RegisterClassW(&cls);HWND window=CreateWindowW(cls.lpszClassName,L"Sintet Overlay Test Game",WS_OVERLAPPEDWINDOW,CW_USEDEFAULT,CW_USEDEFAULT,1050,700,NULL,NULL,instance,NULL);ShowWindow(window,SW_SHOW);MSG msg;while(GetMessageW(&msg,NULL,0,0)>0){TranslateMessage(&msg);DispatchMessageW(&msg);}set_game(0,NULL,NULL);stop_overlay();FreeLibrary(library);return 0;}
+

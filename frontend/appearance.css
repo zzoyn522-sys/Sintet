@@ -1,0 +1,317 @@
+.settings-tabs {margin-bottom: 22px}
+.settings-tabs .workshop-category strong {font-size: 14px}
+#settings.settings-page {height: auto}
+.appearance-fields {display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px}
+.appearance-fields > div {min-width: 0}
+.appearance-fields select, .appearance-fields .s-select {width: 100%}
+#appearance-form input[type=color] {width: 100%; padding: 5px 8px; cursor: pointer}
+.appearance-file {display: flex; flex-wrap: wrap; align-items: center; gap: 8px}
+#appearance-file-label {font-size: 12px; color: #aaa}
+.appearance-background-options {margin-top: 16px; align-items: end}
+.appearance-background-options > .check-label {min-height: 32px}
+#appearance-form .appearance-range {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
+  margin: 16px 0 8px; color: #ccc;
+}
+#appearance-form .appearance-range[hidden] {display: none}
+.appearance-range output {font-variant-numeric: tabular-nums; color: #ddd}
+.appearance-range input {grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--launcher-accent,#ededed)}
+#appearance-background {position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none; background: var(--custom-canvas,#090909)}
+#appearance-background :is(img,video,canvas) {position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: var(--background-fit,cover)}
+#appearance-background [hidden] {display: none}
+#appearance-background > .appearance-media-edges {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(var(--media-edge-blur,0px));
+  mask-image: linear-gradient(to right,#000,transparent 17%,transparent 83%,#000),
+    linear-gradient(to bottom,#000 18%,transparent 36%,transparent 83%,#000);
+}
+#appearance-background[data-media-contain] > .appearance-media-edges {
+  --media-fit-width: min(100vw,calc(100vh * var(--media-ratio,1)));
+  --media-fit-height: min(100vh,calc(100vw / var(--media-ratio,1)));
+  inset: auto;
+  width: calc(var(--media-fit-width) * var(--media-zoom,1));
+  height: calc(var(--media-fit-height) * var(--media-zoom,1));
+  left: calc(50% + (100vw - var(--media-fit-width)) * var(--media-offset-x,0) * var(--media-zoom,1));
+  top: calc(50% + (100vh - var(--media-fit-height)) * var(--media-offset-y,0) * var(--media-zoom,1));
+  transform: translate(-50%,-50%);
+}
+#appearance-background::after {content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / var(--background-dim,.45))}
+html[data-launcher-gradient="off"] .top-navigation::after {display: none}
+html[data-launcher-gradient="off"] #account-dialog[open],
+html[data-launcher-gradient="off"] #logs-dialog[open] {background-image: none}
+html[data-launcher-font] {font-family: var(--launcher-font)}
+html[data-launcher-font] dialog {font-family: inherit}
+html[data-launcher-accent] .primary {
+  background: var(--launcher-accent);
+  border-color: var(--launcher-accent);
+  color: var(--launcher-accent-text);
+}
+html[data-launcher-accent] .primary:hover:not(:disabled) {filter: brightness(.88)}
+html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.settings-actions) {
+  border-radius: var(--launcher-radius);
+  backdrop-filter: blur(var(--launcher-blur));
+}
+html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty) {
+  background-color: color-mix(in srgb,var(--launcher-surface,#191919) var(--launcher-opacity),transparent);
+}
+html[data-launcher-panels] :is(.panel-heading,.settings-actions,.titlebar,.top-navigation) {
+  background-color: color-mix(in srgb,var(--launcher-bar,#101010) var(--launcher-opacity),transparent);
+}
+html[data-launcher-panels] #account-dialog {
+  border-radius: calc(var(--launcher-radius) + 8px);
+  background-color: color-mix(in srgb,var(--launcher-surface,#171717) max(65%,var(--launcher-opacity)),transparent);
+  backdrop-filter: blur(var(--launcher-blur));
+}
+html[data-launcher-panels] .version-popover {
+  background-color: color-mix(in srgb,var(--launcher-surface,#1d1d1d) max(75%,var(--launcher-opacity)),transparent);
+}
+html[data-launcher-theme="slate"] {background: #11171a; --launcher-surface: #20292f; --launcher-bar: #141d22}
+html[data-launcher-theme="midnight"] {background: #0d1120; --launcher-surface: #1c2239; --launcher-bar: #12172a}
+html[data-launcher-theme="warm"] {background: #181210; --launcher-surface: #302522; --launcher-bar: #201714}
+@media(max-width: 920px) {
+  .top-navigation {gap: 16px}
+  #appearance-form .preference-card {padding: 16px}
+}
+
+.appearance-library {
+  margin-bottom: 28px;
+}
+.appearance-library-header {display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 16px}
+.appearance-library-header h2 {margin: 0; font-size: 25px; font-weight: 650; letter-spacing: -.6px}
+.appearance-slots {display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; max-width: 450px}
+.appearance-slot {min-width: 0}
+.appearance-slot-preview {
+  display: flex; width: 100%; height: 95px; padding: 0; align-items: center; justify-content: center;
+  border-radius: 13px; background: #171717; overflow: hidden; position: relative;
+}
+.appearance-slot-preview .appearance-custom-icon {position:absolute;width:60px;height:60px;object-fit:cover;border-radius:11px}
+.appearance-slot-preview[aria-pressed=true] {background: #303030}
+.appearance-slot-preview:hover:not(:disabled) {background: #272727}
+.appearance-slot-preview:disabled {opacity: .55; cursor: default}
+.appearance-slot-thumbnail {width: 66px; height: 50px; color: #777}
+.slot-window {fill: var(--slot-canvas,#191919); stroke: currentColor; stroke-width: 1}
+.slot-divider {fill: none; stroke: currentColor; stroke-width: 1}
+.slot-panel {fill: var(--slot-panel,#303030)}
+.slot-accent {fill: var(--slot-accent,#ededed)}
+.appearance-slot-add {display: none}
+.appearance-slot-empty {background: #121212; color: #888}
+.appearance-slot-empty:hover:not(:disabled) {background: #242424; color: #ddd}
+.appearance-slot-empty .appearance-slot-thumbnail {display: none}
+.appearance-slot-empty .appearance-slot-add {display: flex; flex-direction: column; align-items: center; gap: 6px}
+.appearance-slot-add > span {font-size: 25px; line-height: 1}
+.appearance-slot-add small {font-size: 12px}
+.appearance-slot-tools {display: flex; align-items: center; gap: 2px; padding: 5px 0}
+#appearance-form .appearance-slot-tools input {
+  min-width: 0; flex: 1; width: 0; height: 29px; font-size: 12px; padding: 0 4px;
+  border: 0; background: transparent;
+}
+.appearance-slot-tools button {border-radius: 6px; padding: 0 4px; height: 28px; color: #bdbdbd; font-size: 16px}
+.appearance-slot-tools button:hover {background: #ffffff14; color: white}
+.appearance-slot-tools button:disabled {opacity: .35}
+.appearance-editor-title {font-size: 19px; font-weight: 650; margin: 0 0 14px; letter-spacing: -.4px}
+.appearance-swatches {display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-top: 14px}
+#appearance-form .appearance-swatches label {text-align: center; margin: 0}
+#appearance-form .appearance-swatches input {height: 31px; padding: 3px 5px; margin-bottom: 5px}
+.appearance-panel-options {display: flex; gap: 12px 18px; flex-wrap: wrap}
+#appearance-background :is(img,video,canvas) {object-position: var(--background-position,center)}
+html[data-custom-canvas] {background-color: var(--custom-canvas)}
+html[data-custom-canvas] #appearance-background {background-color: var(--custom-canvas)}
+html[data-custom-panel] {--launcher-surface: var(--custom-panel)}
+html[data-custom-text] {color: var(--custom-text)}
+html[data-custom-text] :is(.minecraft-panel h1,.panel-heading,.preference-card h2,.current-game strong,.mods-toolbar h2,.mod-info h2,.account-identity h1,.settings-heading h1,.appearance-editor-title) {color: var(--custom-text)}
+html[data-panel-borders] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.account-dialog) {
+  outline: var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
+  outline-offset: -1px;
+}
+html[data-compact-layout] :is(.settings-grid,.mods-list) {gap: 7px}
+html[data-compact-layout] .preference-card {padding: 13px 15px}
+html[data-compact-layout] .panel-body {padding: 14px 17px}
+html[data-compact-layout] .panel-heading {height: 44px}
+html[data-compact-layout] .launchbar {height: 59px}
+html[data-compact-layout] .workshop-panel .mod-card {min-height: 58px; padding: 8px 13px}
+
+.appearance-slot-tools svg {display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round}
+
+.appearance-font-tools {margin-top: 14px}
+.appearance-accent {margin-top: 16px}
+.appearance-accent-row,#appearance-accent-presets {display: flex; align-items: center; flex-wrap: wrap; gap: 9px}
+#appearance-form #appearance-accent {width: 46px; height: 32px; padding: 3px 5px}
+#appearance-accent-presets button {width: 24px; height: 24px; padding: 0; border-radius: 50%; background: var(--swatch); border: 2px solid #ffffff22}
+#appearance-accent-presets button[aria-pressed=true] {outline: 2px solid var(--swatch); outline-offset: 2px}
+.appearance-gradient-options {margin-top: 12px}
+.appearance-gradient-swatches {grid-template-columns: repeat(3,minmax(0,1fr))}
+.appearance-gradient-preview {
+  margin-top: 14px; height: 42px; border-radius: 8px; background-color: #111;
+  background-image: var(--preview-gradient,linear-gradient(145deg,#6142a5,#3957a2,#151329));
+}
+.appearance-atmosphere {position: fixed; z-index: -1; inset: 0; pointer-events: none}
+.appearance-atmosphere > div {position: absolute; inset: 0}
+.appearance-atmosphere > .appearance-gradient-layer {
+  inset: -12% -12% -12% -20%;
+  background-image: var(--launcher-gradient);
+  background-repeat: no-repeat;
+  mask-image:
+    radial-gradient(ellipse calc(60% * var(--gradient-size,1)) calc(65% * var(--gradient-size,1)) at var(--gradient-x,12%) var(--gradient-y,48%),#000a,transparent 76%),
+    radial-gradient(ellipse calc(72% * var(--gradient-size,1)) calc(46% * var(--gradient-size,1)) at calc(var(--gradient-x,12%) - 8%) calc(var(--gradient-y,48%) - 19%),#0009,transparent 82%),
+    radial-gradient(ellipse calc(48% * var(--gradient-size,1)) calc(70% * var(--gradient-size,1)) at calc(var(--gradient-x,12%) + 8%) calc(var(--gradient-y,48%) + 31%),#0008,transparent 84%);
+  opacity: var(--gradient-opacity,0);
+  animation: appearance-glow-drift var(--motion-duration,15s) ease-in-out infinite alternate;
+}
+@keyframes appearance-glow-drift {
+  from {transform: translate3d(-1%,1%,0)}
+  to {transform: translate3d(1%,-1%,0)}
+}
+body:has(#account-add-dialog[open],#microsoft-device-dialog[open],.ely-auth-dialog[open],.identity-wait[open]) .appearance-gradient-layer {
+  opacity: 0;
+  animation: none;
+}
+@media(prefers-reduced-motion:reduce) {
+  .appearance-atmosphere > .appearance-gradient-layer {animation: none}
+}
+.appearance-vignette {background: radial-gradient(ellipse at center,transparent 35%,#000 110%); opacity: var(--vignette-opacity,0)}
+.appearance-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: var(--grain-opacity,0);
+}
+html[data-launcher-gradient="wallpaper"] .top-navigation::after {display: none}
+html[data-launcher-accent] :is(input[type=checkbox],input[type=range],progress) {accent-color: var(--launcher-accent) !important}
+html[data-launcher-accent] :is(button,input,select):focus-visible {outline-color: var(--launcher-accent)}
+html[data-launcher-accent] :is(.badge,.mods-count,.news-counter) {
+  background-color: color-mix(in srgb,var(--launcher-accent) 15%,#161616);
+  color: color-mix(in srgb,var(--launcher-accent) 68%,white);
+  box-shadow: 0 0 12px color-mix(in srgb,var(--launcher-accent) 16%,transparent);
+}
+html[data-launcher-accent] .toggle.on {background-color: var(--launcher-accent)}
+html[data-custom-bar] {--launcher-bar: var(--custom-bar)}
+html[data-custom-muted] :is(.description,.preference-hint,.preference-card label:not(.check-label),.check-label,.current-game>div>span,.mod-info p,.top-navigation .nav:not(.active),.parameter-line,.news-card p,.app-footer,.settings-heading p) {
+  color: var(--custom-muted) !important;
+}
+html[data-panel-shadow] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty) {box-shadow: var(--panel-shadow)}
+
+html[data-panel-shadow] #play-workspace {overflow-clip-margin: 24px}
+
+/* Match the portal's plain surfaces and readable controls in the appearance editor. */
+#appearance-form .preference-card {padding: 22px}
+#appearance-form .preference-card h2 {font-size: 17px; font-weight: 650}
+#appearance-form :is(.preference-card label:not(.check-label),.appearance-range),
+#appearance-form .s-select-trigger,
+.s-select-menu[data-form="appearance-form"] {font-size: 13px}
+#appearance-form .s-select-trigger {height: 39px}
+#appearance-form .check-label {font-size: 13px !important}
+#appearance-form .preference-hint,
+#appearance-form #appearance-status {font-size: 12px; line-height: 1.5; color: #a6a6a6}
+#appearance-form :is(.soft-button,.settings-actions .primary) {height: 38px; font-size: 13px}
+#appearance-form .soft-button {background: #252525; color: #e0e0e0}
+#appearance-form .soft-button:hover:not(:disabled) {background: #333}
+html[data-launcher-motion=off] .appearance-gradient-layer{animation-play-state:paused}
+#appearance-background :is(img,video,canvas){
+  filter:blur(var(--media-blur,0px)) brightness(var(--media-brightness,1)) contrast(var(--media-contrast,1))
+    sepia(var(--media-sepia,0)) hue-rotate(var(--media-hue,0deg)) saturate(var(--media-saturation,1)) grayscale(var(--media-grayscale,0));
+  opacity:var(--media-opacity,1);
+  transform:scale(var(--media-zoom,1));
+}
+.appearance-media-filters {margin-top:18px;padding:0 12px;border-radius:11px;background:rgb(255 255 255 / .04)}
+.appearance-media-filters summary {padding:11px 0;cursor:pointer;color:#d5d5d5;font-size:13px;font-weight:600}
+.appearance-media-filters[open] {padding-bottom:8px}
+html[data-text-scale] :is(.top-navigation .nav,.panel-body label,.parameter-line,.launchbar .primary,.current-game strong,.ws-action,.settings-actions button){font-size:calc(14px * var(--text-scale,1))}
+html[data-text-scale] :is(.panel-heading,.preference-card h2,.settings-heading h1){font-size:calc(17px * var(--text-scale,1))}
+html[data-text-scale] .minecraft-panel h1{font-size:calc(42px * var(--text-scale,1))}
+html[data-text-weight] :is(button,input,label,.parameter-line,.current-game strong){font-weight:var(--text-weight,600)}
+html[data-button-radius] :is(.nav,.primary,.soft-button,.ws-action,.settings-cancel,.account-done,.s-select-trigger){border-radius:var(--button-radius,10px)}
+@media(prefers-reduced-motion:reduce){.appearance-atmosphere>.appearance-gradient-layer{animation:none}}
+
+.appearance-section-heading {display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:13px}
+#appearance-form .appearance-section-heading h2 {margin:0}
+#appearance-form .appearance-section-heading .soft-button {height:30px; padding:0 10px}
+.appearance-element-colors {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px}
+#appearance-form .appearance-element-colors label {margin:0; min-width:0}
+#appearance-form .appearance-element-colors input {display:block; height:33px; margin-bottom:6px}
+#appearance-form .appearance-element-colors input:not([data-override]) {opacity:.76}
+.appearance-nav-sliders {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px;margin-top:10px}
+#appearance-form .appearance-nav-sliders .appearance-range {min-width:0}
+@media(max-width:750px) {.appearance-nav-sliders {grid-template-columns:1fr}}
+#settings .overlay-font-switch {display:flex; align-items:center; gap:8px; color:#ddd; font-size:13px; margin:18px 0 0}
+#settings .overlay-font-switch input {
+  appearance:none; position:relative; display:block; flex:none; box-sizing:border-box;
+  width:34px; height:20px; margin:0; padding:0; border:0; border-radius:20px;
+  background:#3b3b3b; cursor:pointer; transition:background .18s;
+}
+#settings .overlay-font-switch input::before {
+  content:''; position:absolute; inset:3px auto 3px 3px; width:14px; border-radius:50%;
+  background:#ddd; transition:transform .18s;
+}
+#settings .overlay-font-switch input:checked {background:var(--launcher-accent,#ededed)}
+#settings .overlay-font-switch input:checked::before {transform:translateX(14px); background:var(--launcher-accent-text,#101010)}
+@media(prefers-reduced-motion:reduce) {
+  #settings .overlay-font-switch input, #settings .overlay-font-switch input::before {transition:none}
+}
+
+html[data-custom-nav] :is(.titlebar,.top-navigation) {
+  --nav-base:var(--nav-surface,var(--launcher-bar,#101010));
+  background-color:var(--nav-base); color:var(--nav-auto-ink);
+}
+html[data-custom-nav] :is(#account-button,.window-actions button,.community-button:not(.friends-toggle)) {color:var(--nav-auto-ink)}
+html[data-custom-nav] .launcher-brand {filter:var(--nav-logo)}
+html[data-custom-nav] .top-navigation .nav {color:var(--nav-text,color-mix(in srgb,var(--nav-auto-ink) 78%,var(--nav-base)))}
+html[data-custom-nav] :is(.top-navigation .nav,#account-button):hover {
+  color:var(--nav-auto-ink);
+  background:color-mix(in srgb,var(--nav-base) 87%,var(--nav-auto-ink));
+}
+html[data-custom-nav] .top-navigation .nav.active {
+  color:var(--nav-selected-ink);
+  background:var(--nav-selected,color-mix(in srgb,var(--nav-base) 82%,var(--nav-auto-ink)));
+}
+html[data-nav-glass] :is(.titlebar,.top-navigation) {
+  background-color:color-mix(in srgb,var(--nav-surface,var(--launcher-bar,#101010)) var(--nav-opacity),transparent);
+  backdrop-filter:blur(var(--nav-blur));
+}
+html[data-nav-layout] main {height:calc(100vh - 84px - var(--nav-height,55px))}
+html[data-nav-layout] .top-navigation {
+  height:var(--nav-height,55px);
+  grid-template-columns:repeat(3,minmax(0,var(--nav-tab-width,130px)));
+  gap:clamp(4px,calc((100vw - 3 * var(--nav-tab-width,130px) - 24px) / 2),var(--nav-tab-gap,52px));
+  padding-inline:12px;
+}
+html[data-nav-layout] .top-navigation .nav {
+  height:var(--nav-tab-height,39px);
+  border-radius:var(--nav-tab-radius,11px);
+  font-size:var(--nav-text-size,15px);
+  white-space:nowrap;
+  min-width:0;
+}
+html[data-nav-layout][data-text-scale] .top-navigation .nav {font-size:var(--nav-text-size,calc(14px * var(--text-scale,1)))}
+html[data-nav-layout][data-button-radius] .top-navigation .nav {border-radius:var(--nav-tab-radius,var(--button-radius,11px))}
+@media(max-width:750px) {
+  html[data-nav-layout] .top-navigation {gap:clamp(4px,calc((100vw - 3 * var(--nav-tab-width,130px) - 24px) / 2),var(--nav-tab-gap,16px))}
+}
+
+html[data-custom-profile] #account-dialog {
+  --profile-base:var(--profile-surface,var(--launcher-surface,#171717));
+  --profile-secondary:color-mix(in srgb,var(--profile-auto-ink) 73%,var(--profile-base));
+  --profile-tile:var(--profile-control,color-mix(in srgb,var(--profile-base) 91%,var(--profile-auto-ink)));
+  --profile-tile-hover:color-mix(in srgb,var(--profile-tile) 88%,var(--profile-control-ink));
+  background-color:var(--profile-base);
+  color:var(--profile-auto-ink);
+}
+html[data-custom-profile] #account-dialog :is(.account-identity h1,#account-title) {color:var(--profile-auto-ink)}
+html[data-custom-profile] #account-dialog :is(.account-identity>span,.account-choice-name,.account-status,.provider-section-label,.skin-sources legend) {
+  color:var(--profile-secondary);
+}
+html[data-custom-profile] #account-dialog .account-identity-brand {filter:var(--profile-logo)}
+html[data-custom-profile] #account-dialog :is(.skin-sintet-icon,#account-skin-logo[src$="sintet-id-icon-light.svg"]) {filter:var(--profile-tile-logo)}
+html[data-custom-profile] #account-dialog :is(.account-done,.account-close,.provider-source,.account-id,.account-web-settings,
+  .account-activity>div,.account-choice-add .account-choice-avatar,.account-avatar,.skin-source,.skin-provider-icon) {
+  background-color:var(--profile-tile); color:var(--profile-control-ink);
+}
+html[data-custom-profile] #account-dialog :is(.account-done,.account-close,.account-web-settings,.skin-source):hover,
+html[data-custom-profile] #account-dialog .skin-source:has(input:checked) {background-color:var(--profile-tile-hover)}
+html[data-custom-profile] #account-dialog :is(.provider-source strong,#account-id-value,#account-id-copy,.account-activity dd) {
+  color:var(--profile-control-ink);
+}
+html[data-custom-profile] #account-dialog :is(.provider-source>div>span,.provider-bound,.account-activity dt,.skin-provider-copy>span) {
+  color:color-mix(in srgb,var(--profile-control-ink) 77%,var(--profile-tile));
+}
+html[data-custom-profile] #account-dialog .account-stack:not(.expanded) .account-slot.stacked .account-choice-avatar {
+  box-shadow:0 0 0 2px var(--profile-base);
+}

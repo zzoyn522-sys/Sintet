@@ -1,0 +1,152 @@
+#play-workspace {
+  --settings-width: 290px;
+  --settings-centered-width: 380px;
+  --presence-settings-width: clamp(250px, 34%, 340px);
+  --news-gap: 18px;
+  position: relative;
+  display: block;
+  overflow: clip;
+}
+#play-workspace .news-panel {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: calc(100% - var(--settings-width) - var(--news-gap));
+  padding: 24px 27px 25px;
+  isolation: isolate;
+  transition: transform .38s cubic-bezier(.22,.8,.24,1), opacity .27s ease;
+}
+#play-workspace .launch-settings {
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto 0 calc(100% - var(--settings-width));
+  width: var(--settings-width);
+  transition: left .38s cubic-bezier(.22,.8,.24,1), width .38s cubic-bezier(.22,.8,.24,1);
+}
+#play-workspace.news-collapsed .news-panel {
+  transform: translateX(calc(-100% - 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+#play-workspace.news-collapsed .launch-settings {
+  width: var(--settings-centered-width);
+  left: calc((100% - var(--settings-centered-width)) / 2);
+}
+#play-workspace.presence-open .launch-settings {
+  width: var(--presence-settings-width);
+  left: 0;
+}
+#play-workspace .rich-presence {
+  position: absolute;
+  inset: 0 0 0 calc(var(--presence-settings-width) + var(--news-gap));
+  opacity: 0;
+  transform: translateX(32px);
+  visibility: hidden;
+  transition: transform .38s cubic-bezier(.22,.8,.24,1), opacity .28s ease, visibility 0s .38s;
+}
+#play-workspace.presence-open .rich-presence {
+  opacity: 1;
+  transform: translateX(0);
+  visibility: visible;
+  transition-delay: 0s;
+}
+.news-photo {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+.news-panel::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(180deg,#0b0b0ba6,transparent 34%,#09090955 52%,#090909eb);
+  pointer-events: none;
+}
+.news-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+  padding-left: 40px;
+}
+.news-top .edition-label {color: #ececec}
+.news-counter,.news-card time {
+  color: #e1e1e1;
+  font-size: 11px;
+  font-weight: 650;
+}
+.news-counter {
+  border-radius: 100px;
+  background: #111a;
+  padding: 6px 9px;
+  font-variant-numeric: tabular-nums;
+}
+.news-card {max-width: calc(100% - 88px)}
+.news-panel .news-card h1 {
+  font-size: clamp(28px,3.8vw,48px);
+  line-height: 1.08;
+  letter-spacing: -.045em;
+  margin: 8px 0 15px;
+  overflow-wrap: anywhere;
+}
+.news-card p {color: #aaa; margin: 0 0 13px}
+.news-more,.news-controls button,.news-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  border-radius: 9px;
+  background: #202020d9;
+  color: #eee;
+  font-size: 13px;
+  font-weight: 650;
+  transition: background .16s;
+}
+.news-more {padding: 0 12px}
+.news-more:hover,.news-controls button:hover,.news-toggle:hover {background: #393939}
+.news-more svg,.news-controls svg,.news-toggle svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.news-controls {
+  position: absolute;
+  bottom: 25px;
+  right: 27px;
+  display: flex;
+  gap: 6px;
+}
+.news-controls button {width: 36px; padding: 0}
+.news-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 24px;
+  left: 27px;
+  width: 29px;
+  height: 30px;
+  padding: 0;
+  overflow: hidden;
+  transition: width .27s, left .27s, opacity .18s, background .16s;
+}
+.news-toggle span {display: none; white-space: nowrap}
+.news-collapsed .news-toggle {left: 0; width: 96px; background: #252525}
+.news-collapsed .news-toggle span {display: inline}
+.news-collapsed .news-toggle svg {transform: rotate(180deg)}
+.presence-open .news-toggle {opacity: 0; pointer-events: none}
+#play-workspace [hidden] {display: none}
+@media(prefers-reduced-motion:reduce) {
+  #play-workspace .news-panel,#play-workspace .launch-settings,#play-workspace .rich-presence,.news-toggle {transition: none}
+}
+
+.news-panel.news-offline .news-card{position:absolute;max-width:none;inset:0;display:grid;place-items:center;padding:18px;pointer-events:none}
+.news-panel.news-offline .news-photo,.news-panel.news-offline #news-title,.news-panel.news-offline #news-date{display:none}
+.news-panel.news-offline #news-status{margin:0;text-align:center;font-size:17px;font-weight:650;color:#ccc}

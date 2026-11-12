@@ -1,0 +1,22 @@
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Sintet" Width="520" Height="150" WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent" WindowStartupLocation="CenterScreen" FontFamily="SF Pro Display, SF Pro Text, SF Pro, Segoe UI" Foreground="#ECECEE" UseLayoutRounding="True" SnapsToDevicePixels="True" ShowInTaskbar="False">
+ <Window.Resources>
+  <Style TargetType="Button"><Setter Property="Cursor" Value="Hand"/><Setter Property="Foreground" Value="#929298"/><Setter Property="Background" Value="#202022"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Shell" Background="{TemplateBinding Background}" CornerRadius="8"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Shell" Property="Background" Value="#303033"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter TargetName="Shell" Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
+ </Window.Resources>
+ <Border x:Name="Outer" CornerRadius="14" Background="#111112" BorderBrush="#29292B" BorderThickness="1" Padding="22,18">
+  <Grid>
+   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+   <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+    <Viewbox Width="19" Height="19"><Canvas Width="72" Height="72"><Path Data="M51 21 C47 16 41 14 34 14 C23 14 16 20 16 28 C16 45 55 28 55 45 C55 53 48 59 37 59 C30 59 24 57 20 52" Stroke="#F5F5F7" StrokeThickness="8.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
+    <TextBlock Text="Sintet" Margin="9,0,0,0" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+    <TextBlock Text="ОБНОВЛЕНИЕ" Margin="12,1,0,0" FontSize="9" FontWeight="SemiBold" Foreground="#77777E" VerticalAlignment="Center"/>
+   </StackPanel>
+   <Button x:Name="CloseButton" Grid.Row="0" Grid.Column="1" Content="×" Width="24" Height="24" Padding="0" FontSize="17" FontWeight="Normal" Background="#202022" Foreground="#96969B"/>
+   <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,14,0,0">
+    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock x:Name="StatusText" Text="Проверяем обновления" FontSize="13" FontWeight="SemiBold"/><TextBlock x:Name="VersionText" Grid.Column="1" Foreground="#797980" FontSize="11" VerticalAlignment="Center"/></Grid>
+    <Border x:Name="ProgressTrack" Height="3" CornerRadius="2" Background="#29292C" Margin="0,12,0,0" ClipToBounds="True"><Border x:Name="ProgressFill" Width="34" HorizontalAlignment="Left" CornerRadius="2" Background="#D0D0D5"/></Border>
+   </StackPanel>
+   <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,7,0,0"><TextBlock x:Name="DetailText" Text="Подключаемся к серверу Sintet" FontSize="10" Foreground="#77777E"/><TextBlock x:Name="BytesText" Grid.Column="1" FontSize="10" Foreground="#A5A5AB" HorizontalAlignment="Right"/></Grid>
+  </Grid>
+ </Border>
+</Window>

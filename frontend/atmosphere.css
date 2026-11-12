@@ -1,0 +1,88 @@
+/* Navigation and the profile dialog use independent palettes. */
+html{background:#090909}body{isolation:isolate}body::before{display:none}.titlebar,.top-navigation{background:#101010;backdrop-filter:none}.top-navigation{position:relative}.minecraft-panel{background:#141414;backdrop-filter:none}.launch-settings{background:#171717;backdrop-filter:none}.panel-heading{background:#1c1c1c}.launchbar{background:#1d1d1d;backdrop-filter:none}.panel-body input,.version-picker{background:#252525}.version-picker:hover{background:#303030}.mod-card{background:#161616;backdrop-filter:none}.account-dialog,.logs-dialog{background:rgba(23,23,23,.96);backdrop-filter:blur(20px)}
+.version-popover{position:fixed;inset:auto;margin:0;border:0;border-radius:11px;padding:7px;color:#eee;background:rgba(29,29,29,.97);backdrop-filter:blur(20px);box-shadow:0 12px 40px #0008;overflow:hidden;font-size:12px}.version-popover:popover-open{display:flex;flex-direction:column;gap:6px;animation:version-reveal .1s ease-out}.version-popover::backdrop{background:transparent;pointer-events:none}.version-popover input[type=search]{width:100%;height:33px;min-height:33px;border:0;background:#252525;border-radius:6px;font-size:12px;padding:0 9px;flex-shrink:0}.version-popover .version-list{gap:2px;padding:0;scrollbar-width:thin;scrollbar-color:#555 transparent}.version-popover .version-row{min-height:34px;padding:8px 9px;font-size:12px;border-radius:6px;background:transparent;color:#777;font-weight:600;flex-shrink:0}.version-popover .version-row.installed{color:#eee}.version-popover .version-row.selected{background:#383838}.version-popover .version-row:hover{background:#303030}.version-popover .version-row>span{white-space:nowrap}.version-choice-mark{color:#ddd;font-size:11px;margin-left:8px}.version-catalog-status{font-size:9px;color:#888;padding:4px 6px;flex-shrink:0}.version-catalog-status[hidden]{display:none}.s-select-menu{background:rgba(31,31,31,.97);backdrop-filter:blur(20px)}.preference-card{background:#191919;backdrop-filter:none}.preference-card:has(#autoclose){grid-column:1/-1}.settings-actions{background:rgba(23,23,23,.95)}@keyframes version-reveal{from{opacity:0}to{opacity:1}}@media(prefers-reduced-motion:reduce){.version-popover:popover-open{animation:none}}
+
+@property --glow-start {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #9b4d9b;
+}
+@property --glow-middle {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #4b69d9;
+}
+@property --glow-end {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a65b76;
+}
+
+body {
+  transition: --glow-start .72s ease, --glow-middle .72s ease, --glow-end .72s ease;
+}
+body:has(.nav.active[data-page="settings"]) {
+  --glow-start: #526db2;
+  --glow-middle: #3b9aab;
+  --glow-end: #7869bc;
+}
+body:has(.nav.active[data-page="workshop"]) {
+  --glow-start: #a76a5d;
+  --glow-middle: #965abd;
+  --glow-end: #5b6ab5;
+}
+body:has(#logs-dialog[open]) {
+  --glow-start: #a35a61;
+  --glow-middle: #ab7850;
+  --glow-end: #8a5c90;
+}
+
+.top-navigation::after {
+  content: '';
+  position: fixed;
+  inset: -12% -12% -12% -20%;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 60% 65% at 12% 48%,
+      color-mix(in srgb,var(--glow-middle) 65%,transparent),transparent 76%),
+    radial-gradient(ellipse 72% 46% at 4% 29%,
+      color-mix(in srgb,var(--glow-start) 55%,transparent),transparent 82%),
+    radial-gradient(ellipse 48% 70% at 20% 79%,
+      color-mix(in srgb,var(--glow-end) 50%,transparent),transparent 84%);
+  background-repeat: no-repeat;
+  opacity: .1;
+  animation: ambient-color-breathe 15s ease-in-out infinite alternate;
+}
+
+body:has(#account-add-dialog[open], #microsoft-device-dialog[open], .ely-auth-dialog[open], .identity-wait[open]) .top-navigation::after {
+  animation: none;
+  opacity: 0;
+}
+
+#logs-dialog[open] {
+  background-image: radial-gradient(ellipse 80% 105px at 50% 0,
+    color-mix(in srgb,var(--glow-middle) 12%,transparent),transparent 100%);
+}
+
+#account-dialog[open] {
+  --glow-start: var(--avatar-glow-start,#a167b5);
+  --glow-middle: var(--avatar-glow-middle,#9c5fb3);
+  --glow-end: var(--avatar-glow-end,#78378c);
+  transition: --glow-start .45s ease, --glow-middle .45s ease, --glow-end .45s ease;
+  background-image:
+    radial-gradient(ellipse 70% 100px at 20% 0,
+      color-mix(in srgb,var(--glow-start) 8%,transparent),transparent),
+    radial-gradient(ellipse 75% 110px at 80% 0,
+      color-mix(in srgb,var(--glow-middle) 9%,transparent),transparent),
+    linear-gradient(color-mix(in srgb,var(--glow-end) 4%,transparent),transparent 80px);
+}
+
+@keyframes ambient-color-breathe {
+  from {opacity: .08; transform: translate3d(-1%,1%,0)}
+  to {opacity: .11; transform: translate3d(1%,-1%,0)}
+}
+@media (prefers-reduced-motion: reduce) {
+  body, #account-dialog[open] {transition: none}
+  .top-navigation::after {animation: none}
+}

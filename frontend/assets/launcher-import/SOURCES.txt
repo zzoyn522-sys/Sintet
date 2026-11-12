@@ -1,0 +1,11 @@
+Prism Launcher mark © Prism Launcher contributors, CC BY-SA 4.0.
+https://github.com/PrismLauncher/PrismLauncher/blob/develop/program_info/org.prismlauncher.PrismLauncher.logo.svg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+CurseForge and Modrinth marks from Simple Icons (CC0 icon files).
+https://github.com/simple-icons/simple-icons
+
+Other launcher marks identify their respective products.
+https://llaun.ch/en/ex-tl-legacy
+https://multimc.org/
+https://tlauncher.org/
