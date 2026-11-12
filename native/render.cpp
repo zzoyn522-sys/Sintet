@@ -22,6 +22,7 @@
 #include "screenshot.h"
 #include "widgets.h"
 #include "layout.h"
+#include "brand.h"
 #include "vendor/imgui/backends/imgui_impl_win32.h"
 #include "vendor/imgui/backends/imgui_impl_opengl3.h"
 #include "vendor/minhook/include/MinHook.h"
@@ -393,10 +394,15 @@ void icon(ImDrawList* d, ImVec2 p, int kind, float s, ImU32 color) {
  }
 }
 void logo(ImDrawList* d, ImVec2 p, float s, ImU32 color) {
- auto v=[&](float x,float y){return ImVec2(p.x+x*s,p.y+y*s);};
- d->AddBezierCubic(v(23,5),v(18,-1),v(2,1),v(3,10),color,3.5f*s);
- d->AddBezierCubic(v(3,10),v(4,17),v(23,9),v(23,19),color,3.5f*s);
- d->AddBezierCubic(v(23,19),v(23,27),v(6,29),v(2,22),color,3.5f*s);
+ const float unit=28*s/518;
+ ImVec2 points[sizeof sintetMarkCube / sizeof *sintetMarkCube];
+ for(const auto& contour:sintetMarkContours){
+  for(int i=0;i<contour.count;i++){
+   const auto& point=contour.points[i];
+   points[i]=ImVec2(p.x+(point.x+259)*unit,p.y+3*s+(point.y+210)*unit);
+  }
+  d->AddConcavePolyFilled(points,contour.count,color);
+ }
 }
 void socialTitle(const char* title){ImGui::PushFont(headingFont);ImGui::TextUnformatted(title);ImGui::PopFont();}
 void socialButton(const char* label,const char* action,const std::string& target=""){

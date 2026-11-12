@@ -7,7 +7,7 @@
    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-    <Viewbox Width="19" Height="19"><Canvas Width="72" Height="72"><Path Data="M51 21 C47 16 41 14 34 14 C23 14 16 20 16 28 C16 45 55 28 55 45 C55 53 48 59 37 59 C30 59 24 57 20 52" Stroke="#F5F5F7" StrokeThickness="8.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox>
+    <Path Width="19" Height="19" Stretch="Uniform" Fill="#F5F5F7" Data="F0 M0-210 121-143v105l-20 10v-90L12-69V43l111-61 49 26L0 108-172 8l49-26 111 61V-69l-89-49v90l-20-10v-105Z M0-187 86-141Q0-121-86-141Z M-259 76l81-43v29L0 157l178-95V33l81 43L0 210Z"/>
     <TextBlock Text="Sintet" Margin="9,0,0,0" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
     <TextBlock Text="ОБНОВЛЕНИЕ" Margin="12,1,0,0" FontSize="9" FontWeight="SemiBold" Foreground="#77777E" VerticalAlignment="Center"/>
    </StackPanel>
