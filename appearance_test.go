@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -12,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"sintet/internal/sldcfg"
@@ -94,6 +98,77 @@ func TestApprovedDraftReusesOriginalSlot(t *testing.T) {
 	got := a.GetAppearanceLibrary()
 	if got.Slots[0].Draft != "" || got.Slots[0].Package == "" || got.Slots[1].Name != "" || got.ActiveSlot != 1 || got.Current != p.Settings {
 		t.Fatal("approved theme was not linked to the existing slot")
+	}
+}
+
+func TestAppearanceDraftUsesOnlySelectedMedia(t *testing.T) {
+	root := t.TempDir()
+	settings := defaultAppearance()
+	settings.FontFile = "0123456789abcdef0123456789abcdef.ttf" // A remembered custom font is inactive.
+	settings.WaveOffset = 34
+	a := &App{appearance: settings, appearanceActive: 1, backgroundDir: filepath.Join(root, "Backgrounds")}
+	video := []byte("local video")
+	videoName, err := a.writeAppearanceAsset(".mp4", int64(len(video)), bytes.NewReader(video), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.appearanceSlots = []AppearanceSlot{{Name: "Тема", Settings: settings}}
+	a.appearanceSlots[0].Settings.Background = videoName
+	if _, _, _, err := a.appearanceDraft(0, nil); err == nil || !strings.Contains(err.Error(), "видеофон") {
+		t.Fatalf("exporting the saved video must explain the restriction: %v", err)
+	}
+	pub, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fixture := range []struct{ ext, data string }{
+		{"", ""},
+		{".webp", "UklGRhwAAABXRUJQVlA4TA8AAAAvAUAAAAcQ/Y/+ByKi/wEA"},
+		{".gif", "R0lGODdhAgACAIEAAP8AAAAAAAAAAAAAACwAAAAAAgACAAAIBgABCAQQEAA7"},
+	} {
+		t.Run(fixture.ext, func(t *testing.T) {
+			current := settings
+			if fixture.data != "" {
+				imageData, err := base64.StdEncoding.DecodeString(fixture.data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				current.Background, err = a.writeAppearanceAsset(fixture.ext, int64(len(imageData)), bytes.NewReader(imageData), false)
+				if err != nil {
+					t.Fatal(err)
+				}
+				a.draftBackground = current.Background
+			}
+			_, _, draft, err := a.appearanceDraft(-1, &current)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pack, err := sldcfg.OpenDraft(draft)
+			if err != nil {
+				t.Fatal(err)
+			}
+			signed, err := sldcfg.Seal(pack, key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			opened, err := sldcfg.Open(signed, pub)
+			if err != nil || opened.Settings.Font != "default" || len(opened.Font) != 0 || opened.Settings.WaveOffset != 34 {
+				t.Fatalf("signed settings changed or included the inactive font: %v", err)
+			}
+			if fixture.data == "" {
+				if len(opened.Background) != 0 {
+					t.Fatal("export used the background from the saved slot")
+				}
+				return
+			}
+			img, err := png.Decode(bytes.NewReader(opened.Background))
+			if err != nil || img.Bounds() != image.Rect(0, 0, 2, 2) {
+				t.Fatalf("static background did not survive as PNG: %v", err)
+			}
+			if got := color.NRGBAModel.Convert(img.At(0, 0)); got != (color.NRGBA{R: 255, A: 255}) {
+				t.Fatalf("background changed color: %v", got)
+			}
+		})
 	}
 }
 

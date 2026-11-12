@@ -167,18 +167,22 @@ func (a *App) appearanceDraft(index int, current *Appearance) (int, AppearanceSl
 		}
 		slot.Settings = *current
 	}
-	if !slot.Settings.Valid() {
+	settings := slot.Settings
+	if settings.Font != "custom" {
+		settings.FontFile = ""
+	}
+	if !settings.Valid() {
 		return index, slot, nil, errors.New("Некорректные настройки оформления.")
 	}
-	if err := a.checkAppearanceAssets(slot.Settings); err != nil {
+	if err := a.checkAppearanceAssets(settings); err != nil {
 		return index, slot, nil, err
 	}
-	p := sldcfg.Package{Name: slot.Name, Settings: slot.Settings, CreatorVersion: slot.CreatorVersion}
+	p := sldcfg.Package{Name: slot.Name, Settings: settings, CreatorVersion: slot.CreatorVersion}
 	p.Settings.Background, p.Settings.FontFile = "", ""
-	if name := slot.Settings.Background; name != "" {
+	if name := settings.Background; name != "" {
 		ext := strings.ToLower(filepath.Ext(name))
-		if ext != ".png" && ext != ".jpg" && ext != ".jpeg" {
-			return index, slot, nil, errors.New("Для подписи выбери статичный фон PNG или JPEG.")
+		if ext == ".mp4" || ext == ".webm" {
+			return index, slot, nil, errors.New("В выбранном оформлении сохранён видеофон. Для экспорта в .sldcfg выбери изображение.")
 		}
 		source, err := readLimitedFile(filepath.Join(a.backgroundDir, name), sldcfg.MaxBackground)
 		if err != nil {
@@ -189,7 +193,7 @@ func (a *App) appearanceDraft(index int, current *Appearance) (int, AppearanceSl
 			return index, slot, nil, err
 		}
 	}
-	if name := slot.Settings.FontFile; name != "" {
+	if name := settings.FontFile; name != "" {
 		if filepath.Ext(name) != ".ttf" {
 			return index, slot, nil, errors.New("Для подписи выбери шрифт TrueType (.ttf).")
 		}

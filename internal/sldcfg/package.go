@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"image"
+	"image/draw"
+	_ "image/gif"
 	_ "image/jpeg"
 	"image/png"
 	"io"
@@ -17,6 +19,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	_ "golang.org/x/image/webp"
 )
 
 const (
@@ -479,7 +483,7 @@ func validate(p Package) error {
 	return nil
 }
 
-// PreparePNG re-encodes source images, discarding original chunks and extra
+// PreparePNG encodes one frame as PNG, discarding original chunks and extra
 // bytes. Only static PNG may be signed or imported.
 func PreparePNG(data []byte, icon bool) ([]byte, error) {
 	if icon {
@@ -527,17 +531,31 @@ func validPNG(data []byte, side, maximum int) bool {
 }
 
 func normalizePNG(data []byte, side, maximum int) ([]byte, error) {
-	bad := errors.New("Поддерживаются статичные изображения PNG и JPEG подходящего размера")
+	bad := errors.New("Не удалось подготовить изображение. Проверь формат PNG, JPEG, WebP или GIF и размер файла.")
 	if len(data) == 0 || len(data) > maximum {
 		return nil, bad
 	}
 	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil || (format != "png" && format != "jpeg") || !fitsImage(cfg, side) {
+	if err != nil || !fitsImage(cfg, side) {
+		return nil, bad
+	}
+	switch format {
+	case "png", "jpeg", "webp", "gif":
+	default:
 		return nil, bad
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, bad
+	}
+	canvas := image.Rect(0, 0, cfg.Width, cfg.Height)
+	if !img.Bounds().In(canvas) {
+		return nil, bad
+	}
+	if img.Bounds() != canvas {
+		frame := image.NewNRGBA(canvas)
+		draw.Draw(frame, img.Bounds(), img, img.Bounds().Min, draw.Src)
+		img = frame
 	}
 	var output bytes.Buffer
 	if err = png.Encode(&output, img); err != nil || output.Len() > maximum {
