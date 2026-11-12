@@ -3,6 +3,10 @@
  const tabs = [...document.querySelectorAll('.settings-tabs [role=tab]')];
  const form = document.querySelector('#appearance-form');
  const fields = form.elements;
+ const editorTabs = [...form.querySelectorAll('.appearance-editor-tabs [role=tab]')];
+ const mediaControls = form.querySelector('[data-appearance-media]');
+ const waveColorValue = form.querySelector('#appearance-wave-color-value');
+ const waveNumbers = ['waveIntensity','waveAmplitude','waveTrail'];
  const status = document.querySelector('#appearance-status');
  const save = document.querySelector('#appearance-save');
  const reset = document.querySelector('#appearance-reset');
@@ -22,7 +26,7 @@
  const edgeBlurControl = fields.videoEdgeBlur.closest('label');
  const videoBackground = /\.(mp4|webm)$/i;
  const motion = matchMedia('(prefers-reduced-motion: reduce)');
- const advancedNumbers=['textScale','textWeight','buttonRadius','backgroundBlur','videoEdgeBlur','backgroundSaturation','backgroundZoom','backgroundBrightness','backgroundContrast','backgroundHue','backgroundGrayscale','backgroundSepia','backgroundOpacity','gradientX','gradientY','gradientSize','motionSpeed'];
+ const advancedNumbers=['textScale','textWeight','buttonRadius','backgroundBlur','videoEdgeBlur','backgroundSaturation','backgroundZoom','backgroundBrightness','backgroundContrast','backgroundHue','backgroundGrayscale','backgroundSepia','backgroundOpacity','motionSpeed'];
  const fonts = {
   segoe: '"Segoe UI", sans-serif',
   arial: 'Arial, sans-serif',
@@ -35,11 +39,7 @@
  let draftBackground = '', draftFont = '', busy = false, shownBackground = '';
  let sourceFailed = false;
  let fontFailed = false, fontLoading = false, activeFont = '', fontFace;
- const gradientPresets = {
-  aurora: ['#14cba4','#485cbe','#1b123b'],
-  ember: ['#ff9861','#a93260','#261023'],
-  ocean: ['#24b2d9','#244b99','#0c1737'],
- };
+ let waveSettings, waveLoad, renderWave;
  const accents = [
   ['#b7ff47','Лайм'], ['#a88bff','Фиолетовый'], ['#ffe45e','Жёлтый'],
   ['#ff5277','Карминовый'], ['#6fd8ff','Ледяной синий'], ['#ededed','Белый'],
@@ -47,7 +47,6 @@
  for (const [color, label] of accents) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.title = label;
   button.setAttribute('aria-label', label);
   button.dataset.color = color;
   button.style.setProperty('--swatch', color);
@@ -141,24 +140,46 @@
   });
  }
 
+ function selectEditorTab(tab) {
+  for (const item of editorTabs) {
+   const selected = item === tab;
+   item.setAttribute('aria-selected', String(selected));
+   item.tabIndex = selected ? 0 : -1;
+   document.getElementById(item.getAttribute('aria-controls')).hidden = !selected;
+  }
+ }
+ for (const tab of editorTabs) {
+  tab.addEventListener('click', () => selectEditorTab(tab));
+  tab.addEventListener('keydown', event => {
+   const index = editorTabs.indexOf(tab);
+   const previous = (index + editorTabs.length - 1) % editorTabs.length;
+   const next = (index + 1) % editorTabs.length;
+   const target = {ArrowUp:previous,ArrowLeft:previous,ArrowDown:next,ArrowRight:next,Home:0,End:editorTabs.length-1}[event.key];
+   if (target === undefined) return;
+   event.preventDefault();
+   selectEditorTab(editorTabs[target]);
+   editorTabs[target].focus();
+  });
+ }
+
  function read() {
   return {
+   ...saved,
    theme: fields.theme.value, font: fields.font.value, accent: fields.accent.value,
    opacity: fields.opacity.valueAsNumber, blur: fields.blur.valueAsNumber,
    radius: fields.radius.valueAsNumber, dim: fields.dim.valueAsNumber,
-   fit: fields.fit.value, gradient: fields.gradient.checked, animate: fields.animate.checked,
+   fit: fields.fit.value, gradient: fields.waveEnabled.checked, animate: fields.animate.checked,
+   backgroundEffect: 'wave', waveColor: fields.waveColor.value, waveOffset: fields.waveOffset.valueAsNumber,
    background: draftBackground, fontFile: draftFont,
    barColor: fields.barColor.value, mutedColor: fields.mutedColor.value,
    borderWidth: fields.borderWidth.valueAsNumber, borderOpacity: fields.borderOpacity.valueAsNumber,
    shadow: fields.shadow.value, shadowStrength: fields.shadowStrength.valueAsNumber,
    vignette: fields.vignette.valueAsNumber, grain: fields.grain.valueAsNumber,
-   gradientStyle: fields.gradientStyle.value, gradientShape: fields.gradientShape.value,
-   gradientAngle: fields.gradientAngle.valueAsNumber, gradientOpacity: fields.gradientOpacity.valueAsNumber,
-   gradientStart: fields.gradientStart.value, gradientMiddle: fields.gradientMiddle.value, gradientEnd: fields.gradientEnd.value,
    canvasColor: fields.canvasColor.value, panelColor: fields.panelColor.value, textColor: fields.textColor.value,
    position: fields.position.value, compact: fields.compact.checked, borders: fields.borders.checked,
    ...Object.fromEntries(sectionFields.map(key=>[key,fields[key].hasAttribute('data-override')?fields[key].value:''])),
    ...Object.fromEntries(advancedNumbers.map(name=>[name,fields[name].valueAsNumber])),
+   ...Object.fromEntries(waveNumbers.map(name=>[name,fields[name].valueAsNumber])),
    ...Object.fromEntries(navigationFields.map(name=>[name,fields[name].valueAsNumber])),
   };
  }
@@ -179,6 +200,7 @@
    if (field instanceof HTMLSelectElement) window.SintetUI?.select.refresh(field);
   }
   for (const key of navigationFields) fields[key].value = settings[key] ?? defaults[key];
+  fields.waveEnabled.checked = settings.backgroundEffect === 'wave' && settings.gradient;
   apply(settings);
  }
 
@@ -201,6 +223,7 @@
   image.hidden = !name || isVideo;
   video.hidden = !name || !isVideo;
   edgeBlurControl.hidden = !name;
+  mediaControls.hidden = !name;
   mediaEdges.hidden = background.hidden || !settings.videoEdgeBlur;
   background.toggleAttribute('data-media-contain', settings.fit === 'contain');
   background.style.setProperty('--media-edge-blur', (settings.videoEdgeBlur || 0) + 'px');
@@ -235,6 +258,26 @@
   }
  }
 
+ function applyWave(settings, enabled) {
+  if (root.dataset.backgroundExperiment) return;
+  waveSettings = {
+   enabled, animate: settings.animate && !window.SintetThemePreview,
+   color: settings.waveColor, intensity: settings.waveIntensity, amplitude: settings.waveAmplitude,
+   trail: settings.waveTrail, speed: settings.motionSpeed, offset: settings.waveOffset,
+  };
+  if (renderWave) {
+   renderWave(waveSettings);
+  } else if (enabled && !waveLoad) {
+   waveLoad = import('./background-wave.js').then(module => {
+    renderWave = module.configureWave;
+    renderWave(waveSettings);
+   }).catch(error => {
+    waveLoad = undefined;
+    console.error(error);
+   });
+  }
+ }
+
  async function loadFont(name) {
   if (activeFont === name) return;
   activeFont = name;
@@ -266,7 +309,6 @@
  function apply(settings) {
   const data = root.dataset;
   const style = root.style;
-  data.launcherMotion=settings.animate&&!motion.matches?'on':'off';
   root.toggleAttribute('data-text-scale',settings.textScale!==defaults.textScale);
   root.toggleAttribute('data-text-weight',settings.textWeight!==defaults.textWeight);
   root.toggleAttribute('data-button-radius',settings.buttonRadius!==defaults.buttonRadius);
@@ -282,25 +324,12 @@
   style.setProperty('--media-sepia',settings.backgroundSepia/100);
   style.setProperty('--media-opacity',settings.backgroundOpacity/100);
   style.setProperty('--media-zoom',settings.backgroundZoom/100);
-  style.setProperty('--gradient-x',settings.gradientX+'%');
-  style.setProperty('--gradient-y',settings.gradientY+'%');
-  style.setProperty('--gradient-size',settings.gradientSize/100);
-  style.setProperty('--motion-duration',(35-settings.motionSpeed*.28)+'s');
-  data.launcherGradient = settings.gradient ? 'wallpaper' : 'off';
-  const colors = settings.gradientStyle === 'classic'
-   ? ['var(--glow-start)', 'var(--glow-middle)', 'var(--glow-end)']
-   : settings.gradientStyle === 'custom'
-    ? [settings.gradientStart, settings.gradientMiddle, settings.gradientEnd]
-    : gradientPresets[settings.gradientStyle];
-  const stops = colors.join(',');
-  const angle = settings.gradientAngle + 'deg';
-  let gradient = 'linear-gradient(' + angle + ',' + stops + ')';
-  const anchor=settings.gradientX+'% '+settings.gradientY+'%';
-  if (settings.gradientShape === 'radial') gradient = 'radial-gradient(ellipse at '+anchor+',' + stops + ')';
-  if (settings.gradientShape === 'conic') gradient = 'conic-gradient(from ' + angle + ' at '+anchor+',' + stops + ',' + colors[0] + ')';
-  document.body.style.setProperty('--launcher-gradient', gradient);
-  style.setProperty('--preview-gradient', 'var(--launcher-gradient)');
-  style.setProperty('--gradient-opacity', settings.gradient ? settings.gradientOpacity / 450 : 0);
+  const waveEnabled = settings.backgroundEffect === 'wave' && settings.gradient;
+  root.toggleAttribute('data-launcher-wave', waveEnabled);
+  waveColorValue.value = settings.waveColor.toUpperCase();
+  form.querySelector('[data-appearance-shadow]').hidden = settings.shadow === 'off';
+  form.querySelector('[data-appearance-borders]').hidden = !settings.borders;
+  applyWave(settings, waveEnabled);
   style.setProperty('--vignette-opacity', settings.vignette / 100);
   style.setProperty('--grain-opacity', settings.grain / 100);
   data.launcherTheme = settings.theme;
@@ -339,8 +368,14 @@
   style.setProperty('--launcher-blur', settings.blur + 'px');
   style.setProperty('--background-fit', settings.fit);
   style.setProperty('--background-dim', settings.dim / 100);
-  for (const [key, unit] of Object.entries({dim:'%', opacity:'%', blur:' px', radius:' px', vignette:'%', grain:'%', borderWidth:' px', borderOpacity:'%', shadowStrength:'%', gradientAngle:'°', gradientOpacity:'%',textScale:'%',textWeight:'',buttonRadius:' px',backgroundBlur:' px',videoEdgeBlur:' px',backgroundSaturation:'%',backgroundZoom:'%',backgroundBrightness:'%',backgroundContrast:'%',backgroundHue:'°',backgroundGrayscale:'%',backgroundSepia:'%',backgroundOpacity:'%',gradientX:'%',gradientY:'%',gradientSize:'%',motionSpeed:'%'})) {
+  for (const [key, unit] of Object.entries({dim:'%', opacity:'%', blur:' px', radius:' px', vignette:'%', grain:'%', borderWidth:' px', borderOpacity:'%', shadowStrength:'%',textScale:'%',textWeight:'',buttonRadius:' px',backgroundBlur:' px',videoEdgeBlur:' px',backgroundSaturation:'%',backgroundZoom:'%',backgroundBrightness:'%',backgroundContrast:'%',backgroundHue:'°',backgroundGrayscale:'%',backgroundSepia:'%',backgroundOpacity:'%',motionSpeed:'%',waveOffset:' px'})) {
    fields[key].previousElementSibling.value = settings[key] + unit;
+  }
+  for (const key of waveNumbers) fields[key].previousElementSibling.value = settings[key] + '%';
+  for (const range of form.querySelectorAll('input[type=range]')) {
+   const min = Number(range.min);
+   const max = Number(range.max);
+   range.style.setProperty('--range-fill', ((range.valueAsNumber - min) / (max - min) * 100) + '%');
   }
   fileLabel.textContent = settings.background ? settings.background.split('.').pop().toUpperCase() : 'Фон не выбран';
   remove.disabled = busy || !settings.background;
@@ -386,15 +421,6 @@
  form.addEventListener('input', event => {
   if (!saved) return;
   if (sectionFields.includes(event.target.name)) event.target.setAttribute('data-override','');
-  const colorFields = [fields.gradientStart, fields.gradientMiddle, fields.gradientEnd];
-  const style = fields.gradientStyle.value;
-  if (event.target === fields.gradientStyle && gradientPresets[style]) {
-   colorFields.forEach((field, index) => {field.value = gradientPresets[style][index]});
-  }
-  if (colorFields.includes(event.target)) {
-   fields.gradientStyle.value = 'custom';
-   window.SintetUI?.select.refresh(fields.gradientStyle);
-  }
   apply(read());
   status.textContent = sourceFailed ? 'Этот файл фона не удалось открыть.' : 'Есть несохранённые изменения';
  });
@@ -512,12 +538,10 @@
    name.value = slot.name;
    name.placeholder = 'Пустой слот';
    name.setAttribute('aria-label', 'Название слота ' + number);
-   preview.title = slot.name ? (index + 1 === activeSlot ? 'Отключить «' : 'Применить «') + slot.name + '»' : 'Сохранить оформление в слот ' + number;
-   preview.setAttribute('aria-label', preview.title);
-   store.title = 'Записать текущий вид в слот ' + number;
-   clear.title = 'Очистить слот ' + number;
-   store.setAttribute('aria-label', store.title);
-   clear.setAttribute('aria-label', clear.title);
+   const previewLabel = slot.name ? (number === activeSlot ? 'Отключить «' : 'Применить «') + slot.name + '»' : 'Сохранить оформление в слот ' + number;
+   preview.setAttribute('aria-label', previewLabel);
+   store.setAttribute('aria-label', 'Записать текущий вид в слот ' + number);
+   clear.setAttribute('aria-label', 'Очистить слот ' + number);
    if (!slot.name) {
     preview.classList.add('appearance-slot-empty');
     clear.dataset.unavailable = '';
@@ -613,6 +637,7 @@
   try {
    defaults = await api.DefaultAppearance();
    await refreshLibrary(true);
+   await waveLoad;
    setBusy(false);
    status.textContent = 'Изменения видны сразу';
   } catch (error) {

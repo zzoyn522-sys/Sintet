@@ -237,4 +237,41 @@ func TestLegacyThemeUsesDefaultsForExtendedSettings(t *testing.T) {
 	if p.Settings.TextScale != defaults.TextScale || p.Settings.GradientSize != defaults.GradientSize || p.Settings.BackgroundZoom != defaults.BackgroundZoom {
 		t.Fatal("version 1 theme lost defaults")
 	}
+	if p.Settings.BackgroundEffect != "gradient" {
+		t.Fatal("version 1 theme changed its background effect")
+	}
+}
+
+func TestWaveDefaultPreservesLegacySavedThemes(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "appearance.json")
+	settings := sldcfg.Default()
+	settings.BackgroundEffect = ""
+	settings.Accent = "#aabbcc"
+	write := func(document any) {
+		t.Helper()
+		data, err := json.Marshal(document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(settings)
+	if got := readAppearanceLibrary(path); got.Current.BackgroundEffect != "wave" || got.Current.CanvasColor != "#0d0d0d" || got.Current.Accent != settings.Accent {
+		t.Fatal("unmodified legacy default did not migrate to the wave")
+	}
+	slots, err := json.Marshal([]AppearanceSlot{{Name: "Saved", Settings: settings}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(appearanceStorage{Appearance: settings, Library: &appearanceLibraryStorage{ActiveSlot: 1, Slots: slots}})
+	if got := readAppearanceLibrary(path); got.ActiveSlot != 1 || got.Current.BackgroundEffect != "gradient" || got.Slots[0].Settings != got.Current {
+		t.Fatal("active legacy slot did not preserve its settings")
+	}
+	settings.BackgroundEffect = "gradient"
+	write(settings)
+	if got := readAppearanceLibrary(path); got.Current.BackgroundEffect != "gradient" {
+		t.Fatal("explicitly selected gradient was replaced")
+	}
 }

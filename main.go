@@ -7,6 +7,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"os"
 	"path/filepath"
 
@@ -52,6 +53,12 @@ func main() {
 	if previewDataDirectory != "" {
 		webviewPath = filepath.Join(previewDataDirectory, "WebView")
 	}
+	backgroundMode, backdrop := launcherBackground()
+	nativeBackdrop := backdrop != windows.None
+	background := &options.RGBA{R: 13, G: 13, B: 13, A: 255}
+	if nativeBackdrop {
+		background.A = 0
+	}
 	err := wails.Run(&options.App{
 		SingleInstanceLock: &options.SingleInstanceLock{UniqueId: "sintet.launcher." + previewDataDirectory, OnSecondInstanceLaunch: func(data options.SecondInstanceData) {
 			if !hasLauncherArg(data.Args, "--startup") {
@@ -59,6 +66,13 @@ func main() {
 			}
 		}},
 		StartHidden: startHidden, OnDomReady: func(ctx context.Context) {
+			if backgroundMode != "" {
+				script := `document.documentElement.dataset.backgroundExperiment = "` + backgroundMode + `"`
+				if backgroundMode == "glow" {
+					script += "\nvoid import('./background-wave.js')"
+				}
+				runtime.WindowExecJS(ctx, script)
+			}
 			if startHidden {
 				if app.tray != nil {
 					app.windowHidden.Store(true)
@@ -71,9 +85,9 @@ func main() {
 		Title:         windowTitle, OnStartup: app.startup, OnShutdown: app.shutdown, Bind: []interface{}{app}, Width: windowWidth, Height: windowHeight, MinWidth: windowWidth, MaxWidth: windowWidth, MinHeight: windowHeight, MaxHeight: windowHeight, DisableResize: true,
 		DragAndDrop:      &options.DragAndDrop{EnableFileDrop: true},
 		Frameless:        true,
-		BackgroundColour: &options.RGBA{R: 0, G: 0, B: 0, A: 255},
+		BackgroundColour: background,
 		AssetServer:      &assetserver.Options{Assets: assets, Middleware: app.serveLauncherAssets},
-		Windows:          &windows.Options{Theme: windows.Dark, WebviewUserDataPath: webviewPath, DisableWindowIcon: true, DisableFramelessWindowDecorations: !supportsRoundedWindow()},
+		Windows:          &windows.Options{Theme: windows.Dark, WebviewUserDataPath: webviewPath, DisableWindowIcon: true, DisableFramelessWindowDecorations: !supportsRoundedWindow(), WebviewIsTransparent: nativeBackdrop, WindowIsTranslucent: nativeBackdrop, BackdropType: backdrop},
 	})
 	if err != nil {
 		println(err.Error())

@@ -28,7 +28,9 @@ const (
 	draftMagicV5    = "SLD5"
 	draftMagicV6    = "SLD6"
 	draftMagicV7    = "SLD7"
-	Version         = 7
+	draftMagicV8    = "SLD8"
+	draftMagicV9    = "SLD9"
+	Version         = 9
 	Extension       = ".sldcfg"
 	headerSize      = 74
 	signatureOffset = 6
@@ -79,6 +81,10 @@ func MarshalDraft(p Package) ([]byte, error) {
 		magic = draftMagicV6
 	case 7:
 		magic = draftMagicV7
+	case 8:
+		magic = draftMagicV8
+	case 9:
+		magic = draftMagicV9
 	}
 	return append([]byte(magic), plain...), nil
 }
@@ -102,6 +108,10 @@ func OpenDraft(data []byte) (Package, error) {
 		return decode(data[4:], 6)
 	case draftMagicV7:
 		return decode(data[4:], 7)
+	case draftMagicV8:
+		return decode(data[4:], 8)
+	case draftMagicV9:
+		return decode(data[4:], 9)
 	default:
 		return Package{}, errors.New("Некорректный черновик оформления")
 	}
@@ -215,12 +225,23 @@ func backgroundFilterNumbers(p *Appearance) []*int {
 	return []*int{&p.BackgroundBrightness, &p.BackgroundContrast, &p.BackgroundHue, &p.BackgroundGrayscale, &p.BackgroundSepia, &p.BackgroundOpacity}
 }
 
+func waveNumbers(p *Appearance) []*int {
+	return []*int{&p.WaveIntensity, &p.WaveAmplitude, &p.WaveTrail}
+}
+
 var creatorVersionPattern = regexp.MustCompile(`^\d{1,5}(?:\.\d{1,5}){2,3}$`)
 
 func ValidCreatorVersion(value string) bool { return creatorVersionPattern.MatchString(value) }
 
 func packageVersion(p Package) int {
 	settings, defaults := p.Settings, Default()
+	if settings.WaveOffset != defaults.WaveOffset {
+		return 9
+	}
+	if settings.BackgroundEffect != defaults.BackgroundEffect || settings.WaveColor != defaults.WaveColor ||
+		settings.WaveIntensity != defaults.WaveIntensity || settings.WaveAmplitude != defaults.WaveAmplitude || settings.WaveTrail != defaults.WaveTrail {
+		return 8
+	}
 	originalFilters := backgroundFilterNumbers(&defaults)
 	for i, value := range backgroundFilterNumbers(&settings) {
 		if *value != *originalFilters[i] {
@@ -297,6 +318,16 @@ func encode(p Package, version int) ([]byte, error) {
 		for _, value := range backgroundFilterNumbers(&p.Settings) {
 			out = binary.BigEndian.AppendUint16(out, uint16(*value))
 		}
+	}
+	if version >= 8 {
+		write(p.Settings.BackgroundEffect)
+		write(p.Settings.WaveColor)
+		for _, value := range waveNumbers(&p.Settings) {
+			out = binary.BigEndian.AppendUint16(out, uint16(*value))
+		}
+	}
+	if version >= 9 {
+		out = binary.BigEndian.AppendUint16(out, uint16(p.Settings.WaveOffset))
 	}
 	return out, nil
 }
@@ -389,6 +420,20 @@ func decode(data []byte, version int) (Package, error) {
 			if raw := d.take(2); raw != nil {
 				*value = int(binary.BigEndian.Uint16(raw))
 			}
+		}
+	}
+	if version >= 8 {
+		p.Settings.BackgroundEffect = d.text()
+		p.Settings.WaveColor = d.text()
+		for _, value := range waveNumbers(&p.Settings) {
+			if raw := d.take(2); raw != nil {
+				*value = int(binary.BigEndian.Uint16(raw))
+			}
+		}
+	}
+	if version >= 9 {
+		if raw := d.take(2); raw != nil {
+			p.Settings.WaveOffset = int(binary.BigEndian.Uint16(raw))
 		}
 	}
 	if d.bad || len(d.data) != 0 || version < 7 && p.Settings.BackgroundSaturation > 180 {

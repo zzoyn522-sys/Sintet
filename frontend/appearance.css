@@ -1,6 +1,7 @@
 .settings-tabs {margin-bottom: 22px}
 .settings-tabs .workshop-category strong {font-size: 14px}
 #settings.settings-page {height: auto}
+html {background: #0d0d0d}
 .appearance-fields {display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px}
 .appearance-fields > div {min-width: 0}
 .appearance-fields select, .appearance-fields .s-select {width: 100%}
@@ -9,14 +10,7 @@
 #appearance-file-label {font-size: 12px; color: #aaa}
 .appearance-background-options {margin-top: 16px; align-items: end}
 .appearance-background-options > .check-label {min-height: 32px}
-#appearance-form .appearance-range {
-  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px;
-  margin: 16px 0 8px; color: #ccc;
-}
-#appearance-form .appearance-range[hidden] {display: none}
-.appearance-range output {font-variant-numeric: tabular-nums; color: #ddd}
-.appearance-range input {grid-column: 1 / -1; width: 100%; margin: 0; accent-color: var(--launcher-accent,#ededed)}
-#appearance-background {position: fixed; inset: 0; z-index: -2; overflow: hidden; pointer-events: none; background: var(--custom-canvas,#090909)}
+#appearance-background {position: fixed; inset: 0; z-index: -3; overflow: hidden; pointer-events: none; background: var(--custom-canvas,#0d0d0d)}
 #appearance-background :is(img,video,canvas) {position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: var(--background-fit,cover)}
 #appearance-background [hidden] {display: none}
 #appearance-background > .appearance-media-edges {
@@ -37,9 +31,6 @@
   transform: translate(-50%,-50%);
 }
 #appearance-background::after {content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / var(--background-dim,.45))}
-html[data-launcher-gradient="off"] .top-navigation::after {display: none}
-html[data-launcher-gradient="off"] #account-dialog[open],
-html[data-launcher-gradient="off"] #logs-dialog[open] {background-image: none}
 html[data-launcher-font] {font-family: var(--launcher-font)}
 html[data-launcher-font] dialog {font-family: inherit}
 html[data-launcher-accent] .primary {
@@ -48,11 +39,11 @@ html[data-launcher-accent] .primary {
   color: var(--launcher-accent-text);
 }
 html[data-launcher-accent] .primary:hover:not(:disabled) {filter: brightness(.88)}
-html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.settings-actions) {
+html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.settings-actions,.appearance-editor-tabs) {
   border-radius: var(--launcher-radius);
   backdrop-filter: blur(var(--launcher-blur));
 }
-html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty) {
+html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.appearance-editor-tabs) {
   background-color: color-mix(in srgb,var(--launcher-surface,#191919) var(--launcher-opacity),transparent);
 }
 html[data-launcher-panels] :is(.panel-heading,.settings-actions,.titlebar,.top-navigation) {
@@ -75,21 +66,22 @@ html[data-launcher-theme="warm"] {background: #181210; --launcher-surface: #3025
 }
 
 .appearance-library {
-  margin-bottom: 28px;
+  border-radius: 12px;
+  background: #191919;
 }
-.appearance-library-header {display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 16px}
-.appearance-library-header h2 {margin: 0; font-size: 25px; font-weight: 650; letter-spacing: -.6px}
-.appearance-slots {display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; max-width: 450px}
+.appearance-library-header {display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 11px}
+.appearance-library-header h2 {margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.45px}
+.appearance-slots {display: grid; grid-template-columns: repeat(auto-fill,minmax(116px,1fr)); gap: 8px}
 .appearance-slot {min-width: 0}
 .appearance-slot-preview {
-  display: flex; width: 100%; height: 95px; padding: 0; align-items: center; justify-content: center;
-  border-radius: 13px; background: #171717; overflow: hidden; position: relative;
+  display: flex; width: 100%; height: 68px; padding: 0; align-items: center; justify-content: center;
+  border-radius: 9px; background: #1e1e1e; overflow: hidden; position: relative;
 }
-.appearance-slot-preview .appearance-custom-icon {position:absolute;width:60px;height:60px;object-fit:cover;border-radius:11px}
+.appearance-slot-preview .appearance-custom-icon {position:absolute;width:47px;height:47px;object-fit:cover;border-radius:9px}
 .appearance-slot-preview[aria-pressed=true] {background: #303030}
 .appearance-slot-preview:hover:not(:disabled) {background: #272727}
 .appearance-slot-preview:disabled {opacity: .55; cursor: default}
-.appearance-slot-thumbnail {width: 66px; height: 50px; color: #777}
+.appearance-slot-thumbnail {width: 58px; height: 43px; color: #777}
 .slot-window {fill: var(--slot-canvas,#191919); stroke: currentColor; stroke-width: 1}
 .slot-divider {fill: none; stroke: currentColor; stroke-width: 1}
 .slot-panel {fill: var(--slot-panel,#303030)}
@@ -109,7 +101,7 @@ html[data-launcher-theme="warm"] {background: #181210; --launcher-surface: #3025
 .appearance-slot-tools button {border-radius: 6px; padding: 0 4px; height: 28px; color: #bdbdbd; font-size: 16px}
 .appearance-slot-tools button:hover {background: #ffffff14; color: white}
 .appearance-slot-tools button:disabled {opacity: .35}
-.appearance-editor-title {font-size: 19px; font-weight: 650; margin: 0 0 14px; letter-spacing: -.4px}
+.appearance-slot:has(.appearance-slot-empty) .appearance-slot-tools button {display: none}
 .appearance-swatches {display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-top: 14px}
 #appearance-form .appearance-swatches label {text-align: center; margin: 0}
 #appearance-form .appearance-swatches input {height: 31px; padding: 3px 5px; margin-bottom: 5px}
@@ -119,8 +111,8 @@ html[data-custom-canvas] {background-color: var(--custom-canvas)}
 html[data-custom-canvas] #appearance-background {background-color: var(--custom-canvas)}
 html[data-custom-panel] {--launcher-surface: var(--custom-panel)}
 html[data-custom-text] {color: var(--custom-text)}
-html[data-custom-text] :is(.minecraft-panel h1,.panel-heading,.preference-card h2,.current-game strong,.mods-toolbar h2,.mod-info h2,.account-identity h1,.settings-heading h1,.appearance-editor-title) {color: var(--custom-text)}
-html[data-panel-borders] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.account-dialog) {
+html[data-custom-text] :is(.minecraft-panel h1,.panel-heading,.preference-card h2,.current-game strong,.mods-toolbar h2,.mod-info h2,.account-identity h1,.settings-heading h1) {color: var(--custom-text)}
+html[data-panel-borders] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.account-dialog,.appearance-editor-tabs) {
   outline: var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
   outline-offset: -1px;
 }
@@ -129,6 +121,7 @@ html[data-compact-layout] .preference-card {padding: 13px 15px}
 html[data-compact-layout] .panel-body {padding: 14px 17px}
 html[data-compact-layout] .panel-heading {height: 44px}
 html[data-compact-layout] .launchbar {height: 59px}
+html[data-compact-layout] .appearance-editor-tabs button {min-height: 32px; padding-block: 6px}
 html[data-compact-layout] .workshop-panel .mod-card {min-height: 58px; padding: 8px 13px}
 
 .appearance-slot-tools svg {display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round}
@@ -139,44 +132,16 @@ html[data-compact-layout] .workshop-panel .mod-card {min-height: 58px; padding: 
 #appearance-form #appearance-accent {width: 46px; height: 32px; padding: 3px 5px}
 #appearance-accent-presets button {width: 24px; height: 24px; padding: 0; border-radius: 50%; background: var(--swatch); border: 2px solid #ffffff22}
 #appearance-accent-presets button[aria-pressed=true] {outline: 2px solid var(--swatch); outline-offset: 2px}
-.appearance-gradient-options {margin-top: 12px}
-.appearance-gradient-swatches {grid-template-columns: repeat(3,minmax(0,1fr))}
-.appearance-gradient-preview {
-  margin-top: 14px; height: 42px; border-radius: 8px; background-color: #111;
-  background-image: var(--preview-gradient,linear-gradient(145deg,#6142a5,#3957a2,#151329));
-}
-.appearance-atmosphere {position: fixed; z-index: -1; inset: 0; pointer-events: none}
+.appearance-shadow-options {margin-top: 12px}
+.appearance-atmosphere {position: fixed; z-index: -2; inset: 0; pointer-events: none}
 .appearance-atmosphere > div {position: absolute; inset: 0}
-.appearance-atmosphere > .appearance-gradient-layer {
-  inset: -12% -12% -12% -20%;
-  background-image: var(--launcher-gradient);
-  background-repeat: no-repeat;
-  mask-image:
-    radial-gradient(ellipse calc(60% * var(--gradient-size,1)) calc(65% * var(--gradient-size,1)) at var(--gradient-x,12%) var(--gradient-y,48%),#000a,transparent 76%),
-    radial-gradient(ellipse calc(72% * var(--gradient-size,1)) calc(46% * var(--gradient-size,1)) at calc(var(--gradient-x,12%) - 8%) calc(var(--gradient-y,48%) - 19%),#0009,transparent 82%),
-    radial-gradient(ellipse calc(48% * var(--gradient-size,1)) calc(70% * var(--gradient-size,1)) at calc(var(--gradient-x,12%) + 8%) calc(var(--gradient-y,48%) + 31%),#0008,transparent 84%);
-  opacity: var(--gradient-opacity,0);
-  animation: appearance-glow-drift var(--motion-duration,15s) ease-in-out infinite alternate;
-}
-@keyframes appearance-glow-drift {
-  from {transform: translate3d(-1%,1%,0)}
-  to {transform: translate3d(1%,-1%,0)}
-}
-body:has(#account-add-dialog[open],#microsoft-device-dialog[open],.ely-auth-dialog[open],.identity-wait[open]) .appearance-gradient-layer {
-  opacity: 0;
-  animation: none;
-}
-@media(prefers-reduced-motion:reduce) {
-  .appearance-atmosphere > .appearance-gradient-layer {animation: none}
-}
 .appearance-vignette {background: radial-gradient(ellipse at center,transparent 35%,#000 110%); opacity: var(--vignette-opacity,0)}
 .appearance-grain {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: var(--grain-opacity,0);
 }
-html[data-launcher-gradient="wallpaper"] .top-navigation::after {display: none}
 html[data-launcher-accent] :is(input[type=checkbox],input[type=range],progress) {accent-color: var(--launcher-accent) !important}
-html[data-launcher-accent] :is(button,input,select):focus-visible {outline-color: var(--launcher-accent)}
+html[data-launcher-accent] {--focus-ring: var(--launcher-accent)}
 html[data-launcher-accent] :is(.badge,.mods-count,.news-counter) {
   background-color: color-mix(in srgb,var(--launcher-accent) 15%,#161616);
   color: color-mix(in srgb,var(--launcher-accent) 68%,white);
@@ -184,10 +149,10 @@ html[data-launcher-accent] :is(.badge,.mods-count,.news-counter) {
 }
 html[data-launcher-accent] .toggle.on {background-color: var(--launcher-accent)}
 html[data-custom-bar] {--launcher-bar: var(--custom-bar)}
-html[data-custom-muted] :is(.description,.preference-hint,.preference-card label:not(.check-label),.check-label,.current-game>div>span,.mod-info p,.top-navigation .nav:not(.active),.parameter-line,.news-card p,.app-footer,.settings-heading p) {
+html[data-custom-muted] :is(.description,.preference-hint,.preference-card label:not(.check-label),.check-label,.current-game>div>span,.mod-info p,.top-navigation .nav:not(.active),.parameter-line,.news-card p,.app-footer,.settings-heading p,.appearance-editor-tabs button:not([aria-selected=true],:hover,:focus-visible)) {
   color: var(--custom-muted) !important;
 }
-html[data-panel-shadow] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty) {box-shadow: var(--panel-shadow)}
+html[data-panel-shadow] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.appearance-editor-tabs) {box-shadow: var(--panel-shadow)}
 
 html[data-panel-shadow] #play-workspace {overflow-clip-margin: 24px}
 
@@ -204,22 +169,23 @@ html[data-panel-shadow] #play-workspace {overflow-clip-margin: 24px}
 #appearance-form :is(.soft-button,.settings-actions .primary) {height: 38px; font-size: 13px}
 #appearance-form .soft-button {background: #252525; color: #e0e0e0}
 #appearance-form .soft-button:hover:not(:disabled) {background: #333}
-html[data-launcher-motion=off] .appearance-gradient-layer{animation-play-state:paused}
 #appearance-background :is(img,video,canvas){
   filter:blur(var(--media-blur,0px)) brightness(var(--media-brightness,1)) contrast(var(--media-contrast,1))
     sepia(var(--media-sepia,0)) hue-rotate(var(--media-hue,0deg)) saturate(var(--media-saturation,1)) grayscale(var(--media-grayscale,0));
   opacity:var(--media-opacity,1);
   transform:scale(var(--media-zoom,1));
 }
-.appearance-media-filters {margin-top:18px;padding:0 12px;border-radius:11px;background:rgb(255 255 255 / .04)}
-.appearance-media-filters summary {padding:11px 0;cursor:pointer;color:#d5d5d5;font-size:13px;font-weight:600}
-.appearance-media-filters[open] {padding-bottom:8px}
+.appearance-media-filters {margin-top: 12px; padding: 0 13px; border-radius: 10px; background: rgb(255 255 255 / .045)}
+.appearance-media-filters > summary {display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; list-style: none; cursor: pointer; color: #ddd; font-size: 13px; font-weight: 600}
+.appearance-media-filters > summary::-webkit-details-marker {display: none}
+.appearance-media-filters > summary::after {content: ''; flex: none; width: 6px; height: 6px; margin-right: 2px; border: solid #929292; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform .16s ease}
+.appearance-media-filters[open] {padding-bottom: 10px}
+.appearance-media-filters[open] > summary::after {transform: rotate(225deg)}
 html[data-text-scale] :is(.top-navigation .nav,.panel-body label,.parameter-line,.launchbar .primary,.current-game strong,.ws-action,.settings-actions button){font-size:calc(14px * var(--text-scale,1))}
 html[data-text-scale] :is(.panel-heading,.preference-card h2,.settings-heading h1){font-size:calc(17px * var(--text-scale,1))}
 html[data-text-scale] .minecraft-panel h1{font-size:calc(42px * var(--text-scale,1))}
 html[data-text-weight] :is(button,input,label,.parameter-line,.current-game strong){font-weight:var(--text-weight,600)}
 html[data-button-radius] :is(.nav,.primary,.soft-button,.ws-action,.settings-cancel,.account-done,.s-select-trigger){border-radius:var(--button-radius,10px)}
-@media(prefers-reduced-motion:reduce){.appearance-atmosphere>.appearance-gradient-layer{animation:none}}
 
 .appearance-section-heading {display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:13px}
 #appearance-form .appearance-section-heading h2 {margin:0}
@@ -228,9 +194,6 @@ html[data-button-radius] :is(.nav,.primary,.soft-button,.ws-action,.settings-can
 #appearance-form .appearance-element-colors label {margin:0; min-width:0}
 #appearance-form .appearance-element-colors input {display:block; height:33px; margin-bottom:6px}
 #appearance-form .appearance-element-colors input:not([data-override]) {opacity:.76}
-.appearance-nav-sliders {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px;margin-top:10px}
-#appearance-form .appearance-nav-sliders .appearance-range {min-width:0}
-@media(max-width:750px) {.appearance-nav-sliders {grid-template-columns:1fr}}
 #settings .overlay-font-switch {display:flex; align-items:center; gap:8px; color:#ddd; font-size:13px; margin:18px 0 0}
 #settings .overlay-font-switch input {
   appearance:none; position:relative; display:block; flex:none; box-sizing:border-box;
@@ -244,7 +207,69 @@ html[data-button-radius] :is(.nav,.primary,.soft-button,.ws-action,.settings-can
 #settings .overlay-font-switch input:checked {background:var(--launcher-accent,#ededed)}
 #settings .overlay-font-switch input:checked::before {transform:translateX(14px); background:var(--launcher-accent-text,#101010)}
 @media(prefers-reduced-motion:reduce) {
-  #settings .overlay-font-switch input, #settings .overlay-font-switch input::before {transition:none}
+  #settings .overlay-font-switch input, #settings .overlay-font-switch input::before,
+  .appearance-media-filters > summary::after {transition:none}
+}
+
+.appearance-editor {display: grid; grid-template-columns: 182px minmax(0,1fr); gap: 12px; align-items: start}
+.appearance-editor-tabs {display: grid; gap: 4px; padding: 7px; border-radius: 12px; background: #161616}
+.appearance-editor-tabs button {display: flex; align-items: center; gap: 9px; padding: 9px; min-height: 38px; border-radius: 7px; text-align: left; color: #adadad; font-size: 13px; font-weight: 550; line-height: 1.2}
+.appearance-editor-tabs button:is(:hover,:focus-visible) {background: #242424; color: #fff}
+.appearance-editor-tabs button[aria-selected=true] {background: #2d2d2d; color: #f2f2f2}
+html[data-launcher-panels] .appearance-editor-tabs button:is(:hover,:focus-visible) {background: rgb(255 255 255 / .06)}
+html[data-launcher-panels] .appearance-editor-tabs button[aria-selected=true] {background: rgb(255 255 255 / .1)}
+html[data-text-scale] .appearance-editor-tabs button {font-size: calc(13px * var(--text-scale,1))}
+html[data-button-radius] .appearance-editor-tabs button {border-radius: var(--button-radius,7px)}
+html[data-custom-text] .appearance-editor-tabs button:is([aria-selected=true],:hover,:focus-visible) {color: var(--custom-text)}
+.appearance-editor-tabs svg {flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round}
+#appearance-form .appearance-editor-panel[hidden] {display: none}
+#appearance-form .appearance-editor-panel {padding: 18px 20px}
+#appearance-form .appearance-editor-panel h2 {font-size: 18px}
+.appearance-rows {margin-top: 10px}
+.appearance-wave-preview {display: block; width: 100%; height: 92px; margin: 3px 0 4px; border-radius: 9px; background: var(--custom-canvas,#0d0d0d)}
+.appearance-wave-color-field {max-width: 260px}
+.appearance-color-value {display: flex; align-items: center; gap: 10px; height: 39px; padding: 0 10px; border-radius: 8px; background: #ffffff0e}
+#appearance-form .appearance-color-value input {width: 26px; height: 26px; padding: 0; border: 0; background: none}
+.appearance-color-value input::-webkit-color-swatch-wrapper {padding: 0}
+.appearance-color-value input::-webkit-color-swatch {border: 1px solid #ffffff38; border-radius: 5px}
+.appearance-color-value output {font: 12px 'Cascadia Mono', Consolas, monospace; color: #ccc}
+.appearance-animation {margin: 8px 0 12px}
+#appearance-form .appearance-switch input {
+  appearance: none; position: relative; width: 32px !important; height: 18px !important; border-radius: 18px;
+  background: #414141; transition: background .16s ease;
+}
+#appearance-form .appearance-switch input::before {
+  content: ''; position: absolute; inset: 3px auto 3px 3px; width: 12px; border-radius: 50%;
+  background: #d0d0d0; transition: transform .16s ease;
+}
+#appearance-form .appearance-switch input:checked {background: var(--launcher-accent,#ededed)}
+#appearance-form .appearance-switch input:checked::before {transform: translateX(14px); background: var(--launcher-accent-text,#111)}
+#appearance-form .appearance-range {
+  display: grid; grid-template-columns: minmax(0,1fr) minmax(120px,1.12fr) 54px;
+  grid-template-areas: 'name control value'; align-items: center; gap: 14px; min-height: 40px;
+  margin: 0; padding: 2px 0; color: #cfcfcf;
+}
+#appearance-form .appearance-range[hidden] {display: none}
+.appearance-range span {grid-area: name; line-height: 1.3}
+.appearance-range output {grid-area: value; justify-self: end; padding: 4px 6px; border-radius: 5px; background: #ffffff0b; font-size: 11px; font-variant-numeric: tabular-nums; color: #ddd; white-space: nowrap}
+#appearance-form .appearance-range input {
+  grid-area: control; appearance: none; width: 100%; min-width: 0; height: 24px; margin: 0;
+  background: transparent; cursor: pointer;
+}
+.appearance-range input::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 10px;
+  background: linear-gradient(to right, var(--launcher-accent,#ededed) var(--range-fill,0%), #454545 var(--range-fill,0%));
+}
+.appearance-range input::-webkit-slider-thumb {
+  appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%;
+  background: var(--launcher-accent,#ededed); box-shadow: 0 0 0 2px #212121; transition: box-shadow .16s ease;
+}
+.appearance-range input:hover::-webkit-slider-thumb {box-shadow: 0 0 0 4px #ffffff22}
+@media(max-width: 760px) {
+  .appearance-editor {grid-template-columns: minmax(0,1fr)}
+  .appearance-editor-tabs {display: flex; flex-wrap: wrap}
+  .appearance-editor-tabs button {flex: 1 0 auto}
+  #appearance-form .appearance-range {grid-template-columns: minmax(0,1fr) auto; grid-template-areas: 'name value' 'control control'; gap: 4px 12px; padding: 5px 0}
 }
 
 html[data-custom-nav] :is(.titlebar,.top-navigation) {

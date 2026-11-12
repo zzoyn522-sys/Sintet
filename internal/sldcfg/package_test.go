@@ -132,6 +132,64 @@ func TestBackgroundFiltersRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWaveAppearanceRoundTrip(t *testing.T) {
+	public, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := Default()
+	settings.BackgroundEffect = "wave"
+	settings.WaveColor = "#73bfc2"
+	settings.WaveIntensity = 82
+	settings.WaveAmplitude = 150
+	settings.WaveTrail = 0
+	settings.MotionSpeed = 25
+	settings.Animate = false
+	pack := Package{Name: "Wave", Settings: settings}
+	draft, err := MarshalDraft(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := OpenDraft(draft)
+	if err != nil || decoded.FormatVersion != 8 || decoded.Settings != settings {
+		t.Fatalf("wave settings lost in draft: %+v, %v", decoded.Settings, err)
+	}
+	file, err := Seal(decoded, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := Open(file, public)
+	if err != nil || verified.FormatVersion != 8 || verified.Settings != settings {
+		t.Fatalf("wave settings lost in signed theme: %+v, %v", verified.Settings, err)
+	}
+	pack.Settings.WaveIntensity = 131
+	if _, err := MarshalDraft(pack); err == nil {
+		t.Fatal("accepted out-of-range wave intensity")
+	}
+	pack.Settings = settings
+	pack.Settings.WaveOffset = 125
+	draft, err = MarshalDraft(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err = OpenDraft(draft)
+	if err != nil || decoded.FormatVersion != 9 || decoded.Settings != pack.Settings {
+		t.Fatalf("wave position lost in draft: %+v, %v", decoded.Settings, err)
+	}
+	file, err = Seal(decoded, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err = Open(file, public)
+	if err != nil || verified.FormatVersion != 9 || verified.Settings != pack.Settings {
+		t.Fatalf("wave position lost in signed theme: %+v, %v", verified.Settings, err)
+	}
+	pack.Settings.WaveOffset = 241
+	if _, err := MarshalDraft(pack); err == nil {
+		t.Fatal("accepted out-of-range wave position")
+	}
+}
+
 func TestSignedMalformedPayloads(t *testing.T) {
 	pub, key, _ := ed25519.GenerateKey(rand.Reader)
 	good, err := encode(Package{Name: "Theme", Settings: Default()}, 2)

@@ -19,7 +19,6 @@
 .ws-toolbar[data-provider=modrinth] .s-select-trigger{color:#75dbaa;border:1px solid #45c98d59;background:#45c98d0a}
 .ws-main .ws-mod-link{cursor:pointer;transition:background .16s,box-shadow .16s}
 .ws-main .ws-mod-link:hover{background:#222;box-shadow:0 5px 18px #0002}
-.ws-main .ws-mod-link:focus-visible{outline:2px solid #777;outline-offset:-2px}
 .ws-info-heading{font-size:14px;letter-spacing:-.15px;font-weight:650;color:#e4e4e4;margin:0 0 11px}
 .ws-mod-info{padding:20px;background:#121212;border-radius:15px}
 .ws-mod-info>p{font-size:13px;font-weight:450;color:#aaa;line-height:1.8;margin-bottom:24px}
@@ -64,7 +63,6 @@
 .mods-list.ws-resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .ws-resource-card{min-width:0;background:#171717;border-radius:15px;overflow:hidden;cursor:pointer;transition:background .16s,box-shadow .16s}
 .ws-resource-card:hover{background:#202020;box-shadow:0 8px 24px #0003}
-.ws-resource-card:focus-visible{outline:2px solid #888;outline-offset:-2px}
 .ws-resource-cover{height:155px;position:relative;overflow:hidden;background:#242424;display:grid;place-items:center;color:#666;font-weight:700;font-size:32px}
 .ws-resource-cover>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .25s}
 .ws-resource-card:hover .ws-resource-cover>img{transform:scale(1.035)}
@@ -183,7 +181,6 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
   font-size: 13px;
   outline: none;
 }
-.ws-build-form input:focus, .ws-build-form select:focus { box-shadow: 0 0 0 1px #777; }
 .ws-build-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ws-build-form label[hidden] { display: none; }
 #ws-build-create-status { min-height: 16px; color: #999; font-size: 11px; line-height: 1.5; }
@@ -254,7 +251,6 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 }
 .ws-build-tabs button:hover { background: #282828; color: #eee; }
 .ws-build-tabs button[aria-selected=true] { background: #303030; color: #eee; }
-.ws-build-tabs button:focus-visible { outline-offset: -2px; }
 #ws-build-mod-tab-count { color: #aaa; font-variant-numeric: tabular-nums; }
 
 .ws-build-panel {
@@ -356,8 +352,9 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
   color: #999;
 }
 .ws-build-mod-search svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
-.ws-build-mod-search input { width: 100%; min-width: 0; border: 0; outline: none; background: transparent; color: #eee; font: inherit; font-size: 12px; }
-.ws-build-mod-search:focus-within { outline: 1px solid #777; }
+.ws-build-mod-search input:focus-visible { outline: none; }
+.ws-build-mod-search input { width: 100%; min-width: 0; border: 0; background: transparent; color: #eee; font: inherit; font-size: 12px; }
+.ws-build-mod-search:has(input:focus-visible) { outline: 1px solid var(--focus-ring,#a0a0a0); outline-offset: -1px; }
 .ws-build-dropzone {
   --wails-drop-target: drop;
   flex-shrink: 0;
@@ -571,4 +568,4 @@ html[data-launcher-panels] .ws-theme-gallery>footer,html[data-launcher-panels] .
 .ws-theme-dialog .danger{margin-right:auto;background:#352626;color:#e3a9a9;border-radius:8px;padding:8px 11px}
 .ws-theme-dialog form footer .primary{padding:8px 15px;border-radius:8px}
 
-#ws-pack-name{width:100%;height:40px;box-sizing:border-box;border:0;border-radius:8px;background:#252525;color:#ddd;font:inherit;font-size:13px;padding:0 12px}#ws-pack-name:focus{outline:1px solid #ffffff40}.ws-dialog-pack #ws-dependencies{font-size:12px;line-height:1.6}.ws-dialog-pack #ws-dependencies>strong{display:block;color:#ccc;font-size:13px}.ws-dialog-pack #ws-dependencies>p{margin:6px 0 0}
+#ws-pack-name{width:100%;height:40px;box-sizing:border-box;border:0;border-radius:8px;background:#252525;color:#ddd;font:inherit;font-size:13px;padding:0 12px}.ws-dialog-pack #ws-dependencies{font-size:12px;line-height:1.6}.ws-dialog-pack #ws-dependencies>strong{display:block;color:#ccc;font-size:13px}.ws-dialog-pack #ws-dependencies>p{margin:6px 0 0}

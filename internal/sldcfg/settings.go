@@ -71,6 +71,12 @@ type Appearance struct {
 	GradientY            int    `json:"gradientY"`
 	GradientSize         int    `json:"gradientSize"`
 	MotionSpeed          int    `json:"motionSpeed"`
+	BackgroundEffect     string `json:"backgroundEffect"`
+	WaveColor            string `json:"waveColor"`
+	WaveIntensity        int    `json:"waveIntensity"`
+	WaveAmplitude        int    `json:"waveAmplitude"`
+	WaveTrail            int    `json:"waveTrail"`
+	WaveOffset           int    `json:"waveOffset"`
 }
 
 func Default() Appearance {
@@ -79,7 +85,8 @@ func Default() Appearance {
 		BarColor: "#101010", MutedColor: "#a0a0a0",
 		NavOpacity: 100, NavHeight: 55, NavTabWidth: 130, NavTabHeight: 39, NavTabRadius: 11, NavTabGap: 52, NavTextSize: 15,
 		Opacity: 100, Radius: 14, Dim: 45, Fit: "cover", Gradient: true, Animate: true, CanvasColor: "#090909", PanelColor: "#191919", TextColor: "#ededed", Position: "center",
-		TextScale: 100, TextWeight: 600, ButtonRadius: 10, BackgroundSaturation: 100, BackgroundZoom: 100, BackgroundBrightness: 100, BackgroundContrast: 100, BackgroundOpacity: 100, GradientX: 12, GradientY: 48, GradientSize: 100, MotionSpeed: 50}
+		TextScale: 100, TextWeight: 600, ButtonRadius: 10, BackgroundSaturation: 100, BackgroundZoom: 100, BackgroundBrightness: 100, BackgroundContrast: 100, BackgroundOpacity: 100, GradientX: 12, GradientY: 48, GradientSize: 100, MotionSpeed: 50,
+		BackgroundEffect: "gradient", WaveColor: "#ffffff", WaveIntensity: 100, WaveAmplitude: 100, WaveTrail: 50}
 }
 
 func (p Appearance) Valid() bool {
@@ -114,6 +121,9 @@ func (p Appearance) Valid() bool {
 		p.BackgroundSepia >= 0 && p.BackgroundSepia <= 100 && p.BackgroundOpacity >= 0 && p.BackgroundOpacity <= 100 &&
 		p.GradientX >= 0 && p.GradientX <= 100 && p.GradientY >= 0 && p.GradientY <= 100 &&
 		p.GradientSize >= 50 && p.GradientSize <= 180 && p.MotionSpeed >= 10 && p.MotionSpeed <= 100 &&
+		(p.BackgroundEffect == "wave" || p.BackgroundEffect == "gradient") && themeColor.MatchString(p.WaveColor) &&
+		p.WaveIntensity >= 0 && p.WaveIntensity <= 130 && p.WaveAmplitude >= 0 && p.WaveAmplitude <= 160 && p.WaveTrail >= 0 && p.WaveTrail <= 100 &&
+		p.WaveOffset >= 0 && p.WaveOffset <= 240 &&
 		p.NavOpacity >= 35 && p.NavOpacity <= 100 && p.NavBlur >= 0 && p.NavBlur <= 30 &&
 		p.NavHeight >= 52 && p.NavHeight <= 76 && p.NavTabWidth >= 105 && p.NavTabWidth <= 175 &&
 		p.NavTabHeight >= 28 && p.NavTabHeight <= 46 && p.NavTabRadius >= 0 && p.NavTabRadius <= 24 &&

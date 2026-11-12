@@ -24,24 +24,14 @@ static ATOM toggle_id;
 #define HIDE_OVERLAY (WM_APP+22)
 static void fill(HDC dc,int x,int y,int w,int h,int radius,COLORREF color){HBRUSH brush=CreateSolidBrush(color);HGDIOBJ old=SelectObject(dc,brush),pen=SelectObject(dc,GetStockObject(NULL_PEN));RoundRect(dc,x,y,x+w,y+h,radius,radius);SelectObject(dc,pen);SelectObject(dc,old);DeleteObject(brush);}
 static void text(HDC dc,int x,int y,int w,int h,int size,int weight,COLORREF color,const WCHAR *value,UINT flags){HFONT font=CreateFontW(-size,0,0,0,weight,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,CLEARTYPE_QUALITY,DEFAULT_PITCH,L"Segoe UI");HGDIOBJ old=SelectObject(dc,font);RECT r={x,y,x+w,y+h};SetTextColor(dc,color);SetBkMode(dc,TRANSPARENT);DrawTextW(dc,value,-1,&r,flags|DT_NOPREFIX);SelectObject(dc,old);DeleteObject(font);}
-static void draw_brand(HDC dc,int x,int y,int width,COLORREF color){
- HBRUSH brush=CreateSolidBrush(color);
- if(!brush)return;
- HGDIOBJ previousBrush=SelectObject(dc,brush),previousPen=SelectObject(dc,GetStockObject(NULL_PEN));
- POINT points[sizeof sintetMarkCube / sizeof *sintetMarkCube];
- for(size_t i=0;i<sizeof sintetMarkContours / sizeof *sintetMarkContours;i++){
-  const SintetMarkContour *contour=&sintetMarkContours[i];
-  for(int j=0;j<contour->count;j++){
-   points[j].x=x+MulDiv(contour->points[j].x+259,width,518);
-   points[j].y=y+MulDiv(contour->points[j].y+210,width,518);
-  }
-  Polygon(dc,points,contour->count);
- }
- SelectObject(dc,previousPen);SelectObject(dc,previousBrush);DeleteObject(brush);
+static void draw_brand(HDC dc,int x,int y,int width){
+ HGDIOBJ previousBrush=SelectObject(dc,GetStockObject(WHITE_BRUSH));
+ draw_sintet_mark(dc,x,y,width);
+ SelectObject(dc,previousBrush);
 }
 static void draw(HDC dc){WCHAR nick[64],build[96];AcquireSRWLockShared(&profile_lock);wcscpy_s(nick,64,player);wcscpy_s(build,96,version);ReleaseSRWLockShared(&profile_lock);
  fill(dc,0,0,820,520,28,RGB(17,17,18));fill(dc,1,1,818,518,26,RGB(22,22,23));
- draw_brand(dc,28,28,37,RGB(240,240,240));text(dc,72,29,140,32,23,600,RGB(235,235,235),L"Sintet",DT_LEFT);
+ draw_brand(dc,28,28,37);text(dc,72,29,140,32,23,600,RGB(235,235,235),L"Sintet",DT_LEFT);
  fill(dc,616,27,116,30,28,RGB(31,42,34));fill(dc,628,39,5,5,5,RGB(119,190,139));text(dc,641,32,83,24,12,500,RGB(157,195,168),preview_mode?L"Предпросмотр":L"В игре",DT_LEFT);
  fill(dc,756,26,32,32,32,RGB(41,41,43));text(dc,756,29,32,26,21,400,RGB(156,156,160),L"×",DT_CENTER);
  fill(dc,28,85,194,370,18,RGB(17,17,18));

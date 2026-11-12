@@ -11,6 +11,11 @@ func supportsRoundedWindow() bool {
 	version := windows.RtlGetVersion()
 	return roundedWindowForVersion(version.MajorVersion, version.BuildNumber)
 }
+func supportsNativeBackdrop() bool {
+	version := windows.RtlGetVersion()
+	return version.MajorVersion >= 10 && version.BuildNumber >= 22621
+}
+
 func roundedWindowForVersion(major, build uint32) bool { return major >= 10 && build >= 22000 }
 
 func documentsFolder() string {

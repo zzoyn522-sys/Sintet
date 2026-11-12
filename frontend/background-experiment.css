@@ -1,0 +1,59 @@
+html[data-background-experiment] {
+  background: #0D0D0D;
+}
+
+html[data-background-experiment] body {
+  background: transparent;
+}
+
+html[data-background-experiment] :is(#appearance-background, .appearance-vignette, .appearance-grain) {
+  display: none;
+}
+
+html[data-background-experiment="mica"] {
+  background: transparent;
+}
+
+.background-preview-wave {
+  display: none;
+  position: relative;
+  z-index: -1;
+  pointer-events: none;
+}
+
+html[data-background-experiment="glow"] .background-preview-wave,
+html[data-launcher-wave]:not([data-background-experiment]) .background-preview-wave {
+  display: block;
+}
+
+.background-preview-wave canvas {
+  display: block;
+  position: absolute;
+  inset: var(--wave-offset,0px) 0 auto;
+  width: 100%;
+  height: clamp(104px, 10.91vw, 136px);
+}
+
+html[data-background-experiment="dots"] .appearance-atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgb(255 255 255 / .115) 1px, transparent 1.6px) 50% 50% / 24px 24px;
+  mask-image: radial-gradient(ellipse at 50% 48%, #000 25%, transparent 75%);
+}
+
+html[data-background-experiment="mesh"] .appearance-atmosphere::before {
+  content: "";
+  position: absolute;
+  inset: -70px;
+  background:
+    radial-gradient(ellipse 34% 55% at 12% 15%, rgb(110 126 188 / .20), transparent 76%),
+    radial-gradient(ellipse 36% 51% at 90% 44%, rgb(149 105 132 / .15), transparent 74%),
+    radial-gradient(ellipse 45% 37% at 42% 100%, rgb(115 157 168 / .14), transparent 76%);
+  filter: blur(68px);
+}
+
+html[data-background-experiment="mesh"] .appearance-grain {
+  display: block;
+  opacity: .03;
+}

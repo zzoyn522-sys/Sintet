@@ -37,29 +37,6 @@ body:has(#logs-dialog[open]) {
   --glow-end: #8a5c90;
 }
 
-.top-navigation::after {
-  content: '';
-  position: fixed;
-  inset: -12% -12% -12% -20%;
-  pointer-events: none;
-  z-index: -1;
-  background:
-    radial-gradient(ellipse 60% 65% at 12% 48%,
-      color-mix(in srgb,var(--glow-middle) 65%,transparent),transparent 76%),
-    radial-gradient(ellipse 72% 46% at 4% 29%,
-      color-mix(in srgb,var(--glow-start) 55%,transparent),transparent 82%),
-    radial-gradient(ellipse 48% 70% at 20% 79%,
-      color-mix(in srgb,var(--glow-end) 50%,transparent),transparent 84%);
-  background-repeat: no-repeat;
-  opacity: .1;
-  animation: ambient-color-breathe 15s ease-in-out infinite alternate;
-}
-
-body:has(#account-add-dialog[open], #microsoft-device-dialog[open], .ely-auth-dialog[open], .identity-wait[open]) .top-navigation::after {
-  animation: none;
-  opacity: 0;
-}
-
 #logs-dialog[open] {
   background-image: radial-gradient(ellipse 80% 105px at 50% 0,
     color-mix(in srgb,var(--glow-middle) 12%,transparent),transparent 100%);
@@ -78,11 +55,6 @@ body:has(#account-add-dialog[open], #microsoft-device-dialog[open], .ely-auth-di
     linear-gradient(color-mix(in srgb,var(--glow-end) 4%,transparent),transparent 80px);
 }
 
-@keyframes ambient-color-breathe {
-  from {opacity: .08; transform: translate3d(-1%,1%,0)}
-  to {opacity: .11; transform: translate3d(1%,-1%,0)}
-}
 @media (prefers-reduced-motion: reduce) {
   body, #account-dialog[open] {transition: none}
-  .top-navigation::after {animation: none}
 }

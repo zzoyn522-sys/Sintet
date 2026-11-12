@@ -62,9 +62,13 @@ func decodeAppearanceSlots(data []byte) []AppearanceSlot {
 	records = records[:min(len(records), maxAppearanceSlots)]
 	slots := make([]AppearanceSlot, max(initialAppearanceSlots, len(records)))
 	for i, record := range records {
-		settings := defaultAppearance()
+		settings := savedAppearanceDefaults()
 		if validSlotName(record.Name) && len(record.Settings) > 0 && record.Settings[0] == '{' &&
-			json.Unmarshal(record.Settings, &settings) == nil && settings.Valid() {
+			json.Unmarshal(record.Settings, &settings) == nil {
+			settings, _ = restoreLegacyAppearance(settings)
+			if !settings.Valid() {
+				continue
+			}
 			icon := record.Icon
 			if !cachedAvatarName.MatchString(icon) {
 				icon = ""
@@ -89,10 +93,16 @@ func decodeAppearanceSlots(data []byte) []AppearanceSlot {
 
 func readAppearanceLibrary(path string) AppearanceLibrary {
 	result := AppearanceLibrary{Current: defaultAppearance()}
-	document := appearanceStorage{Appearance: result.Current}
+	document := appearanceStorage{Appearance: savedAppearanceDefaults()}
+	var wasDefault bool
 	if data, err := readLimitedFile(path, 256<<10); err == nil {
-		if json.Unmarshal(data, &document) == nil && document.Appearance.Valid() {
-			result.Current = document.Appearance
+		if json.Unmarshal(data, &document) == nil {
+			document.Appearance, wasDefault = restoreLegacyAppearance(document.Appearance)
+			if document.Appearance.Valid() {
+				result.Current = document.Appearance
+			} else {
+				document.Library = nil
+			}
 		} else {
 			document.Library = nil
 		}
@@ -102,6 +112,8 @@ func readAppearanceLibrary(path string) AppearanceLibrary {
 		active := document.Library.ActiveSlot
 		if active > 0 && active <= len(result.Slots) && result.Slots[active-1].Name != "" && result.Slots[active-1].Settings == result.Current {
 			result.ActiveSlot = active
+		} else if wasDefault {
+			result.Current = withDefaultWave(result.Current)
 		}
 		return result
 	}
@@ -112,6 +124,9 @@ func readAppearanceLibrary(path string) AppearanceLibrary {
 			result.ActiveSlot = index + 1
 			break
 		}
+	}
+	if wasDefault && result.ActiveSlot == 0 {
+		result.Current = withDefaultWave(result.Current)
 	}
 	return result
 }

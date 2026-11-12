@@ -29,16 +29,49 @@ var appearanceFontFile = regexp.MustCompile(`^[0-9a-f]{32}\.(ttf|otf|woff|woff2)
 
 type Appearance = sldcfg.Appearance
 
-func defaultAppearance() Appearance { return sldcfg.Default() }
+func defaultAppearance() Appearance {
+	return withDefaultWave(sldcfg.Default())
+}
+
+func withDefaultWave(settings Appearance) Appearance {
+	settings.BackgroundEffect = "wave"
+	settings.CanvasColor = "#0d0d0d"
+	return settings
+}
+
+func savedAppearanceDefaults() Appearance {
+	settings := sldcfg.Default()
+	settings.BackgroundEffect = ""
+	return settings
+}
+
+func restoreLegacyAppearance(settings Appearance) (Appearance, bool) {
+	if settings.BackgroundEffect != "" {
+		return settings, false
+	}
+	settings.BackgroundEffect = "gradient"
+	legacy := sldcfg.Default()
+	defaultBackdrop := settings.Gradient && settings.Background == "" && settings.CanvasColor == legacy.CanvasColor &&
+		settings.GradientStyle == legacy.GradientStyle && settings.GradientShape == legacy.GradientShape &&
+		settings.GradientAngle == legacy.GradientAngle && settings.GradientOpacity == legacy.GradientOpacity &&
+		settings.GradientX == legacy.GradientX && settings.GradientY == legacy.GradientY && settings.GradientSize == legacy.GradientSize
+	return settings, defaultBackdrop
+}
 
 func readAppearance(path string) Appearance {
-	settings := defaultAppearance()
+	settings := savedAppearanceDefaults()
 	if data, err := os.ReadFile(path); err == nil {
-		if json.Unmarshal(data, &settings) != nil || !settings.Valid() {
-			return defaultAppearance()
+		if json.Unmarshal(data, &settings) == nil {
+			settings, wasDefault := restoreLegacyAppearance(settings)
+			if settings.Valid() {
+				if wasDefault {
+					return withDefaultWave(settings)
+				}
+				return settings
+			}
 		}
 	}
-	return settings
+	return defaultAppearance()
 }
 
 func (a *App) GetAppearance() Appearance {

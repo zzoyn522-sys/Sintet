@@ -139,7 +139,7 @@ void drawWelcome() {
  draw->AddRectFilled(ImVec2(top.x,top.y+5*scale),ImVec2(bottom.x+5*scale,bottom.y+5*scale),IM_COL32(0,0,0,(int)(65*fade)),6*scale);
  draw->AddRectFilled(top,bottom,IM_COL32(22,23,23,(int)(250*fade)),6*scale,ImDrawFlags_RoundCornersRight);
  draw->AddRectFilled(top,ImVec2(top.x+3*scale,bottom.y),IM_COL32(119,196,139,(int)(255*fade)));
- logo(draw,ImVec2(top.x+20*scale,top.y+26*scale),scale,IM_COL32(237,239,238,(int)(255*fade)));
+ logo(draw,ImVec2(top.x+20*scale,top.y+26*scale),scale,IM_COL32(255,255,255,(int)(255*fade)));
  drawFittedText(draw,headingFont,titleSize,ImVec2(top.x+left,top.y+17*scale),width-left-right,
                 IM_COL32(237,239,238,(int)(255*fade)),title);
  drawFittedText(draw,bodyFont,shortcutSize,ImVec2(top.x+left,top.y+47*scale),width-left-right,
@@ -393,16 +393,65 @@ void icon(ImDrawList* d, ImVec2 p, int kind, float s, ImU32 color) {
   d->AddBezierCubic(v(18,5),v(24,8),v(24,16),v(18,19),color,line);
  }
 }
-void logo(ImDrawList* d, ImVec2 p, float s, ImU32 color) {
- const float unit=35*s/518;
- ImVec2 points[sizeof sintetMarkCube / sizeof *sintetMarkCube];
- for(const auto& contour:sintetMarkContours){
-  for(int i=0;i<contour.count;i++){
-   const auto& point=contour.points[i];
-   points[i]=ImVec2(p.x+(point.x+259)*unit,p.y+(point.y+210)*unit);
-  }
-  d->AddConcavePolyFilled(points,contour.count,color);
+GLuint uploadBrandMark() {
+ constexpr int samples=4;
+ constexpr int rasterWidth=SintetMarkWidth*samples, rasterHeight=SintetMarkHeight*samples;
+ BITMAPINFO bitmapInfo{};
+ bitmapInfo.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+ bitmapInfo.bmiHeader.biWidth=rasterWidth;
+ bitmapInfo.bmiHeader.biHeight=-rasterHeight;
+ bitmapInfo.bmiHeader.biPlanes=1;
+ bitmapInfo.bmiHeader.biBitCount=32;
+ bitmapInfo.bmiHeader.biCompression=BI_RGB;
+ HDC rasterDC=CreateCompatibleDC(nullptr);
+ if(!rasterDC)return 0;
+ void* bitmapBits=nullptr;
+ HBITMAP bitmap=CreateDIBSection(rasterDC,&bitmapInfo,DIB_RGB_COLORS,&bitmapBits,nullptr,0);
+ if(!bitmap){
+  DeleteDC(rasterDC);
+  return 0;
  }
+ const HGDIOBJ oldBitmap=SelectObject(rasterDC,bitmap);
+ SelectObject(rasterDC,GetStockObject(WHITE_BRUSH));
+ std::memset(bitmapBits,0,rasterWidth*rasterHeight*4);
+ const BOOL drawn=draw_sintet_mark(rasterDC,0,0,rasterWidth);
+ GdiFlush();
+ unsigned char pixels[SintetMarkWidth*SintetMarkHeight*4];
+ const auto* raster=static_cast<const unsigned char*>(bitmapBits);
+ for(int y=0;y<SintetMarkHeight;y++){
+  for(int x=0;x<SintetMarkWidth;x++){
+   unsigned coverage=0;
+   for(int row=0;row<samples;row++){
+    for(int column=0;column<samples;column++){
+     coverage+=raster[((y*samples+row)*rasterWidth+x*samples+column)*4];
+    }
+   }
+   unsigned char* pixel=pixels+(y*SintetMarkWidth+x)*4;
+   pixel[0]=pixel[1]=pixel[2]=255;
+   pixel[3]=static_cast<unsigned char>(coverage/(samples*samples));
+  }
+ }
+ SelectObject(rasterDC,oldBitmap);
+ DeleteObject(bitmap);
+ DeleteDC(rasterDC);
+ if(!drawn)return 0;
+ GLuint texture=0;
+ glGenTextures(1,&texture);
+ glBindTexture(GL_TEXTURE_2D,texture);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP);
+ glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,SintetMarkWidth,SintetMarkHeight,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+ glBindTexture(GL_TEXTURE_2D,0);
+ return texture;
+}
+void logo(ImDrawList* d, ImVec2 p, float s, ImU32 color) {
+ static const GLuint texture=uploadBrandMark();
+ if(!texture)return;
+ const float unit=35*s/SintetMarkWidth;
+ d->AddImage((ImTextureID)(intptr_t)texture,p,
+  ImVec2(p.x+SintetMarkWidth*unit,p.y+SintetMarkHeight*unit),ImVec2(0,0),ImVec2(1,1),color);
 }
 void socialTitle(const char* title){ImGui::PushFont(headingFont);ImGui::TextUnformatted(title);ImGui::PopFont();}
 void socialButton(const char* label,const char* action,const std::string& target=""){
@@ -823,7 +872,7 @@ void drawPanel(const SintetSocial::State& state) {
  ImDrawList* draw=ImGui::GetWindowDrawList();
  const ImVec2 start=ImGui::GetCursorScreenPos();
  const ImU32 white=ImGui::GetColorU32(ImVec4(.93f,.93f,.93f,1));
- logo(draw,start,scale,white);
+ logo(draw,start,scale,ImGui::GetColorU32(IM_COL32_WHITE));
  ImGui::SetCursorPosX(px(63));
  ImGui::PushFont(titleFont);ImGui::TextUnformatted("Sintet");ImGui::PopFont();
  const float timeSize = px(14);

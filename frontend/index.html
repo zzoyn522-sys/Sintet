@@ -1,10 +1,13 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sintet</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="components/select.css"><link rel="stylesheet" href="mods.css"><link rel="stylesheet" href="account.css"><link rel="stylesheet" href="launcher.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="atmosphere.css"><link rel="stylesheet" href="news.css"><link rel="stylesheet" href="appearance.css"><link rel="stylesheet" href="workshop.css"><link rel="stylesheet" href="social.css"><link rel="stylesheet" href="presence.css"><link rel="stylesheet" href="updates.css"><link rel="stylesheet" href="support.css"><link rel="stylesheet" href="launcher-import.css"></head><body>
-<div class="appearance-atmosphere" aria-hidden="true"><div class="appearance-gradient-layer"></div><div class="appearance-vignette"></div><div class="appearance-grain"></div></div>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sintet</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="components/select.css"><link rel="stylesheet" href="mods.css"><link rel="stylesheet" href="account.css"><link rel="stylesheet" href="launcher.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="atmosphere.css"><link rel="stylesheet" href="news.css"><link rel="stylesheet" href="appearance.css"><link rel="stylesheet" href="workshop.css"><link rel="stylesheet" href="social.css"><link rel="stylesheet" href="presence.css"><link rel="stylesheet" href="updates.css"><link rel="stylesheet" href="support.css"><link rel="stylesheet" href="launcher-import.css"><link rel="stylesheet" href="background-experiment.css"></head><body>
+<div class="appearance-atmosphere" aria-hidden="true"><div class="appearance-vignette"></div><div class="appearance-grain"></div></div>
 <div id="appearance-background" aria-hidden="true" hidden><img alt="" hidden><video muted loop playsinline hidden></video><canvas hidden></canvas><div class="appearance-media-edges" hidden></div></div>
 
 <header class="titlebar"><div class="titlebar-community"><span class="brand"><img src="assets/brand/sintet-light.svg" alt="Sintet" class="launcher-brand"></span><div class="community-actions"><button type="button" id="friends-toggle" class="community-button friends-toggle" popovertarget="friends-panel" aria-label="Друзья" title="Друзья" aria-expanded="false" aria-controls="friends-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg></button><button type="button" id="community-discord" class="community-button discord-button" aria-label="Открыть Discord Sintet" title="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.6a19.8 19.8 0 0 0-4.9-1.5l-.6 1.2a18.3 18.3 0 0 0-5.6 0l-.6-1.2a19.9 19.9 0 0 0-4.9 1.5C.6 9.2-.2 13.7.2 18.2a20 20 0 0 0 6 3l1.2-2a13 13 0 0 1-1.9-.9l.5-.4a14 14 0 0 0 12 0l.5.4a13 13 0 0 1-1.9.9l1.2 2a20 20 0 0 0 6-3c.5-5.2-.8-9.6-3.5-13.6ZM8.1 15.5c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.1 1.1 2.1 2.4-.9 2.4-2.1 2.4Zm7.8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.1 1.1 2.1 2.4-.9 2.4-2.1 2.4Z"/></svg></button><button type="button" id="community-telegram" class="community-button telegram-button" aria-label="Открыть Telegram Sintet" title="Telegram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 3.4 18.2 20c-.3 1.2-.9 1.5-1.9.9l-5.2-3.8-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.3L17.7 6c.4-.4-.1-.6-.6-.3L5.1 13.3 0 11.7c-1.1-.4-1.1-1.1.2-1.6L20.1 2.4c.9-.3 1.7.2 1.5 1Z" transform="translate(1 0) scale(.94)"/></svg></button></div></div><button type="button" id="update-button" class="update-button" aria-label="Доступно обновление Sintet" title="Доступно обновление Sintet" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3m0 0L6 7m4-4 4 4M4 12v4h12v-4"/></svg><span id="update-percent"></span></button><button type="button" class="header-profile" id="account-button" aria-haspopup="dialog" aria-controls="account-dialog" aria-label="Открыть профиль"><span class="avatar" id="avatar"><img src="assets/brand/default-avatar.webp" alt=""></span><span id="profile-name">Player</span><svg class="account-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m5 6 3 3 3-3"/></svg></button><div class="window-actions"><button id="minimize" aria-label="Свернуть">−</button><button id="close" aria-label="Закрыть">×</button></div></header>
 <section id="friends-panel" class="friends-panel" popover="auto" aria-labelledby="friends-title"><header><div><span class="friends-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg></span><h2 id="friends-title">Друзья</h2><span class="friends-count" id="friends-count">0</span></div><button type="button" class="friends-close" popovertarget="friends-panel" popovertargetaction="hide" aria-label="Закрыть друзей">×</button></header><div id="friends-list" class="friends-list"><div class="friends-empty"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="16" r="7"/><path d="M7 41v-4a13 13 0 0 1 26 0v4m3-29a7 7 0 0 1 0 13m3 5a11 11 0 0 1 4 8"/></svg><strong>Пока нет друзей</strong><span>Список друзей появится здесь</span></div></div><footer><button type="button" id="friends-create-lobby" class="friends-create-lobby"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>Создать лобби<span>Скоро</span></button><p>P2P-соединение · в разработке</p></footer></section><nav class="top-navigation" aria-label="Навигация"><button class="nav" data-page="settings" id="settings-nav"><svg viewBox="0 0 20 20"><path d="M3 6h14M3 14h14"/><circle cx="7" cy="6" r="2"/><circle cx="13" cy="14" r="2"/></svg>Настройки</button><button class="nav active" data-page="home"><svg viewBox="0 0 20 20"><path d="m7 4 9 6-9 6Z"/></svg>Играть</button><button class="nav" id="workshop-nav" data-page="workshop"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="5" height="5"/><rect x="12" y="3" width="5" height="5"/><rect x="3" y="12" width="5" height="5"/><rect x="12" y="12" width="5" height="5"/></svg>Мастерская</button></nav>
+<div class="background-preview-wave" aria-hidden="true">
+  <canvas></canvas>
+</div>
 <main><section id="home" class="page home"><div class="workspace" id="play-workspace">
 <button type="button" id="news-toggle" class="news-toggle" aria-expanded="true" aria-controls="minecraft-news" aria-label="Свернуть новости" title="Свернуть новости"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 5-5 5 5 5"/></svg><span>Новости</span></button>
 <section class="minecraft-panel news-panel" id="minecraft-news" aria-label="Новости Minecraft" tabindex="0">
@@ -48,7 +51,7 @@
   <button type="button" class="workshop-category" id="settings-tab-launcher" role="tab" aria-controls="settings-launcher" aria-selected="true"><strong>Лаунчер</strong></button>
   <button type="button" class="workshop-category" id="settings-tab-appearance" role="tab" aria-controls="settings-appearance" aria-selected="false" tabindex="-1"><strong>Оформление</strong></button>
 </div>
-<div id="settings-launcher" role="tabpanel" aria-labelledby="settings-tab-launcher"><div class="settings-heading"><div><h1>Настройки</h1><p>Применяются при следующем запуске игры</p></div><button type="button" id="open-game-folder" class="soft-button">Папка игры ↗</button></div><form id="settings-form"><div class="settings-grid"><article class="preference-card wide"><label id="interface-language-label" for="interface-language">Interface language</label><select id="interface-language"><option value="">System language</option></select></article><article class="preference-card wide"><h2>Файлы игры</h2><label for="game-directory">Директория Minecraft</label><div class="path-row"><input id="game-directory" type="text" required spellcheck="false" autocomplete="off"><button id="browse-directory" type="button" class="soft-button">Обзор</button></div><div class="directory-options"><label class="check-label"><input type="checkbox" id="move-game-files" checked> Перенести установленные версии и миры</label><select id="instance-mode" aria-label="Режим папок игры"><option value="profile">Отдельная папка для каждого профиля</option><option value="family">Отдельная папка для семейства версий</option><option value="shared">Общая папка Minecraft</option></select></div><p class="preference-hint">Библиотеки и версии общие. Миры и моды зависят от выбранного режима папок.</p><button type="button" id="open-launcher-import" class="soft-button" disabled>Перенести из другого лаунчера</button></article><article class="preference-card"><h2>Окно Minecraft</h2><label for="game-width">Разрешение</label><div class="resolution-row"><input id="game-width" type="number" min="640" max="16384" required aria-label="Ширина окна Minecraft"><span>×</span><input id="game-height" type="number" min="480" max="16384" required aria-label="Высота окна Minecraft"></div><label class="check-label"><input id="fullscreen" type="checkbox"> Полноэкранный режим</label></article><article class="preference-card"><div class="preference-title"><h2>Оперативная память</h2><label class="check-label"><input id="auto-memory" type="checkbox"> Авто</label></div><label for="memory-mb" id="memory-system">Память для Minecraft</label><div class="memory-row"><input id="ram" type="range" min="512" max="32768" step="256" value="4096" aria-label="Оперативная память"><input id="memory-mb" type="number" min="512" max="131072" step="256" required aria-label="Память в мегабайтах"><span>МБ</span></div><output id="ram-value" class="preference-hint">4 ГБ</output></article><article class="preference-card wide"><div class="preference-title"><h2>Java</h2><select id="java-mode" aria-label="Выбор Java"><option value="auto">Автоматически для версии игры</option><option value="custom">Указать java.exe вручную</option></select></div><div class="path-row"><input id="java-path" type="text" placeholder="Подходящая Java загружается автоматически" spellcheck="false" aria-label="Путь к Java"><button id="browse-java" type="button" class="soft-button">Обзор</button><button id="check-java" type="button" class="soft-button">Проверить</button></div><p id="java-info" class="preference-hint" role="status">Выбирается по требованиям Minecraft</p></article><article class="preference-card behavior-card wide"><h2>Окно и процессы</h2><div class="behavior-grid"><div><label for="game-start-action">При запуске Minecraft</label><select id="game-start-action"><option value="tray">Сворачивать в трей</option><option value="keep">Оставлять открытым</option><option value="quit">Полностью закрывать</option></select></div><div><label for="close-action">При нажатии на крестик</label><select id="close-action"><option value="tray">Сворачивать в трей</option><option value="quit">Завершать работу лаунчера</option></select></div></div><p id="window-behavior-note" class="preference-hint">Из трея можно открыть Sintet или завершить работу.</p><div class="autostart-options"><label class="check-label"><input type="checkbox" id="minimize-to-tray">Сворачивать в трей при сворачивании окна</label><label class="check-label"><input type="checkbox" id="start-with-windows">Запускать вместе с Windows</label><label class="check-label" id="start-in-tray-label"><input type="checkbox" id="start-in-tray">Тихий запуск в трей</label></div></article><article class="preference-card hotkey-card"><h2>Оверлей Minecraft</h2><label class="check-label"><input id="hide-overlay" type="checkbox"> Скрыть оверлей в игре</label><p class="preference-hint">Лобби и статусы продолжат работать. Применится при следующем запуске игры.</p><label for="overlay-hotkey">Открыть оверлей в Minecraft</label><div class="path-row"><input id="overlay-hotkey" readonly spellcheck="false" aria-describedby="hotkey-hint" value="Shift + Tab"><button type="button" id="reset-hotkey" class="soft-button" title="Вернуть Shift + Tab">Сбросить</button></div><p id="hotkey-hint" class="preference-hint">Нажми на поле и задай комбинацию. Применится при следующем запуске игры.</p><label class="appearance-switch overlay-font-switch" for="apply-overlay-font"><input id="apply-overlay-font" type="checkbox" role="switch" checked>Применять шрифт лаунчера к оверлею</label><p class="preference-hint">Импортированные шрифты TTF и OTF применятся при следующем запуске игры.</p></article><article class="preference-card cache-card"><div class="preference-title"><h2>Очистка кэша</h2><span id="cache-size">…</span></div><div id="cache-groups" class="cache-groups"></div><p class="preference-hint">Изображения загрузятся заново. Журналы за последние 7 дней сохранятся.</p><div class="cache-actions"><span id="cache-status" role="status"></span><button type="button" id="clear-cache" class="soft-button" disabled>Очистить</button></div></article>
+<div id="settings-launcher" role="tabpanel" aria-labelledby="settings-tab-launcher"><div class="settings-heading"><div><h1>Настройки</h1><p>Применяются при следующем запуске игры</p></div><button type="button" id="open-game-folder" class="soft-button">Папка игры ↗</button></div><form id="settings-form"><div class="settings-grid"><article class="preference-card wide"><label id="interface-language-label" for="interface-language">Interface language</label><select id="interface-language"><option value="">System language</option></select></article><article class="preference-card wide"><h2>Файлы игры</h2><label for="game-directory">Директория Minecraft</label><div class="path-row"><input id="game-directory" type="text" required spellcheck="false" autocomplete="off"><button id="browse-directory" type="button" class="soft-button">Обзор</button></div><div class="directory-options"><label class="check-label"><input type="checkbox" id="move-game-files" checked> Перенести установленные версии и миры</label><select id="instance-mode" aria-label="Режим папок игры"><option value="profile">Отдельная папка для каждого профиля</option><option value="family">Отдельная папка для семейства версий</option><option value="shared">Общая папка Minecraft</option></select></div><p class="preference-hint">Библиотеки и версии общие. Миры и моды зависят от выбранного режима папок.</p><button type="button" id="open-launcher-import" class="soft-button" disabled>Перенести из другого лаунчера</button></article><article class="preference-card"><h2>Окно Minecraft</h2><label for="game-width">Разрешение</label><div class="resolution-row"><input id="game-width" type="number" min="640" max="16384" required aria-label="Ширина окна Minecraft"><span>×</span><input id="game-height" type="number" min="480" max="16384" required aria-label="Высота окна Minecraft"></div><label class="check-label"><input id="fullscreen" type="checkbox"> Полноэкранный режим</label></article><article class="preference-card"><div class="preference-title"><h2>Оперативная память</h2><label class="check-label"><input id="auto-memory" type="checkbox"> Авто</label></div><label for="memory-mb" id="memory-system">Память для Minecraft</label><div class="memory-row"><input id="ram" type="range" min="512" max="32768" step="256" value="4096" aria-label="Оперативная память"><input id="memory-mb" type="number" min="512" max="131072" step="256" required aria-label="Память в мегабайтах"><span>МБ</span></div><output id="ram-value" class="preference-hint">4 ГБ</output></article><article class="preference-card wide"><div class="preference-title"><h2>Java</h2><select id="java-mode" aria-label="Выбор Java"><option value="auto">Автоматически для версии игры</option><option value="custom">Указать java.exe вручную</option></select></div><div class="path-row"><input id="java-path" type="text" placeholder="Подходящая Java загружается автоматически" spellcheck="false" aria-label="Путь к Java"><button id="browse-java" type="button" class="soft-button">Обзор</button><button id="check-java" type="button" class="soft-button">Проверить</button></div><p id="java-info" class="preference-hint" role="status">Выбирается по требованиям Minecraft</p></article><article class="preference-card behavior-card wide"><h2>Окно и процессы</h2><div class="behavior-grid"><div><label for="game-start-action">При запуске Minecraft</label><select id="game-start-action"><option value="tray">Сворачивать в трей</option><option value="keep">Оставлять открытым</option><option value="quit">Полностью закрывать</option></select></div><div><label for="close-action">При нажатии на крестик</label><select id="close-action"><option value="tray">Сворачивать в трей</option><option value="quit">Завершать работу лаунчера</option></select></div></div><p id="window-behavior-note" class="preference-hint">Из трея можно открыть Sintet или завершить работу.</p><div class="autostart-options"><label class="check-label"><input type="checkbox" id="minimize-to-tray">Сворачивать в трей при сворачивании окна</label><label class="check-label"><input type="checkbox" id="start-with-windows">Запускать вместе с Windows</label><label class="check-label" id="start-in-tray-label"><input type="checkbox" id="start-in-tray">Тихий запуск в трей</label></div></article><article class="preference-card hotkey-card"><h2>Оверлей Minecraft</h2><label class="check-label"><input id="hide-overlay" type="checkbox"> Скрыть оверлей в игре</label><p class="preference-hint">Лобби и статусы продолжат работать. Применится при следующем запуске игры.</p><label for="overlay-hotkey">Открыть оверлей в Minecraft</label><div class="path-row"><input id="overlay-hotkey" readonly spellcheck="false" aria-describedby="hotkey-hint" value="Shift + Tab"><button type="button" id="reset-hotkey" class="soft-button">Сбросить</button></div><p id="hotkey-hint" class="preference-hint">Нажми на поле и задай комбинацию. Применится при следующем запуске игры.</p><label class="appearance-switch overlay-font-switch" for="apply-overlay-font"><input id="apply-overlay-font" type="checkbox" role="switch" checked>Применять шрифт лаунчера к оверлею</label><p class="preference-hint">Импортированные шрифты TTF и OTF применятся при следующем запуске игры.</p></article><article class="preference-card cache-card"><div class="preference-title"><h2>Очистка кэша</h2><span id="cache-size">…</span></div><div id="cache-groups" class="cache-groups"></div><p class="preference-hint">Изображения загрузятся заново. Журналы за последние 7 дней сохранятся.</p><div class="cache-actions"><span id="cache-status" role="status"></span><button type="button" id="clear-cache" class="soft-button" disabled>Очистить</button></div></article>
 <article class="preference-card wide">
   <h2>Версии в списке Minecraft</h2>
   <div class="autostart-options">
@@ -68,27 +71,28 @@
 </div><div class="settings-actions"><span id="settings-status" role="status">Настройки загружаются…</span><button id="reset-settings" type="button" class="soft-button">По умолчанию</button><button id="save-settings" type="submit" class="primary" disabled>Сохранить</button></div></form></div>
 <div id="settings-appearance" role="tabpanel" aria-labelledby="settings-tab-appearance" hidden>
   <form id="appearance-form">
-    <section class="appearance-library" aria-labelledby="appearance-library-title">
-      <header class="appearance-library-header">
-        <h2 id="appearance-library-title">Мои оформления</h2>
-        <div class="appearance-file">
-          <button type="button" id="appearance-import" class="soft-button" disabled>Импорт .sldcfg</button>
-          <button type="button" id="appearance-export" class="soft-button" disabled>Экспорт .sldcfg</button>
-          <button type="button" id="appearance-manage" class="soft-button">Управление</button>
-        </div>
-      </header>
-      <div id="appearance-slots" class="appearance-slots" aria-label="Слоты оформлений"></div>
-      <p class="preference-hint">Сохрани текущий вид в слот, чтобы переключаться между оформлениями одним нажатием.</p>
-    </section>
-    <h2 class="appearance-editor-title">Редактор оформления</h2>
-    <div class="settings-grid">
-      <article class="preference-card">
-        <h2>Текст и элементы</h2>
-        <label class="appearance-range" for="appearance-textScale"><span>Размер текста</span><output for="appearance-textScale"></output><input id="appearance-textScale" name="textScale" type="range" min="85" max="125" value="100"></label>
-        <label class="appearance-range" for="appearance-textWeight"><span>Насыщенность текста</span><output for="appearance-textWeight"></output><input id="appearance-textWeight" name="textWeight" type="range" min="400" max="800" step="50" value="600"></label>
-        <label class="appearance-range" for="appearance-buttonRadius"><span>Скругление кнопок</span><output for="appearance-buttonRadius"></output><input id="appearance-buttonRadius" name="buttonRadius" type="range" min="0" max="24" value="10"></label>
-      </article>
-      <article class="preference-card">
+    <div class="appearance-editor">
+      <div class="appearance-editor-tabs" role="tablist" aria-orientation="vertical" aria-label="Редактор оформления">
+        <button type="button" role="tab" id="appearance-tab-background" aria-controls="appearance-pane-background" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m3 15 5-5 5 5 3-3 5 5"/></svg>Фон</button>
+        <button type="button" role="tab" id="appearance-tab-style" aria-controls="appearance-pane-style" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 20h-1a8 8 0 1 1 8-8v1.5c0 2-2 3.5-4 2.5-1-.5-2.5 0-2.5 1.5 0 1 1 2.5-.5 2.5Z"/><path d="M7 12h.01M10 7h.01M15 8h.01"/></svg>Стиль</button>
+        <button type="button" role="tab" id="appearance-tab-panels" aria-controls="appearance-pane-panels" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M12 9v11"/></svg>Панели</button>
+        <button type="button" role="tab" id="appearance-tab-nav" aria-controls="appearance-pane-nav" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 10h18M7 7h.01M10 7h.01M13 7h.01"/></svg>Верхняя панель</button>
+        <button type="button" role="tab" id="appearance-tab-profile" aria-controls="appearance-pane-profile" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/></svg>Профиль</button>
+        <button type="button" role="tab" id="appearance-tab-library" aria-controls="appearance-pane-library" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/></svg>Мои оформления</button>
+      </div>
+      <div class="appearance-editor-content">
+      <section class="appearance-library appearance-editor-panel" id="appearance-pane-library" role="tabpanel" aria-labelledby="appearance-tab-library" hidden>
+        <header class="appearance-library-header">
+          <h2>Мои оформления</h2>
+          <div class="appearance-file">
+            <button type="button" id="appearance-import" class="soft-button" disabled>Импорт .sldcfg</button>
+            <button type="button" id="appearance-export" class="soft-button" disabled>Экспорт .sldcfg</button>
+            <button type="button" id="appearance-manage" class="soft-button">Управление</button>
+          </div>
+        </header>
+        <div id="appearance-slots" class="appearance-slots" aria-label="Слоты оформлений"></div>
+      </section>
+      <article class="preference-card appearance-editor-panel" id="appearance-pane-style" role="tabpanel" aria-labelledby="appearance-tab-style" hidden>
         <h2>Стиль</h2>
         <div class="appearance-fields">
           <div><label for="appearance-theme">Палитра</label><select id="appearance-theme" name="theme"><option value="original">Графит</option><option value="slate">Сланец</option><option value="midnight">Полночь</option><option value="warm">Тёплый тёмный</option></select></div>
@@ -103,32 +107,41 @@
           <div class="appearance-accent-row"><input type="color" id="appearance-accent" name="accent" value="#ededed" aria-label="Выбрать свой цвет акцента"><div id="appearance-accent-presets" aria-label="Быстрые цвета"></div></div>
         </div>
         <div class="appearance-swatches">
-          <label for="appearance-canvas-color"><input type="color" id="appearance-canvas-color" name="canvasColor" value="#090909">Окно</label>
+          <label for="appearance-canvas-color"><input type="color" id="appearance-canvas-color" name="canvasColor" value="#0d0d0d">Окно</label>
           <label for="appearance-panel-color"><input type="color" id="appearance-panel-color" name="panelColor" value="#191919">Панели</label>
           <label for="appearance-text-color"><input type="color" id="appearance-text-color" name="textColor" value="#ededed">Текст</label>
           <label for="appearance-barColor"><input type="color" id="appearance-barColor" name="barColor" value="#101010">Навигация</label>
           <label for="appearance-mutedColor"><input type="color" id="appearance-mutedColor" name="mutedColor" value="#a0a0a0">Подписи</label>
         </div>
+        <details class="appearance-media-filters">
+          <summary>Текст и элементы</summary>
+          <label class="appearance-range" for="appearance-textScale"><span>Размер текста</span><output for="appearance-textScale"></output><input id="appearance-textScale" name="textScale" type="range" min="85" max="125" value="100"></label>
+          <label class="appearance-range" for="appearance-textWeight"><span>Насыщенность текста</span><output for="appearance-textWeight"></output><input id="appearance-textWeight" name="textWeight" type="range" min="400" max="800" step="50" value="600"></label>
+          <label class="appearance-range" for="appearance-buttonRadius"><span>Скругление кнопок</span><output for="appearance-buttonRadius"></output><input id="appearance-buttonRadius" name="buttonRadius" type="range" min="0" max="24" value="10"></label>
+        </details>
       </article>
-      <article class="preference-card">
+      <article class="preference-card appearance-editor-panel" id="appearance-pane-nav" role="tabpanel" aria-labelledby="appearance-tab-nav" hidden>
         <div class="appearance-section-heading"><h2>Верхняя панель</h2><button type="button" class="soft-button" data-reset-colors="nav">Сбросить</button></div>
         <div class="appearance-element-colors">
           <label><input type="color" name="navColor">Фон панели</label>
           <label><input type="color" name="navText">Текст и иконки</label>
           <label><input type="color" name="navActive">Активная вкладка</label>
         </div>
-        <div class="appearance-nav-sliders">
+        <div class="appearance-rows">
           <label class="appearance-range"><span>Непрозрачность</span><output></output><input name="navOpacity" type="range" min="35" max="100" value="100"></label>
           <label class="appearance-range"><span>Размытие за панелью</span><output></output><input name="navBlur" type="range" min="0" max="30" value="0"></label>
+        </div>
+        <details class="appearance-media-filters">
+          <summary>Размеры вкладок</summary>
           <label class="appearance-range"><span>Высота панели</span><output></output><input name="navHeight" type="range" min="52" max="76" value="55"></label>
           <label class="appearance-range"><span>Высота вкладок</span><output></output><input name="navTabHeight" type="range" min="28" max="46" value="39"></label>
           <label class="appearance-range"><span>Ширина вкладок</span><output></output><input name="navTabWidth" type="range" min="105" max="175" value="130"></label>
           <label class="appearance-range"><span>Скругление вкладок</span><output></output><input name="navTabRadius" type="range" min="0" max="24" value="11"></label>
           <label class="appearance-range"><span>Расстояние между вкладками</span><output></output><input name="navTabGap" type="range" min="8" max="86" value="52"></label>
           <label class="appearance-range"><span>Размер текста вкладок</span><output></output><input name="navTextSize" type="range" min="12" max="20" value="15"></label>
-        </div>
+        </details>
       </article>
-      <article class="preference-card">
+      <article class="preference-card appearance-editor-panel" id="appearance-pane-profile" role="tabpanel" aria-labelledby="appearance-tab-profile" hidden>
         <div class="appearance-section-heading"><h2>Профиль</h2><button type="button" class="soft-button" data-reset-colors="profile">Из палитры</button></div>
         <div class="appearance-element-colors">
           <label><input type="color" name="profileColor">Фон профиля</label>
@@ -136,42 +149,35 @@
           <label><input type="color" name="profileControl">Кнопки и плашки</label>
         </div>
       </article>
-      <article class="preference-card">
-        <h2>Градиент фона</h2>
-        <label class="appearance-range" for="appearance-gradientX"><span>Положение по горизонтали</span><output for="appearance-gradientX"></output><input id="appearance-gradientX" name="gradientX" type="range" min="0" max="100" value="12"></label>
-        <label class="appearance-range" for="appearance-gradientY"><span>Положение по вертикали</span><output for="appearance-gradientY"></output><input id="appearance-gradientY" name="gradientY" type="range" min="0" max="100" value="48"></label>
-        <label class="appearance-range" for="appearance-gradientSize"><span>Размер свечения</span><output for="appearance-gradientSize"></output><input id="appearance-gradientSize" name="gradientSize" type="range" min="50" max="180" value="100"></label>
+      <article class="preference-card appearance-editor-panel" id="appearance-pane-background" role="tabpanel" aria-labelledby="appearance-tab-background">
+        <div class="appearance-section-heading"><h2>Волна</h2><label class="check-label appearance-switch"><input type="checkbox" name="waveEnabled" checked> Показывать волну</label></div>
+        <div class="appearance-wave-color-field">
+          <label for="appearance-wave-color">Цвет волны</label>
+          <div class="appearance-color-value"><input type="color" id="appearance-wave-color" name="waveColor" value="#ffffff"><output for="appearance-wave-color" id="appearance-wave-color-value">#FFFFFF</output></div>
+        </div>
+        <div class="appearance-rows">
+          <canvas class="appearance-wave-preview" aria-hidden="true"></canvas>
+          <label class="appearance-range"><span>Яркость кромки</span><output></output><input name="waveIntensity" type="range" min="0" max="130" value="100"></label>
+          <label class="appearance-range"><span>Положение волны по высоте</span><output></output><input name="waveOffset" type="range" min="0" max="240" value="0"></label>
+          <label class="appearance-range"><span>Амплитуда волны</span><output></output><input name="waveAmplitude" type="range" min="0" max="160" value="100"></label>
+          <label class="appearance-range"><span>Мягкий шлейф</span><output></output><input name="waveTrail" type="range" min="0" max="100" value="50"></label>
+        </div>
         <label class="appearance-range" for="appearance-motionSpeed"><span>Скорость анимации</span><output for="appearance-motionSpeed"></output><input id="appearance-motionSpeed" name="motionSpeed" type="range" min="10" max="100" value="50"></label>
-        <label class="check-label"><input type="checkbox" name="gradient" checked> Включить градиент</label>
-        <div class="appearance-fields appearance-gradient-options">
-          <div><label for="appearance-gradient-style">Пресет</label><select id="appearance-gradient-style" name="gradientStyle"><option value="classic">Классический</option><option value="aurora">Северное сияние</option><option value="ember">Угли</option><option value="ocean">Глубина</option><option value="custom">Свои цвета</option></select></div>
-          <div><label for="appearance-gradient-shape">Тип</label><select id="appearance-gradient-shape" name="gradientShape"><option value="linear">Линейный</option><option value="radial">Радиальный</option><option value="conic">Круговой</option></select></div>
-        </div>
-        <div class="appearance-gradient-preview" aria-hidden="true"></div>
-        <div class="appearance-swatches appearance-gradient-swatches">
-          <label for="appearance-gradientStart"><input type="color" id="appearance-gradientStart" name="gradientStart" value="#6142a5">Начало</label>
-          <label for="appearance-gradientMiddle"><input type="color" id="appearance-gradientMiddle" name="gradientMiddle" value="#3957a2">Середина</label>
-          <label for="appearance-gradientEnd"><input type="color" id="appearance-gradientEnd" name="gradientEnd" value="#151329">Конец</label>
-        </div>
-        <label class="appearance-range" for="appearance-gradientAngle"><span>Угол</span><output for="appearance-gradientAngle"></output><input id="appearance-gradientAngle" name="gradientAngle" type="range" min="0" max="360" value="145"></label>
-        <label class="appearance-range" for="appearance-gradientOpacity"><span>Интенсивность</span><output for="appearance-gradientOpacity"></output><input id="appearance-gradientOpacity" name="gradientOpacity" type="range" min="0" max="100" value="45"></label>
-      </article>
-      <article class="preference-card">
-        <h2>Фон</h2>
+        <label class="check-label appearance-switch appearance-animation"><input type="checkbox" name="animate" checked> Анимация фона</label>
+        <details class="appearance-media-filters">
+        <summary>Изображение или видео</summary>
         <div class="appearance-file"><button type="button" id="appearance-choose" class="soft-button">Выбрать файл</button><button type="button" id="appearance-remove" class="soft-button" disabled>Убрать фон</button><span id="appearance-file-label"></span></div>
         <p class="preference-hint">PNG, JPG, WebP, GIF, MP4 или WebM до 150 МБ. Видео играет без звука.</p>
+        <div data-appearance-media hidden>
         <div class="appearance-fields appearance-background-options">
           <div><label for="appearance-fit">Размещение</label><select id="appearance-fit" name="fit"><option value="cover">Заполнить</option><option value="contain">Целиком</option><option value="fill">Растянуть</option></select></div>
           <div><label for="appearance-position">Положение</label><select id="appearance-position" name="position"><option value="center">По центру</option><option value="top">Сверху</option><option value="bottom">Снизу</option><option value="left">Слева</option><option value="right">Справа</option></select></div>
-          <label class="check-label"><input type="checkbox" name="animate" checked> Анимация фона</label>
         </div>
         <label class="appearance-range" for="appearance-dim"><span>Затемнение фона</span><output for="appearance-dim"></output><input id="appearance-dim" name="dim" type="range" min="0" max="90" value="45"></label>
         <label class="appearance-range" for="appearance-backgroundBlur"><span>Размытие изображения</span><output for="appearance-backgroundBlur"></output><input id="appearance-backgroundBlur" name="backgroundBlur" type="range" min="0" max="24" value="0"></label>
         <label class="appearance-range" for="appearance-backgroundEdgeBlur" hidden><span>Размытие краёв фона</span><output for="appearance-backgroundEdgeBlur"></output><input id="appearance-backgroundEdgeBlur" name="videoEdgeBlur" type="range" min="0" max="24" value="0"></label>
         <label class="appearance-range" for="appearance-backgroundSaturation"><span>Насыщенность фона</span><output for="appearance-backgroundSaturation"></output><input id="appearance-backgroundSaturation" name="backgroundSaturation" type="range" min="0" max="250" value="100"></label>
         <label class="appearance-range" for="appearance-backgroundZoom"><span>Масштаб фона</span><output for="appearance-backgroundZoom"></output><input id="appearance-backgroundZoom" name="backgroundZoom" type="range" min="100" max="150" value="100"></label>
-        <label class="appearance-range" for="appearance-vignette"><span>Виньетка</span><output for="appearance-vignette"></output><input id="appearance-vignette" name="vignette" type="range" min="0" max="85" value="0"></label>
-        <label class="appearance-range" for="appearance-grain"><span>Зернистость</span><output for="appearance-grain"></output><input id="appearance-grain" name="grain" type="range" min="0" max="8" value="0"></label>
         <details class="appearance-media-filters">
           <summary>Фильтры фона</summary>
           <label class="appearance-range" for="appearance-backgroundBrightness"><span>Яркость фона</span><output for="appearance-backgroundBrightness"></output><input id="appearance-backgroundBrightness" name="backgroundBrightness" type="range" min="30" max="200" value="100"></label>
@@ -181,8 +187,15 @@
           <label class="appearance-range" for="appearance-backgroundSepia"><span>Сепия</span><output for="appearance-backgroundSepia"></output><input id="appearance-backgroundSepia" name="backgroundSepia" type="range" min="0" max="100" value="0"></label>
           <label class="appearance-range" for="appearance-backgroundOpacity"><span>Непрозрачность фона</span><output for="appearance-backgroundOpacity"></output><input id="appearance-backgroundOpacity" name="backgroundOpacity" type="range" min="0" max="100" value="100"></label>
         </details>
+        </div>
+        </details>
+        <details class="appearance-media-filters">
+          <summary>Виньетка и зернистость</summary>
+          <label class="appearance-range" for="appearance-vignette"><span>Виньетка</span><output for="appearance-vignette"></output><input id="appearance-vignette" name="vignette" type="range" min="0" max="85" value="0"></label>
+          <label class="appearance-range" for="appearance-grain"><span>Зернистость</span><output for="appearance-grain"></output><input id="appearance-grain" name="grain" type="range" min="0" max="8" value="0"></label>
+        </details>
       </article>
-      <article class="preference-card">
+      <article class="preference-card appearance-editor-panel" id="appearance-pane-panels" role="tabpanel" aria-labelledby="appearance-tab-panels" hidden>
         <h2>Панели</h2>
         <div class="appearance-panel-options">
           <label class="check-label"><input type="checkbox" name="compact"> Компактный вид</label>
@@ -191,13 +204,16 @@
         <label class="appearance-range" for="appearance-opacity"><span>Непрозрачность</span><output for="appearance-opacity"></output><input id="appearance-opacity" name="opacity" type="range" min="35" max="100" value="100"></label>
         <label class="appearance-range" for="appearance-blur"><span>Размытие</span><output for="appearance-blur"></output><input id="appearance-blur" name="blur" type="range" min="0" max="30" value="0"></label>
         <label class="appearance-range" for="appearance-radius"><span>Скругление</span><output for="appearance-radius"></output><input id="appearance-radius" name="radius" type="range" min="0" max="32" value="14"></label>
-        <div class="appearance-fields appearance-gradient-options">
+        <div class="appearance-fields appearance-shadow-options">
           <div><label for="appearance-shadow">Тень</label><select id="appearance-shadow" name="shadow"><option value="off">Без тени</option><option value="soft">Мягкая</option><option value="glow">Свечение акцента</option></select></div>
         </div>
-        <label class="appearance-range" for="appearance-shadowStrength"><span>Сила тени</span><output for="appearance-shadowStrength"></output><input id="appearance-shadowStrength" name="shadowStrength" type="range" min="0" max="100" value="40"></label>
-        <label class="appearance-range" for="appearance-borderWidth"><span>Толщина обводки</span><output for="appearance-borderWidth"></output><input id="appearance-borderWidth" name="borderWidth" type="range" min="1" max="2" value="1"></label>
-        <label class="appearance-range" for="appearance-borderOpacity"><span>Непрозрачность обводки</span><output for="appearance-borderOpacity"></output><input id="appearance-borderOpacity" name="borderOpacity" type="range" min="0" max="50" value="8"></label>
+        <label class="appearance-range" for="appearance-shadowStrength" data-appearance-shadow hidden><span>Сила тени</span><output for="appearance-shadowStrength"></output><input id="appearance-shadowStrength" name="shadowStrength" type="range" min="0" max="100" value="40"></label>
+        <div data-appearance-borders hidden>
+          <label class="appearance-range" for="appearance-borderWidth"><span>Толщина обводки</span><output for="appearance-borderWidth"></output><input id="appearance-borderWidth" name="borderWidth" type="range" min="1" max="2" value="1"></label>
+          <label class="appearance-range" for="appearance-borderOpacity"><span>Непрозрачность обводки</span><output for="appearance-borderOpacity"></output><input id="appearance-borderOpacity" name="borderOpacity" type="range" min="0" max="50" value="8"></label>
+        </div>
       </article>
+      </div>
     </div>
     <div class="settings-actions">
       <span id="appearance-status" role="status">Оформление загружается…</span>

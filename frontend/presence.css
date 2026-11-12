@@ -137,7 +137,6 @@
   transition: background .18s;
 }
 .presence-summary:hover,.presence-card.is-expanded .presence-summary {background: #85858515}
-.presence-summary:focus-visible {outline-offset: -2px}
 .presence-summary .friend-avatar {width: 36px; height: 36px; border-radius: 9px}
 .presence-identity {display: grid; gap: 3px; flex: 1; min-width: 0}
 .presence-identity strong,.presence-identity small {overflow: hidden; text-overflow: ellipsis; white-space: nowrap}
