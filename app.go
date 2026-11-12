@@ -317,9 +317,7 @@ func (a *App) launchInstance(id, name string, quickPlayPort int, openLobby bool,
 		options.PrepareOverlay = a.prepareGameOverlay
 		options.OverlayAvatar = overlayAvatar
 		options.OverlayNetworkPinFile = filepath.Join(a.profiles.root, "overlay-network-pinned")
-		if settings.ApplyOverlayFont {
-			options.OverlayFont = a.overlayFontPath()
-		}
+		options.OverlayFont = a.overlayFontPath(settings.ApplyOverlayFont)
 	}
 	if a.social != nil && a.social.address != "" {
 		options.PrepareGameBridge = a.prepareJavaBridge

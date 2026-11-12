@@ -87,4 +87,4 @@ go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui -X mai
 
 ## Лицензия
 
-Исходный код Sintet распространяется по [GNU GPL версии 3](LICENSE). Сторонние библиотеки и ресурсы сохраняют собственные условия. Лицензии библиотек находятся в [`native/vendor`](native/vendor), сведения об отдельных значках – в [`frontend/assets`](frontend/assets).
+Исходный код Sintet распространяется по [GNU GPL версии 3](LICENSE). Сторонние библиотеки и ресурсы сохраняют собственные условия. Лицензии библиотек находятся в [`native/vendor`](native/vendor), сведения об отдельных значках – в [`frontend/assets`](frontend/assets). Встроенный шрифт Inter распространяется по [SIL Open Font License 1.1](frontend/assets/fonts/OFL-Inter.txt).

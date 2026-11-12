@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +17,8 @@ import (
 	"sync"
 	"syscall"
 	"unsafe"
+
+	"sintet/internal/accountfiles"
 )
 
 //go:embed native/bin/sintet-overlay.dll
@@ -261,7 +262,10 @@ func (a *App) prepareJavaBridge() (string, error) {
 }
 
 // Use the launcher's selected font when ImGui can read its format.
-func (a *App) overlayFontPath() string {
+func (a *App) overlayFontPath(enabled bool) string {
+	if !enabled {
+		return ""
+	}
 	appearance := a.GetAppearance()
 	if appearance.Font == "custom" && appearanceFontFile.MatchString(appearance.FontFile) {
 		switch filepath.Ext(appearance.FontFile) {
@@ -284,50 +288,19 @@ func (a *App) overlayFontPath() string {
 	case "segoe", "custom":
 		return ""
 	}
-	for _, hive := range []registry.Key{registry.CURRENT_USER, registry.LOCAL_MACHINE} {
-		key, err := registry.OpenKey(hive, `SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts`, registry.QUERY_VALUE)
-		if err != nil {
-			continue
-		}
-		path := installedSFPro(key, windowsFonts)
-		key.Close()
-		if path != "" {
-			return path
-		}
+	data, err := assets.ReadFile("frontend/assets/fonts/Inter-SemiBold.ttf")
+	if err != nil {
+		return ""
 	}
-	return ""
-}
-
-func installedSFPro(key registry.Key, windowsFonts string) string {
-	names, _ := key.ReadValueNames(-1)
-	var regular string
-	for _, name := range names {
-		family := strings.ToLower(name)
-		if !strings.HasPrefix(family, "sf pro ") && !strings.HasPrefix(family, "sf pro (") {
-			continue
-		}
-		path, _, err := key.GetStringValue(name)
-		if err != nil {
-			continue
-		}
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(windowsFonts, path)
-		}
-		ext := strings.ToLower(filepath.Ext(path))
-		if ext != ".ttf" && ext != ".otf" {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		if strings.Contains(family, "semibold") || strings.Contains(family, " bold") {
-			return path
-		}
-		if strings.Contains(family, "regular") || strings.Contains(family, "display (") || strings.Contains(family, "text (") {
-			regular = path
-		}
+	digest := sha256.Sum256(data)
+	path := filepath.Join(a.profiles.root, "components", "fonts", hex.EncodeToString(digest[:]), "Inter-SemiBold.ttf")
+	if cached, err := os.ReadFile(path); err == nil && sha256.Sum256(cached) == digest {
+		return path
 	}
-	return regular
+	if err := accountfiles.Write(path, data); err != nil {
+		return ""
+	}
+	return path
 }
 
 // OverlayBuildHash is the checksum of the DLL shipped in this launcher.
