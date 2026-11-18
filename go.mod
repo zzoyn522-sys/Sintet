@@ -4,6 +4,8 @@ go 1.24.0
 
 require (
 	github.com/abadojack/whatlanggo v1.0.1
+	github.com/masahiro331/go-mvn-version v0.0.0-20260119054159-d21fcd2e7de1
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/tc-hib/winres v0.3.1
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/image v0.36.0
@@ -15,6 +17,8 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/labstack/echo/v4 v4.13.3 // indirect
@@ -57,4 +61,5 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )

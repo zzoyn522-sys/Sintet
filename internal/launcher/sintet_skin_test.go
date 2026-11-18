@@ -19,6 +19,11 @@ func TestSintetSkinServerStaysSeparateFromEly(t *testing.T) {
 	if !strings.Contains(args, "-javaagent:agent.jar=http://127.0.0.1:3033/api/minecraft") || !strings.Contains(args, "--accessToken private-sintet-token") || strings.Contains(args, "ely.by") {
 		t.Fatal("wrong identity or skin server")
 	}
+	for _, flag := range []string{"-Djava.net.preferIPv4Stack=true", "-Dsun.net.client.defaultConnectTimeout=8000", "-Dsun.net.client.defaultReadTimeout=12000"} {
+		if !strings.Contains(args, flag) {
+			t.Fatalf("missing Sintet session network flag %q", flag)
+		}
+	}
 	for _, api := range []string{"http://remote.example/api", "file:///tmp/x", "https://user:pass@example.com/api", "https://example.com/api?token=x"} {
 		o.AuthlibAPI = api
 		if _, err = s.buildLaunch(r, "SintetTest", o); err == nil {

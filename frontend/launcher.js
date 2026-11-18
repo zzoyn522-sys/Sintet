@@ -10,7 +10,7 @@
  const isOpen=()=>popover.matches(':popover-open');
  function closeVersions(){if(isOpen())popover.hidePopover();q('#version').setAttribute('aria-expanded','false')}
  function positionVersions(){if(!isOpen())return;const rect=q('#version').getBoundingClientRect(),gap=7;const width=Math.min(Math.max(rect.width,280),innerWidth-24);const height=Math.max(0,Math.min(350,innerHeight-rect.bottom-gap-12));popover.style.width=width+'px';popover.style.height=height+'px';popover.style.left=Math.max(12,Math.min(rect.right-width,innerWidth-width-12))+'px';popover.style.top=(rect.bottom+gap)+'px'}
- function updateButton(){q('#open-profile-folder').disabled=!api||!selected||!installed(selected)||resolving;q('#play').disabled=!selected||busy||running||resolving;q('#play').textContent=running?'Игра запущена':busy?'Подождите…':resolving?'Выбор версии…':selected?(installed(selected)?'Играть':'Установить'):'Выберите версию';if(selected){q('#version-text').textContent=label(selected);const icon=q('#version-icon');icon.hidden=!isBuild(selected);window.SintetBuildIcon.render(icon,isBuild(selected)?selected.icon||'grass':'');q('#selected-version').textContent=selected.base;q('#version').classList.toggle('installed',installed(selected));q('.current-game>div>span').textContent=`${names[selected.loader]} · Java Edition`}}
+ function updateButton(){q('#sintedot-home').disabled=!api||!selected||!installed(selected)||busy||running||resolving;q('#open-profile-folder').disabled=!api||!selected||!installed(selected)||resolving;q('#play').disabled=!selected||busy||running||resolving||window.Sintedot.active();q('#play').textContent=running?'Игра запущена':(busy||window.Sintedot.active())?'Подождите…':resolving?'Выбор версии…':selected?(installed(selected)?'Играть':'Установить'):'Выберите версию';if(selected){q('#version-text').textContent=label(selected);const icon=q('#version-icon');icon.hidden=!isBuild(selected);window.SintetBuildIcon.render(icon,isBuild(selected)?selected.icon||'grass':'');q('#selected-version').textContent=selected.base;q('#version').classList.toggle('installed',installed(selected));q('.current-game>div>span').textContent=`${names[selected.loader]} · Java Edition`}}
  function seedVariants(){const keys=new Set();const list=[];for(const installedProfile of installs){const p=installedProfile.id?.startsWith('build-')?{...installedProfile}:{base:installedProfile.base,loader:installedProfile.loader,loaderVersion:installedProfile.loaderVersion};const key=p.id||p.base+'/'+p.loader;if(!keys.has(key)){keys.add(key);list.push(p)}}for(const p of [...variants,...catalog.map(v=>({base:v.id,loader:'vanilla',loaderVersion:''}))]){const key=p.base+'/'+p.loader;if(!keys.has(key)){keys.add(key);list.push(p)}}const order=new Map(catalog.map((v,i)=>[v.id,i])),rank={forge:0,fabric:1,neoforge:2,vanilla:3};list.sort((a,b)=>(order.get(a.base)??9999)-(order.get(b.base)??9999)||rank[a.loader]-rank[b.loader]||String(a.name||'').localeCompare(String(b.name||''),'ru'));variants=list}
  async function choose(entry){const request=++selectionRequest;closeVersions();resolving=true;updateButton();try{const value={...entry};if(value.loader!=='vanilla'&&!value.loaderVersion){const builds=await api.LoaderVersions(value.base,value.loader);if(!builds?.length)throw Error('Для этой версии загрузчик недоступен');value.loaderVersion=builds[0]}if(request!==selectionRequest)return;selected=value;try{localStorage.setItem('sintet.selectedProfile',JSON.stringify(selected))}catch{}q('#version').focus()}catch(e){if(request===selectionRequest)toast(String(e))}finally{if(request===selectionRequest){resolving=false;updateButton()}}}
  function visibleVersion(version,type,settings){
@@ -119,6 +119,7 @@
    await poll();
   }catch(error){busy=false;updateButton();toast(String(error))}
  }
+ q('#sintedot-home').onclick=()=>{if(selected)window.Sintedot.open(profileID(selected),label(selected))};
  q('#open-profile-folder').onclick=async()=>{if(!api||!selected||!installed(selected)||resolving)return;try{await api.OpenProfileFolder(profileID(selected))}catch(error){toast(String(error))}};
  q('#play').onclick=async()=>{if(!selected||busy||running||resolving)return;if(!await saveNick()||busy||running||resolving)return;if(!installed(selected)){await install();return}busy=true;updateButton();try{await api.Launch(profileID(selected),q('#nickname').value.trim());await poll()}catch(e){busy=false;updateButton();toast(String(e))}};
  const logDialog=q('#logs-dialog'),gameLog=q('#game-log'),analysis=q('#journal-analysis');
@@ -223,7 +224,7 @@
  q('#logs-close').onclick=()=>logDialog.close();
 
  const mb=n=>window.SintetLanguage.formatSize(n/1048576,'megabyte',1);
- let polling=false;
+ let polling=false, previousLaunchWarning='';
  async function poll(){
   if(!api||polling)return;
   polling=true;
@@ -234,7 +235,7 @@
    updateButton();
    if(logDialog.open)updateJournalActions();
    q('.app-footer').classList.toggle('has-launch-error',!!state.error);
-   q('#install-status').hidden=!busy&&!state.error;
+   q('#install-status').hidden=(!busy&&!state.error)||window.Sintedot.active();
    const t=window.SintetText.translate, stage=t(state.stage||''), error=t(state.error||'');
    q('#install-stage').textContent=error?stage+': '+error:stage;
    q('#install-stage').title=state.error||state.stage;
@@ -252,6 +253,8 @@
     toast('Установка завершена. Можно играть.');
    }
    if(state.stage!==previousStage&&state.error)toast(state.error);
+   if(state.running&&state.launchWarning&&state.launchWarning!==previousLaunchWarning)toast(state.launchWarning);
+   previousLaunchWarning=state.running?state.launchWarning||'':'';
    if(logDialog.open&&(state.log||state.error)&&(busy||running||wasBusy||wasRunning||state.stage!==previousStage))await refreshGameLog();
    previousStage=state.stage;
   }catch(error){console.error(error)}finally{polling=false}

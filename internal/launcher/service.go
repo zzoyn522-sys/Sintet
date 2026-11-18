@@ -18,25 +18,26 @@ import (
 )
 
 type State struct {
-	GameVersion  string  `json:"-"`
-	GameLoader   string  `json:"-"`
-	GameBuild    string  `json:"-"`
-	GameStarted  int64   `json:"-"`
-	GameAccount  string  `json:"-"`
-	PID          int     `json:"pid,omitempty"`
-	Directory    string  `json:"directory,omitempty"`
-	Busy         bool    `json:"busy"`
-	Running      bool    `json:"running"`
-	Profile      string  `json:"profile"`
-	Stage        string  `json:"stage"`
-	Percent      float64 `json:"percent"`
-	Done         int64   `json:"done"`
-	Total        int64   `json:"total"`
-	Files        int64   `json:"files"`
-	FileCount    int64   `json:"fileCount"`
-	Error        string  `json:"error"`
-	ErrorDetails string  `json:"errorDetails,omitempty"`
-	Log          string  `json:"log"`
+	GameVersion   string  `json:"-"`
+	GameLoader    string  `json:"-"`
+	GameBuild     string  `json:"-"`
+	GameStarted   int64   `json:"-"`
+	GameAccount   string  `json:"-"`
+	PID           int     `json:"pid,omitempty"`
+	Directory     string  `json:"directory,omitempty"`
+	Busy          bool    `json:"busy"`
+	Running       bool    `json:"running"`
+	Profile       string  `json:"profile"`
+	Stage         string  `json:"stage"`
+	Percent       float64 `json:"percent"`
+	Done          int64   `json:"done"`
+	Total         int64   `json:"total"`
+	Files         int64   `json:"files"`
+	FileCount     int64   `json:"fileCount"`
+	Error         string  `json:"error"`
+	LaunchWarning string  `json:"launchWarning,omitempty"`
+	ErrorDetails  string  `json:"errorDetails,omitempty"`
+	Log           string  `json:"log"`
 }
 type Service struct {
 	Root          string

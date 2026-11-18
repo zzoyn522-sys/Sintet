@@ -126,40 +126,41 @@ func EffectiveMemory(settings Settings, total int) int {
 }
 
 type LaunchOptions struct {
-	QuickPlayPort         int
-	OpenOverlayLobby      bool
-	LauncherVersion       string
-	ObserveLog            func([]byte)
-	ObserveRun            func(bool)
-	PrepareGameBridge     func() (string, error)
-	QueueBridgeJoin       func(bool)
-	OverlayIPC            string
-	OverlayIPCSecret      string
-	OverlayAvatar         string
-	OverlayFont           string
-	OverlayNetworkPinFile string
-	InterfaceLanguage     string
-	OverlayHotkey         string
-	OverlayBuildName      string
-	OverlayBuildPreset    string
-	OverlayBuildIcon      string
-	PrepareOverlay        func(javaPath string) (string, io.Closer, error)
-	IdentityProvider      string
-	AccessToken           string
-	AuthlibAPI            string
-	AuthlibAgent          string
-	AuthlibMetadata       string
-	IdentityUUID          string
-	IdentityClientID      string
-	IdentityXUID          string
-	MinMemoryMB           int
-	MemoryMB              int
-	Width                 int
-	Height                int
-	Fullscreen            bool
-	JavaPath              string
-	JVMArgs               []string
-	InstanceMode          string
+	QuickPlayPort            int
+	OpenOverlayLobby         bool
+	LauncherVersion          string
+	ObserveLog               func([]byte)
+	ObserveRun               func(bool)
+	PrepareGameBridge        func() (string, error)
+	QueueBridgeJoin          func(bool)
+	OverlayIPC               string
+	OverlayIPCSecret         string
+	OverlayAvatar            string
+	OverlayFont              string
+	OverlayNetworkPinFile    string
+	InterfaceLanguage        string
+	OverlayHotkey            string
+	OverlayBuildName         string
+	OverlayBuildPreset       string
+	OverlayBuildIcon         string
+	PrepareOverlay           func(javaPath string) (string, io.Closer, error)
+	IdentityProvider         string
+	AccessToken              string
+	AllowOfflineSkinFallback bool
+	AuthlibAPI               string
+	AuthlibAgent             string
+	AuthlibMetadata          string
+	IdentityUUID             string
+	IdentityClientID         string
+	IdentityXUID             string
+	MinMemoryMB              int
+	MemoryMB                 int
+	Width                    int
+	Height                   int
+	Fullscreen               bool
+	JavaPath                 string
+	JVMArgs                  []string
+	InstanceMode             string
 }
 
 func (s Settings) LaunchOptions(total int) LaunchOptions {

@@ -182,6 +182,148 @@ func (a *App) InstallMod(planID string, dependencies bool) error {
 	}
 	return a.workshop.Start(ctx, planID, dependencies)
 }
+func (a *App) lockSintedotContent() bool {
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	tick := time.NewTicker(50 * time.Millisecond)
+	defer tick.Stop()
+	deadline := time.NewTimer(5 * time.Second)
+	defer deadline.Stop()
+	for {
+		if a.contentMu.TryLock() {
+			return true
+		}
+		if a.workshopBusy() {
+			return false
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-deadline.C:
+			return false
+		case <-tick.C:
+		}
+	}
+}
+
+func (a *App) RunSintedot(targetID, mode string) error {
+	return a.RunSintedotWithOptions(targetID, mode, workshop.SintedotOptions{CheckConfigs: true})
+}
+func (a *App) RunSintedotWithOptions(targetID, mode string, options workshop.SintedotOptions) error {
+	if !a.lockSintedotContent() {
+		return errors.New("дождись завершения текущей операции")
+	}
+	defer a.contentMu.Unlock()
+	return a.runSintedotLocked(targetID, mode, options)
+}
+
+func (a *App) runSintedotLocked(targetID, mode string, options workshop.SintedotOptions) error {
+	if state := a.State(); state.Busy || state.Running || a.workshopBusy() {
+		return errors.New("закрой игру и дождись завершения установки")
+	}
+	if id := a.sintedotSharedID(targetID); id != "" {
+		return a.runSharedSintedot(targetID, id, mode, options)
+	}
+	a.mu.RLock()
+	target, err := a.workshopTarget(targetID)
+	service := a.service
+	instanceMode := a.settings.InstanceMode
+	a.mu.RUnlock()
+	if err != nil {
+		return err
+	}
+	var findings []string
+	if !strings.HasPrefix(targetID, "build-") && instanceMode != "profile" {
+		options.DryRun = true
+		findings = append(findings, "Эту папку используют несколько профилей. Доступна проверка без изменений.")
+	}
+	if mode == "repair" {
+		if journal, err := service.Journal(""); err == nil && journal.Profile == targetID {
+			for _, finding := range journal.Findings {
+				findings = append(findings, finding.Title+" — "+finding.Advice)
+			}
+		}
+	}
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return a.workshop.RunSintedotWithOptions(ctx, target, mode, findings, options, workshop.SintedotHooks{})
+}
+
+// RunSintedotReport keeps the terminal stage and structured details in one
+// response. Preflight errors may occur before the manager creates a run.
+func (a *App) RunSintedotReport(targetID, mode string, options workshop.SintedotOptions) workshop.SintedotState {
+	if !a.lockSintedotContent() {
+		return workshop.SintedotState{Target: targetID, InstallState: workshop.InstallState{Stage: "Другая операция уже выполняется", Error: "Дождись завершения текущей операции"}}
+	}
+	defer a.contentMu.Unlock()
+	before := a.SintedotState().RunID
+	err := a.runSintedotLocked(targetID, mode, options)
+	state := a.SintedotState()
+	if state.Target == targetID && state.RunID != before && !state.Busy {
+		return state
+	}
+	if err == nil {
+		return workshop.SintedotState{Target: targetID, InstallState: workshop.InstallState{Stage: "Готово", Percent: 100}}
+	}
+	return workshop.SintedotState{Target: targetID, Preview: options.DryRun, InstallState: workshop.InstallState{Stage: "Ошибка Sintedot", Error: err.Error()}}
+}
+
+func (a *App) SintedotCanRollback(profileID string) bool {
+	if id := a.sintedotSharedID(profileID); id != "" {
+		build, err := a.SharedBuildDetail(id)
+		return err == nil && build.SintedotCanRollback && sharedEditProblem(build) == ""
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	target, err := a.workshopTarget(profileID)
+	return err == nil && (strings.HasPrefix(profileID, "build-") || a.settings.InstanceMode == "profile") &&
+		workshop.CanRollbackSintedot(target.Directory)
+}
+
+func (a *App) RollbackLastSintedot(profileID string) error {
+	if !a.lockSintedotContent() {
+		return errors.New("дождись завершения текущей операции")
+	}
+	defer a.contentMu.Unlock()
+	if state := a.State(); state.Busy || state.Running || a.workshopBusy() {
+		return errors.New("закрой игру и дождись завершения установки")
+	}
+	if id := a.sintedotSharedID(profileID); id != "" {
+		m := a.sharedBuilds
+		if !m.operation.TryLock() {
+			return errors.New("дождись окончания операции со сборкой")
+		}
+		defer m.operation.Unlock()
+		session, err := m.session()
+		if err != nil {
+			return err
+		}
+		build, err := m.build(session, "detail", id, nil)
+		if err != nil {
+			return err
+		}
+		return session.request(m.ctx, "sintedot-rollback", id, map[string]any{"version": build.DraftVersion}, nil)
+	}
+	a.mu.RLock()
+	target, err := a.workshopTarget(profileID)
+	mode := a.settings.InstanceMode
+	a.mu.RUnlock()
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(profileID, "build-") && mode != "profile" {
+		return errors.New("выбери сборку с отдельной папкой")
+	}
+	return workshop.RollbackSintedot(target.Directory)
+}
+
+func (a *App) SintedotState() workshop.SintedotState { return a.workshop.SintedotState() }
+func (a *App) CancelSintedot()                       { a.workshop.CancelSintedot() }
+
 func (a *App) ModInstallState() workshop.InstallState { return a.workshop.State() }
 func (a *App) CancelModInstall()                      { a.workshop.Cancel() }
 func (a *App) LocalWorkshop(targetID, kind string) ([]workshop.LocalItem, error) {

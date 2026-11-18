@@ -1,11 +1,55 @@
-.update-button{--update-progress:0%;display:grid;place-items:center;position:relative;width:30px;height:30px;flex:none;padding:0;margin:0 5px;border:1px solid #3988ed;border-radius:50%;background:#1c71d0;color:#fff;box-shadow:0 2px 12px #1474df35;cursor:pointer;transition:opacity .18s,transform .18s,background .18s,box-shadow .18s;--wails-draggable:no-drag}
-.update-button[hidden]{display:none!important}
-.update-button:hover:not(:disabled){background:#328bf0;box-shadow:0 3px 16px #1474df65;transform:translateY(-1px)}
-.update-button:disabled{cursor:progress}
-.update-button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.update-button.downloading{background:conic-gradient(#72b5ff var(--update-progress),#ffffff25 0);border:2px solid #287fe4;box-shadow:inset 0 0 0 2px #151515}
-.update-button.downloading svg{animation:update-spin 1.4s linear infinite}
-.update-button #update-percent{position:absolute;inset:0;display:grid;place-items:center;font-size:8px;font-weight:700;font-variant-numeric:tabular-nums;background:#18191b;border-radius:50%;opacity:0}
-.update-button.downloading #update-percent{opacity:1}
-@keyframes update-spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.update-button{transition:none}.update-button.downloading svg{animation:none}}
+.update-button {
+  --update-progress: 1;
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 39px;
+  height: 42px;
+  margin-inline-end: 7px;
+  padding: 0;
+  flex: none;
+  color: #fff;
+  background: transparent;
+  --wails-draggable: no-drag;
+}
+.update-button[hidden] { display: none !important; }
+.update-button:disabled { cursor: progress; }
+.update-bubble { width: 38px; height: 38px; overflow: visible; }
+.update-button:focus-visible .update-bubble-base { stroke: #d9e4ff; stroke-width: 2; }
+.update-button:hover:not(:disabled) .update-bubble-fill { filter: brightness(1.13); }
+.update-bubble-base { fill: #243652; }
+.update-bubble-fill {
+  transform-box: view-box;
+  transform-origin: 0 50%;
+  transform: scaleX(var(--update-progress));
+  transition: transform .32s ease, filter .2s ease;
+}
+.update-download-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.update-button.downloading .update-download-icon { opacity: 0; }
+#update-percent {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .update-bubble-glow { animation: update-bubble-light 6.4s ease-in-out infinite; }
+}
+@keyframes update-bubble-light {
+  0%, 100% { transform: translate(0, 0); opacity: .58; }
+  50% { transform: translate(13px, 7px); opacity: .95; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-bubble-fill { transition: none; }
+}

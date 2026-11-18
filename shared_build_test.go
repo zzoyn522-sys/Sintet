@@ -305,3 +305,124 @@ func TestSharedBuildTransfersJarAcrossSeparateWebRTCPeers(t *testing.T) {
 		t.Fatal("received JAR did not match", err)
 	}
 }
+
+func TestSharedSintedotAuditsAndAppliesCachedDraft(t *testing.T) {
+	const id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
+	const account = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+	token := strings.Repeat("b", 43)
+	build := SharedBuild{ID: id, Name: "Draft", OwnerID: account, Role: "owner", Game: "1.21.1", Loader: "fabric", LoaderVersion: "0.16.14", DraftVersion: 9, SintedotAvailable: true}
+	var requests atomic.Int32
+	var legacy atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/launcher/token":
+			_ = json.NewEncoder(w).Encode(map[string]any{"account": identity.Account{ID: account, Username: "PackOwner"}, "token": token, "expires": time.Now().Add(time.Hour)})
+		case "/api/shared-builds":
+			var request struct {
+				Action, Build string
+				Version       int
+				Key           string
+				Enabled       bool
+				Disable       []string
+				Mods          []sharedBuildMod
+			}
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request.Build != id {
+				http.Error(w, "unexpected request", 400)
+				return
+			}
+			switch request.Action {
+			case "detail":
+				detail := build
+				detail.SintedotAvailable = !legacy.Load()
+				_ = json.NewEncoder(w).Encode(detail)
+			case "toggle":
+				if request.Key != "legacy:old" || request.Enabled || request.Version != 9 {
+					t.Errorf("unexpected legacy patch: %+v", request)
+					http.Error(w, "unexpected patch", 400)
+					return
+				}
+				requests.Add(1)
+				_, _ = w.Write([]byte("{}"))
+			case "sintedot-apply":
+				if request.Version != 9 || len(request.Mods) != 0 || len(request.Disable) != 1 || request.Disable[0] != "legacy:old" {
+					t.Errorf("unexpected staged patch: %+v", request)
+					http.Error(w, "unexpected patch", 400)
+					return
+				}
+				requests.Add(1)
+				_, _ = w.Write([]byte("{}"))
+			default:
+				http.NotFound(w, r)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	root := t.TempDir()
+	client := identity.New(server.URL, filepath.Join(root, "identity.dpapi"))
+	address, err := client.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizeFixture(t, address, token)
+	roster := newProfileRoster(root, server.URL)
+	slot := roster.find(roster.active)
+	if slot == nil || slot.sintet == nil {
+		t.Fatal("fixture account missing")
+	}
+	slot.sintet.ServiceBase = server.URL
+	app := &App{profiles: roster, service: launcher.New(filepath.Join(root, "Minecraft")), workshop: workshop.NewManager(workshop.New(""))}
+	m := newSharedBuildManager(app, t.Context())
+	app.sharedBuilds = m
+	s, err := m.session()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, name := range []string{"old", "new"} {
+		path := filepath.Join(root, name+".jar")
+		output, err := os.Create(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		writer := zip.NewWriter(output)
+		f, err := writer.Create("fabric.mod.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = json.NewEncoder(f).Encode(map[string]any{"id": "library", "version": string(rune('1' + i))}); err != nil {
+			t.Fatal(err)
+		}
+		if err = writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err = output.Close(); err != nil {
+			t.Fatal(err)
+		}
+		file, _, err := cacheSharedMod(t.Context(), m.cache(s, id), path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		build.Mods = append(build.Mods, sharedBuildMod{Key: "legacy:" + name, File: file, Enabled: true, Approved: true, Author: account})
+	}
+	target := "shared:" + id
+	if err = app.RunSintedotWithOptions(target, "repair", workshop.SintedotOptions{DryRun: true}); err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 0 || !app.SintedotState().Preview || len(app.SintedotState().Changes) != 1 {
+		t.Fatalf("preview: %+v", app.SintedotState())
+	}
+	if err = app.RunSintedotWithOptions(target, "repair", workshop.SintedotOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if requests.Load() != 1 || app.SintedotState().Preview {
+		t.Fatalf("apply: %+v", app.SintedotState())
+	}
+
+	legacy.Store(true)
+	report := app.RunSintedotReport(target, "repair", workshop.SintedotOptions{})
+	if requests.Load() != 2 || report.Preview || report.Stage != "Исправления применены" || report.Error != "" {
+		t.Fatalf("legacy repair failed: %+v", report)
+	}
+}

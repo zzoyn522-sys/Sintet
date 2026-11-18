@@ -3,6 +3,7 @@ package launcher
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -172,6 +173,10 @@ func (s *Service) buildLaunch(r Receipt, name string, options LaunchOptions) (la
 			if err := validateSkinServer(api); err != nil {
 				return spec, err
 			}
+			// Use bounded IPv4 connections for Sintet's dual-stack session server.
+			args = append(args, "-Djava.net.preferIPv4Stack=true",
+				"-Dsun.net.client.defaultConnectTimeout=8000",
+				"-Dsun.net.client.defaultReadTimeout=12000")
 		}
 		args = append(args, "-javaagent:"+options.AuthlibAgent+"="+api, "-Dauthlibinjector.yggdrasil.prefetched="+options.AuthlibMetadata)
 	}
@@ -289,11 +294,29 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 			return
 		}
 	}
+
 	if options.IdentityProvider == "sintet" && options.AccessToken != "" {
-		options.AuthlibAgent, options.AuthlibMetadata, e = s.prepareSkinServer(ctx, options.AuthlibAPI)
+		var note string
+		options.AuthlibAgent, options.AuthlibMetadata, note, e = s.prepareSintetSkin(ctx, options.AuthlibAPI)
 		if e != nil {
-			fail(e)
-			return
+			if ctx.Err() != nil {
+				fail(ctx.Err())
+				return
+			}
+			if !options.AllowOfflineSkinFallback || !errors.Is(e, errSintetSkinMetadata) {
+				fail(e)
+				return
+			}
+			fmt.Fprintf(log, "Sintet ID: %v\n", e)
+			options.AccessToken = ""
+			options.AuthlibAPI = ""
+			note = "Minecraft запущен без сервера скинов Sintet ID. Для сетевой игры запусти Minecraft заново."
+			s.mu.Lock()
+			s.state.LaunchWarning = note
+			s.mu.Unlock()
+		}
+		if note != "" {
+			fmt.Fprintln(log, "Sintet ID:", note)
 		}
 	}
 	spec, e := s.buildLaunch(r, name, options)

@@ -993,6 +993,7 @@ q('#workshop-search').oninput=()=>{
 };
 q('#workshop-clear').onclick=()=>{q('#workshop-search').value='';state.query='';void load()};q('#ws-provider').onchange=()=>{state.provider=q('#ws-provider').value;void load()};q('#ws-target').onchange=()=>{state.target=q('#ws-target').value;if(state.category==='mods')modTarget=state.target;remember();if(state.scope==='local')void load()};
 q('#ws-more').onclick=()=>load(true);q('#ws-open-folder').onclick=()=>api.OpenWorkshopFolder(state.target,contentFolder(state.category)).catch(e=>message(error(e)));
+let activeSintedotBuild;
 const createBuildDialog=q('#ws-create-build-dialog'),manageBuildDialog=q('#ws-build-manage-dialog'),deleteBuildDialog=q('#ws-build-delete-dialog');let activeBuild=null,buildSystemMemory=8192;
 function updateBuildLoaderVisibility(){const vanilla=q('#ws-build-loader').value==='vanilla';q('#ws-build-loader-version-label').hidden=vanilla;q('#ws-build-loader-version-label').disabled=vanilla}
 async function refreshBuildLoaderVersions(){const game=q('#ws-build-game').value,loader=q('#ws-build-loader').value;updateBuildLoaderVisibility();if(loader==='vanilla'){options(q('#ws-build-loader-version'),[]);q('#ws-build-create-submit').disabled=false;q('#ws-build-create-status').textContent='';return}q('#ws-build-create-submit').disabled=true;q('#ws-build-create-status').textContent='Загружаю версии загрузчика…';try{const builds=await api.LoaderVersions(game,loader);options(q('#ws-build-loader-version'),(builds||[]).map(value=>({value,label:value})),builds?.[0]);q('#ws-build-create-submit').disabled=!builds?.length;q('#ws-build-create-status').textContent=builds?.length?'':'Для этой версии Minecraft нет доступных версий загрузчика'}catch(e){options(q('#ws-build-loader-version'),[]);q('#ws-build-create-submit').disabled=true;q('#ws-build-create-status').textContent=error(e)}}
@@ -1097,6 +1098,8 @@ function configureSharedBuildSettings(shared){
  manageBuildDialog.classList.toggle('shared-build-external',external);
  q('#ws-build-tab-performance').hidden=unprepared;
  q('#ws-build-tab-general').hidden=unprepared;
+ activeSintedotBuild=shared;
+ q('#ws-shared-sintedot').hidden=!shared;
  q('#ws-build-tab-access').hidden=!shared&&!canShareBuild(activeBuild);
  q('#ws-build-name-input').disabled=external;
  q('#ws-build-save').hidden=unprepared;
@@ -1120,7 +1123,16 @@ window.addEventListener('sintet:shared-profile',event=>{
  }
  configureSharedBuildSettings(shared);
 });
+for(const button of document.querySelectorAll('[data-build-maintenance]')){
+ button.onclick=()=>{if(!activeBuild)return;const shared=activeSintedotBuild;const target=shared?'shared:'+shared.id:activeBuild.id;manageBuildDialog.close();window.Sintedot.open(target,activeBuild.name,button.dataset.buildMaintenance,shared)};
+}
+window.addEventListener('sintet:mods-changed',event=>{
+ if(event.detail.id.startsWith('shared:'))window.dispatchEvent(new Event('sintet:shared-mods'));
+ else if(manageBuildDialog.open&&activeBuild?.id===event.detail.id)void refreshBuildMods();
+ if(state.scope==='local'&&state.category==='mods'&&!q('#workshop').classList.contains('hidden'))void load();
+});
 async function openBuild(build,shared=null,initialTab){
+ q('#ws-build-sintedot').hidden=!shared&&(!build.installed||build.installing);
  if(manageBuildDialog.open)return;
  activeBuild=build;
  configureSharedBuildSettings(shared);
@@ -1383,7 +1395,8 @@ async function pollInstall(){
  polling=true;
  try{
   const status=await api.ModInstallState();
-  q('#ws-download').hidden=!status.busy;
+  q('#ws-download').hidden=!status.busy||status.maintenance;
+  if(status.maintenance){previousBusy=false;return}
   q('#ws-download-stage').textContent=status.stage;
   q('#ws-download-percent').textContent=Math.floor(status.percent||0)+'%';
   q('#ws-download-progress').value=status.percent||0;

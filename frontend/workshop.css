@@ -983,7 +983,6 @@ html[data-launcher-panels] .ws-build-card-actions .ws-share-build {
   --build-warning: color-mix(in srgb,#e1bf7c 76%,var(--build-ink));
   --build-danger: color-mix(in srgb,#ed9696 76%,var(--build-ink));
   --build-outline: none;
-  --build-shadow: none;
   --build-modal-shadow: 0 24px 100px #000c;
   --select-surface: var(--build-control);
   --select-text: var(--build-ink);
@@ -1017,7 +1016,6 @@ html[data-panel-borders] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog)
   --build-outline: var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
 }
 html[data-panel-shadow] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) {
-  --build-shadow: var(--panel-shadow);
   --build-modal-shadow: var(--panel-shadow);
 }
 .ws-build-manage :is(.ws-build-header,.ws-build-footer) {
@@ -1041,8 +1039,6 @@ html[data-panel-shadow] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) 
   outline: var(--build-outline);
   outline-offset: -1px;
 }
-.ws-dialog.ws-build-manage :is(.ws-build-control-card,.shared-build-availability,.shared-catalog-selection),
-.ws-build-manage #ws-shared-access .shared-build-section { box-shadow: var(--build-shadow); }
 html:not([data-launcher-panels],[data-panel-borders]) .ws-dialog.ws-build-manage .ws-build-tabs {
   background: transparent;
   padding: 0;

@@ -30,9 +30,8 @@ func (s *Service) prepareSkinServer(ctx context.Context, api string) (string, st
 	if e := validateSkinServer(api); e != nil {
 		return "", "", e
 	}
-	file := File{Path: ".sintet/authlib-injector/authlib-injector-1.2.8.jar", URL: "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar", SHA256: injectorSHA256, Size: 349681}
-	s.stage("Подключение скинов")
-	if e := s.download(ctx, file, nil); e != nil {
+	agent, e := s.prepareSkinAgent(ctx)
+	if e != nil {
 		return "", "", e
 	}
 	r, e := http.NewRequestWithContext(ctx, "GET", api, nil)
@@ -48,7 +47,16 @@ func (s *Service) prepareSkinServer(ctx context.Context, api string) (string, st
 	if e != nil || res.StatusCode != 200 || len(raw) > 1048576 || !json.Valid(raw) {
 		return "", "", errors.New("сервер вернул неверные настройки скинов")
 	}
-	return filepath.Join(s.Root, filepath.FromSlash(file.Path)), base64.StdEncoding.EncodeToString(raw), nil
+	return agent, base64.StdEncoding.EncodeToString(raw), nil
+}
+
+func (s *Service) prepareSkinAgent(ctx context.Context) (string, error) {
+	file := File{Path: ".sintet/authlib-injector/authlib-injector-1.2.8.jar", URL: "https://github.com/yushijinhun/authlib-injector/releases/download/v1.2.8/authlib-injector-1.2.8.jar", SHA256: injectorSHA256, Size: 349681}
+	s.stage("Подключение скинов")
+	if e := s.download(ctx, file, nil); e != nil {
+		return "", e
+	}
+	return filepath.Join(s.Root, filepath.FromSlash(file.Path)), nil
 }
 
 // Keep token fragments across stdout/stderr writes so no partial write can leak it.

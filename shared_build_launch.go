@@ -254,6 +254,13 @@ func sharedManifest(build SharedBuild, mods []sharedBuildMod) (packsync.Manifest
 }
 
 func (m *sharedBuildManager) download(s sharedBuildSession, build SharedBuild, mods []sharedBuildMod) error {
+	return m.downloadSharedFiles(m.ctx, s, build, mods, nil)
+}
+
+func (m *sharedBuildManager) downloadSharedFiles(parent context.Context, s sharedBuildSession, build SharedBuild, mods []sharedBuildMod, progress func(string, float64)) error {
+	if len(mods) == 0 {
+		return nil
+	}
 	manifest, err := sharedManifest(build, mods)
 	if err != nil {
 		return err
@@ -261,7 +268,7 @@ func (m *sharedBuildManager) download(s sharedBuildSession, build SharedBuild, m
 	cache := m.cache(s, build.ID)
 	fetcher := newSharedBuildFetcher(s, build, mods, cache)
 	defer fetcher.close()
-	ctx, cancel := context.WithTimeout(m.ctx, 9*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, 9*time.Minute)
 	defer cancel()
 	m.setProgress(build.ID, SharedBuildProgress{Stage: "Сверка файлов сборки"})
 	defer m.setProgress(build.ID, SharedBuildProgress{})
@@ -273,6 +280,9 @@ func (m *sharedBuildManager) download(s sharedBuildSession, build SharedBuild, m
 	options := packsync.DownloadOptions{Resolvers: []packsync.Resolver{}}
 	err = packsync.DownloadWithOptions(ctx, manifest, cache, fetcher, nil, func(file string, done, total int64) {
 		m.setProgress(build.ID, SharedBuildProgress{Stage: "Скачивание модов", File: filepath.Base(file), Done: done, Total: total})
+		if progress != nil && total > 0 {
+			progress("Скачивание "+filepath.Base(file), 10*float64(done)/float64(total))
+		}
 	}, options)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {

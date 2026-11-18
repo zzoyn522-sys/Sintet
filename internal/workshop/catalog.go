@@ -41,6 +41,7 @@ type Dependency struct {
 	Kind    string `json:"kind"`
 }
 type Version struct {
+	Published    time.Time    `json:"-"`
 	Kind         string       `json:"kind"`
 	Release      string       `json:"release"`
 	ID           string       `json:"id"`
@@ -238,7 +239,8 @@ func (p mrProject) project() Project {
 }
 
 type cfFile struct {
-	ReleaseType  int `json:"releaseType"`
+	FileDate     time.Time `json:"fileDate"`
+	ReleaseType  int       `json:"releaseType"`
 	ID           int
 	ModID        int      `json:"modId"`
 	DisplayName  string   `json:"displayName"`
@@ -259,6 +261,7 @@ type cfFile struct {
 func (f cfFile) version() Version {
 	v := Version{ID: strconv.Itoa(f.ID), Project: strconv.Itoa(f.ModID), Name: f.DisplayName, Filename: f.FileName, URL: f.DownloadURL, Size: f.FileLength, Games: Games(f.GameVersions), Loaders: Loaders(f.GameVersions), Dependencies: []Dependency{}}
 	v.Release = map[int]string{1: "release", 2: "beta", 3: "alpha"}[f.ReleaseType]
+	v.Published = f.FileDate
 	v.Unavailable = v.URL == ""
 	for _, h := range f.Hashes {
 		if h.Algo == 1 {
@@ -556,7 +559,8 @@ func (c *Client) Project(ctx context.Context, provider, id string) (Project, err
 }
 
 type mrVersion struct {
-	Release      string `json:"version_type"`
+	Published    time.Time `json:"date_published"`
+	Release      string    `json:"version_type"`
 	ID           string
 	ProjectID    string `json:"project_id"`
 	Name         string
@@ -577,6 +581,7 @@ type mrVersion struct {
 
 func (v mrVersion) version() Version {
 	result := Version{Release: v.Release, ID: v.ID, Project: v.ProjectID, Name: v.Name, Games: Games(v.Games), Loaders: Loaders(v.Loaders), Dependencies: []Dependency{}}
+	result.Published = v.Published
 	for _, f := range v.Files {
 		if result.Filename == "" || f.Primary {
 			result.Filename = f.Filename

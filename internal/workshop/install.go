@@ -42,6 +42,7 @@ type PlanEntry struct {
 	Installed bool    `json:"installed"`
 }
 type Plan struct {
+	maintenance  bool
 	Kind         string      `json:"kind"`
 	ID           string      `json:"id"`
 	Target       Target      `json:"target"`
@@ -51,12 +52,13 @@ type Plan struct {
 	DraftVersion int         `json:"-"`
 }
 type InstallState struct {
-	Busy    bool    `json:"busy"`
-	Stage   string  `json:"stage"`
-	Percent float64 `json:"percent"`
-	Error   string  `json:"error"`
-	Done    int     `json:"done"`
-	Total   int     `json:"total"`
+	Maintenance bool    `json:"maintenance,omitempty"`
+	Busy        bool    `json:"busy"`
+	Stage       string  `json:"stage"`
+	Percent     float64 `json:"percent"`
+	Error       string  `json:"error"`
+	Done        int     `json:"done"`
+	Total       int     `json:"total"`
 }
 type Manager struct {
 	Client    *Client
@@ -65,6 +67,7 @@ type Manager struct {
 	packPlans map[string]PackPlan
 	state     InstallState
 	cancel    context.CancelFunc
+	sintedot  SintedotState
 }
 
 func NewManager(c *Client) *Manager {
@@ -86,7 +89,7 @@ type ModCommit func(context.Context, Plan, string) error
 func (m *Manager) Cancel() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.cancel != nil {
+	if !m.state.Maintenance && m.cancel != nil {
 		m.cancel()
 	}
 }
@@ -100,7 +103,7 @@ type Installed struct {
 	Hash     string `json:"sha256"`
 	Icon     string `json:"icon"`
 	SHA1     string `json:"-"`
-	URL      string `json:"-"`
+	URL      string `json:"url,omitempty"`
 }
 
 func registry(dir string) (map[string]Installed, error) {
@@ -295,6 +298,21 @@ func allowedDownload(raw string) bool {
 	}
 	return u.Scheme == "https" && (u.Hostname() == "cdn.modrinth.com" || u.Hostname() == "edge.forgecdn.net" || u.Hostname() == "mediafilez.forgecdn.net" || u.Hostname() == "media.forgecdn.net")
 }
+func publicModSource(provider, raw string) string {
+	if !allowedDownload(raw) {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" {
+		return ""
+	}
+	if provider == "modrinth" && u.Host == "cdn.modrinth.com" ||
+		provider == "curseforge" && contains([]string{"edge.forgecdn.net", "media.forgecdn.net", "mediafilez.forgecdn.net"}, u.Host) {
+		return raw
+	}
+	return ""
+}
+
 func (m *Manager) Start(ctx context.Context, id string, withDependencies bool) error {
 	return m.StartWithCommit(ctx, id, withDependencies, nil)
 }
@@ -387,8 +405,10 @@ func (m *Manager) install(ctx context.Context, plan Plan) error {
 		return err
 	}
 	type pending struct {
-		entry      PlanEntry
-		path, hash string
+		entry       PlanEntry
+		path, hash  string
+		previous    Installed
+		previousKey string
 	}
 	files := []pending{}
 	names := map[string]bool{}
@@ -403,6 +423,9 @@ func (m *Manager) install(ctx context.Context, plan Plan) error {
 		}
 		m.mu.Lock()
 		m.state.Stage = "Скачивание " + entry.Project.Name
+		if m.state.Maintenance {
+			m.state.Total = len(plan.Entries)
+		}
 		m.mu.Unlock()
 		path := filepath.Join(stage, v.Filename)
 		digest, err := m.download(ctx, v, path, func(done, total int64) {
@@ -412,28 +435,54 @@ func (m *Manager) install(ctx context.Context, plan Plan) error {
 			if total > 0 {
 				fraction = float64(done) / float64(total)
 			}
-			m.state.Percent = (float64(i) + fraction) * 95 / float64(len(plan.Entries))
+			progress := (float64(i) + fraction) / float64(len(plan.Entries))
+			if m.state.Maintenance {
+				m.state.Percent = max(m.state.Percent, 50+progress*45)
+			} else {
+				m.state.Percent = progress * 95
+			}
 			m.state.Done = i
 		})
 		if err != nil {
 			return fmt.Errorf("%s: %w", entry.Project.Name, err)
 		}
-		files = append(files, pending{entry, path, digest})
+		files = append(files, pending{entry: entry, path: path, hash: digest})
 	}
 	if err := ctx.Err(); err != nil {
 		return errors.New("установка отменена")
 	}
 	// Prevent duplicate Fabric/Forge IDs, including mods manually copied by the player.
 	replacing := map[string]bool{}
-	for _, file := range files {
-		if old, ok := records[key(file.entry.Project.Provider, file.entry.Version.Project)]; ok {
-			replacing[old.Filename] = true
+	for i := range files {
+		file := &files[i]
+		k := key(file.entry.Project.Provider, file.entry.Version.Project)
+		if old, ok := records[k]; ok {
+			file.previous, file.previousKey = old, k
+			if installedFile(dir, old) {
+				replacing[strings.ToLower(old.Filename)] = true
+			}
+		}
+	}
+	if plan.maintenance {
+		for i := range files {
+			file := &files[i]
+			if replacing[strings.ToLower(file.previous.Filename)] {
+				continue
+			}
+			old, oldKey, err := sintedotReplacement(dir, plan.Target.Loader, file.path, records, replacing)
+			if err != nil {
+				return err
+			}
+			if old.Filename != "" {
+				file.previous, file.previousKey = old, oldKey
+				replacing[strings.ToLower(old.Filename)] = true
+			}
 		}
 	}
 	ids := map[string]string{}
 	installed, _ := os.ReadDir(filepath.Join(dir, "mods"))
 	for _, item := range installed {
-		if item.IsDir() || !strings.HasSuffix(item.Name(), ".jar") || replacing[item.Name()] {
+		if item.IsDir() || !safeFilename(item.Name()) || replacing[strings.ToLower(item.Name())] {
 			continue
 		}
 		for _, id := range modIDs(filepath.Join(dir, "mods", item.Name())) {
@@ -479,11 +528,13 @@ func (m *Manager) install(ctx context.Context, plan Plan) error {
 	for _, file := range files {
 		v, p := file.entry.Version, file.entry.Project
 		k := key(p.Provider, v.Project)
-		old, known := records[k]
-		if known && safeFilename(old.Filename) {
+		old := file.previous
+		if safeFilename(old.Filename) {
 			oldPath := filepath.Join(dir, "mods", old.Filename)
-			if _, err := os.Stat(oldPath + ".disabled"); err == nil {
-				oldPath += ".disabled"
+			if !plan.maintenance {
+				if _, err := os.Stat(oldPath + ".disabled"); err == nil {
+					oldPath += ".disabled"
+				}
 			}
 			if _, err := os.Lstat(oldPath); err == nil {
 				sum, e := fileHash(oldPath)
@@ -508,7 +559,10 @@ func (m *Manager) install(ctx context.Context, plan Plan) error {
 			return err
 		}
 		created = append(created, dest)
-		records[k] = Installed{Provider: p.Provider, Project: v.Project, Version: v.ID, Filename: v.Filename, Name: p.Name, Hash: file.hash, Icon: p.Icon}
+		if file.previousKey != "" && file.previousKey != k {
+			delete(records, file.previousKey)
+		}
+		records[k] = Installed{Provider: p.Provider, Project: v.Project, Version: v.ID, Filename: v.Filename, Name: p.Name, Hash: file.hash, Icon: p.Icon, URL: publicModSource(p.Provider, v.URL)}
 	}
 	data, err := json.MarshalIndent(records, "", "  ")
 	if err != nil {

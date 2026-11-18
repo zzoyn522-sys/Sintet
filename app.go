@@ -121,6 +121,11 @@ func (a *App) startup(ctx context.Context) {
 		_ = os.WriteFile(updateHealthMarker, []byte("ok"), 0600)
 	}
 	go refreshLauncherShortcutIcon()
+	if err := workshop.RecoverSintedotInstances(a.service.Root); err != nil {
+		a.mu.Lock()
+		a.warning = "Не удалось восстановить транзакцию Sintedot: " + err.Error()
+		a.mu.Unlock()
+	}
 	a.workshop = newWorkshop(a.profiles.root)
 	a.workshop.Client.CurseForgeProxy = true
 	a.workshop.Client.HTTP.Transport = curseForgeTransport{app: a, base: http.DefaultTransport, key: a.workshop.Client.Key}
@@ -373,6 +378,7 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 	}
 	observeRun := options.ObserveRun
 	lobbyLaunch := quickPlayPort > 0 || a.social != nil && a.social.snapshot().Room != nil
+	options.AllowOfflineSkinFallback = !lobbyLaunch && !openLobby && sharedOwner == "" && !strings.HasPrefix(id, sharedProfilePrefix)
 	options.ObserveRun = func(running bool) {
 		if observeRun != nil {
 			observeRun(running)
@@ -382,6 +388,12 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 			action = "tray"
 		}
 		a.gameWindowBehavior(running, action)
+	}
+	if dir, err := service.ProfileDirectory(id, settings.InstanceMode); err == nil {
+		if err = workshop.RecoverSintedot(dir); err != nil {
+			a.mu.RUnlock()
+			return fmt.Errorf("не удалось восстановить сборку после прерванной операции Sintedot: %w", err)
+		}
 	}
 	err := service.LaunchWithOptions(id, name, options)
 	a.mu.RUnlock()

@@ -45,7 +45,7 @@ func TestSintetInjectorNetworkSmoke(t *testing.T) {
 	s := New(os.Getenv("SINTET_GAME_ROOT"))
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	jar, metadata, err := s.prepareSkinServer(ctx, api)
+	jar, metadata, _, err := s.prepareSintetSkin(ctx, api)
 	if err != nil {
 		t.Fatal(err)
 	}
