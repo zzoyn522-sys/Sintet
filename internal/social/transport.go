@@ -37,6 +37,7 @@ type Peer struct {
 	packOnce    sync.Once
 	packHandler http.Handler
 	relay       bool
+	relayFiles  atomic.Bool
 	gameStreams atomic.Int32
 	tunnelBytes atomic.Uint64
 	quality     peerQuality
@@ -56,6 +57,16 @@ func NewRelayPeer(hostPort int, relay []webrtc.ICEServer, trace *ICETrace) (*Pee
 	}
 	return newPeer(hostPort, true, relay, trace)
 }
+
+func NewMeteredRelayPeer(hostPort int, servers []webrtc.ICEServer, trace *ICETrace) (*Peer, error) {
+	peer, err := NewRelayPeer(hostPort, servers, trace)
+	if err == nil {
+		peer.relayFiles.Store(true)
+	}
+	return peer, err
+}
+
+func (p *Peer) PackFilesAvailable() bool { return !p.relay || p.relayFiles.Load() }
 
 func newPeer(hostPort int, stun bool, relay []webrtc.ICEServer, trace *ICETrace) (*Peer, error) {
 	var settings webrtc.SettingEngine

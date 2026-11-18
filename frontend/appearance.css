@@ -277,6 +277,10 @@ html[data-custom-nav] :is(.titlebar,.top-navigation) {
   background-color:var(--nav-base); color:var(--nav-auto-ink);
 }
 html[data-custom-nav] :is(#account-button,.window-actions button,.community-button:not(.friends-toggle)) {color:var(--nav-auto-ink)}
+html[data-custom-nav] :is(.window-actions button,.community-button:not(.friends-toggle)):hover {
+  background:color-mix(in srgb,var(--nav-base) 87%,var(--nav-auto-ink));
+}
+html[data-custom-nav] .window-actions button:hover {color:var(--nav-auto-ink)}
 html[data-custom-nav] .launcher-brand {filter:var(--nav-logo)}
 html[data-custom-nav] .top-navigation .nav {color:var(--nav-text,color-mix(in srgb,var(--nav-auto-ink) 78%,var(--nav-base)))}
 html[data-custom-nav] :is(.top-navigation .nav,#account-button):hover {

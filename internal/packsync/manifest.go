@@ -117,6 +117,14 @@ func fingerprint(m Manifest) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
+
+func Seal(m Manifest) (Manifest, error) {
+	m.Format = 2
+	m.Files = append([]File{}, m.Files...)
+	sort.Slice(m.Files, func(i, j int) bool { return m.Files[i].Path < m.Files[j].Path })
+	m.Digest = fingerprint(m)
+	return m, Validate(m)
+}
 func Validate(m Manifest) error {
 	if (m.Format != 1 && m.Format != 2) || !tokenPattern.MatchString(m.Game) || len(m.Name) > 160 || strings.ContainsAny(m.Name, "\x00\r\n") || len(m.Files) > MaxFiles {
 		return errors.New("некорректный манифест сборки")
@@ -192,6 +200,10 @@ func Scan(ctx context.Context, root string, m Manifest, cache string) (Snapshot,
 // Runtime config/cache files must not affect the inventory used for joining.
 func ScanMods(ctx context.Context, root string, m Manifest) (Snapshot, error) {
 	return scanFolders(ctx, root, m, "", []string{"mods"})
+}
+
+func ScanSharedMods(ctx context.Context, root string, m Manifest, cache string) (Snapshot, error) {
+	return scanFolders(ctx, root, m, cache, []string{"mods"})
 }
 
 func scanFolders(ctx context.Context, root string, m Manifest, cache string, folders []string) (Snapshot, error) {

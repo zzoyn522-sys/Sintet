@@ -1,6 +1,6 @@
 (() => {
  const q=s=>document.querySelector(s);
- let api,activeKey='',last='',pollTask,starting=false,elyBusy=false;
+ let api,activeKey='',last='',pollTask,starting=false,elyBusy=false,identitySummary=null;
  const addDialog=q('#account-add-dialog');
  const microsoftDialog=q('#microsoft-device-dialog');
  const microsoftButton=q('#microsoft-login');
@@ -49,6 +49,8 @@
   q('.parameter-line .badge').textContent=online?label:'Offline';
   window.SintetAccount.setAccount(account,source,state.error||'');
   window.SintetAccountSwitcher.update(state);
+  identitySummary={provider:source,account:account?{id:account.id}:null};
+  window.dispatchEvent(new CustomEvent('sintet:identity',{detail:identitySummary}));
  }
  async function login(){if(starting||!api||offline())return;starting=true;showWait();try{await api.BeginSintetLogin();starting=false;await poll()}catch(e){wait.close();starting=false;toast(String(e))}}
  function showMicrosoftError(message){
@@ -99,6 +101,7 @@
  q('#ely-auth-form').onsubmit=async e=>{e.preventDefault();if(elyBusy)return;if(offline()){q('#ely-auth-error').textContent=window.SintetNetwork.message;return;}elyBusy=true;q('#ely-submit').textContent='Входим…';q('#ely-auth-error').textContent='';elyDialog.querySelectorAll('input,button').forEach(el=>el.disabled=true);try{await api.LoginEly(q('#ely-username').value,q('#ely-password').value,q('#ely-totp').value);q('#ely-password').value='';q('#ely-totp').value='';elyDialog.close();await poll();if(!q('#account-dialog').open)q('#account-dialog').showModal();toast('Вход через Ely.by выполнен')}catch(error){const message=String(error);if(message.includes('ELY_TWO_FACTOR_REQUIRED')){q('#ely-totp-group').hidden=false;q('#ely-totp').required=true;q('#ely-auth-error').textContent='Аккаунт защищён. Введите код из приложения.'}else q('#ely-auth-error').textContent=message}finally{elyBusy=false;elyDialog.querySelectorAll('input,button').forEach(el=>el.disabled=false);q('#ely-submit').textContent='Войти через Ely.by';if(!q('#ely-totp-group').hidden)q('#ely-totp').focus()}};
  window.SintetIdentity={
   login,loginEly,
+  current:()=>identitySummary,
   async saveLocalNickname(name){
    const key=activeKey||'local-default';
    if(key==='local-default'){

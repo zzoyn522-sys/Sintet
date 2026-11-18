@@ -140,7 +140,7 @@ func (c *Client) requestOnce(ctx context.Context, method, path, token string, bo
 	}
 	base := c.base
 	useSessionService := path == "/api/launcher/session" && c.base != "http://127.0.0.1:3033"
-	if (useSessionService || path == "/api/launcher/update" || strings.HasPrefix(path, "/api/social")) && c.ServiceBase != "" {
+	if (useSessionService || path == "/api/launcher/update" || path == "/api/shared-builds" || strings.HasPrefix(path, "/api/social")) && c.ServiceBase != "" {
 		base = strings.TrimRight(c.ServiceBase, "/")
 	}
 	r, e := http.NewRequestWithContext(ctx, method, base+path, data)
@@ -163,7 +163,7 @@ func (c *Client) requestOnce(ctx context.Context, method, path, token string, bo
 		if response.StatusCode == 408 || response.StatusCode == 429 || response.StatusCode >= 500 {
 			return &serviceError{message: "сервис Sintet ID временно недоступен", method: method, route: path, cause: fmt.Errorf("HTTP %d", response.StatusCode), temporary: true}
 		}
-		if strings.HasPrefix(path, "/api/social") {
+		if strings.HasPrefix(path, "/api/social") || path == "/api/shared-builds" {
 			var problem struct {
 				Error string `json:"error"`
 			}
@@ -180,6 +180,9 @@ func (c *Client) requestOnce(ctx context.Context, method, path, token string, bo
 		}
 		if strings.HasPrefix(path, "/api/social") {
 			limit = 256 << 10
+		}
+		if path == "/api/shared-builds" {
+			limit = 3 << 20
 		}
 		var payload json.RawMessage
 		err := json.NewDecoder(io.LimitReader(response.Body, limit)).Decode(&payload)
@@ -213,7 +216,8 @@ func (c *Client) UpdateOffer(ctx context.Context) (json.RawMessage, error) {
 func (c *Client) SocialRequest(ctx context.Context, method, path string, body, out any) error {
 	coverRequest := method == http.MethodGet && strings.HasPrefix(path, "/api/social/music-cover?")
 	traceRequest := method == http.MethodPost && path == "/api/social/ice-trace"
-	if path != "/api/social" && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest {
+	usageRequest := method == http.MethodGet && path == "/api/social/turn-usage"
+	if path != "/api/social" && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest && !usageRequest {
 		return errors.New("invalid social route")
 	}
 	c.mu.Lock()
@@ -224,6 +228,17 @@ func (c *Client) SocialRequest(ctx context.Context, method, path string, body, o
 	token := c.credential.Token
 	c.mu.Unlock()
 	return c.request(ctx, method, path, token, body, out)
+}
+
+func (c *Client) SharedBuildRequest(ctx context.Context, accountID string, body, out any) error {
+	c.mu.Lock()
+	if c.credential == nil || c.credential.Account.ID != accountID {
+		c.mu.Unlock()
+		return errors.New("аккаунт изменился")
+	}
+	token := c.credential.Token
+	c.mu.Unlock()
+	return c.requestOnce(ctx, http.MethodPost, "/api/shared-builds", token, body, out)
 }
 func (c *Client) Verify(ctx context.Context) (*Account, error) {
 	c.verifyMu.Lock()

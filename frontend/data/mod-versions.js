@@ -7,6 +7,13 @@ export function preferredTarget(targets,selected,project){
  const compatible=t=>t&&project.games.includes(t.game)&&(project.kind==='resources'||project.loaders.includes(t.loader));
  return compatible(selected)?selected:targets.find(compatible)||selected;
 }
+export function installationTargets(targets,project,game,loader){
+ const resource=project.kind==='resources'||project.kind==='shaders';
+ return targets.filter(target=>{
+  if(target.game===game&&(resource||target.loader===loader))return true;
+  return !resource&&target.sharedId&&project.games.includes(target.game)&&project.loaders.includes(target.loader);
+ });
+}
 export function orderModVersions(versions){
  const rank={release:0,beta:1,alpha:2};
  return [...versions].sort((a,b)=>(rank[a.release]??0)-(rank[b.release]??0));

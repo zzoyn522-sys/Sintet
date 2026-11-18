@@ -31,7 +31,6 @@ type journalRule struct {
 	match             *regexp.Regexp
 }
 
-// Local signatures follow the problem/evidence/solution approach of Aternos Codex.
 // Keep specific causes ahead of downstream exceptions.
 var journalRules = []journalRule{
 	{"bridge-forge", "Конфликт Java-моста Sintet и Forge", "Проверьте, установлена ли последняя версия Sintet. Если сбой повторится, приложите эту строку и версию Forge к сообщению об ошибке.", regexp.MustCompile(`(?i)EventSubclassTransformer[^\n]{0,200}level="ERROR"[^\n]{0,100}Sintet game bridge|Could not find parent [^\n]{0,600}on thread Thread\[Sintet game bridge`)},

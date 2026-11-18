@@ -4,12 +4,17 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -182,5 +187,84 @@ func TestRemoveDisabledCatalogPackClearsRegistry(t *testing.T) {
 	}
 	if files, err := os.ReadDir(filepath.Join(dir, "resourcepacks")); err != nil || len(files) != 0 {
 		t.Fatalf("deleted pack left files behind: %v, %v", files, err)
+	}
+}
+
+func TestForgeModIDsExcludeDependenciesAndReadAllDeclaredMods(t *testing.T) {
+	path := writeLocalArchive(t, t.TempDir(), "Controlling.jar", map[string]string{
+		"META-INF/mods.toml": `modLoader="javafml"
+[[mods]]
+modId="controlling"
+displayName="Controlling"
+[[dependencies.controlling]]
+modId="searchables"
+mandatory=true
+[[dependencies.controlling]]
+modId="forge"
+[[mods]]
+modId="additional_mod"
+[[dependencies.additional_mod]]
+modId="minecraft"
+`,
+	})
+	ids := modIDs(path)
+	if len(ids) != 2 || ids[0] != "controlling" || ids[1] != "additional_mod" {
+		t.Fatalf("dependencies were interpreted as provided mods: %v", ids)
+	}
+}
+
+func TestFreshForgeInstanceInstallsDependencyFromSameBatch(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := writeLocalArchive(t, dir, "Controlling.jar", map[string]string{
+		"META-INF/mods.toml": "[[mods]]\nmodId=\"controlling\"\n[[dependencies.controlling]]\nmodId=\"searchables\"\nmandatory=true\n",
+	})
+	depPath := writeLocalArchive(t, dir, "Searchables.jar", map[string]string{
+		"META-INF/mods.toml": "[[mods]]\nmodId=\"searchables\"\n[[dependencies.searchables]]\nmodId=\"forge\"\n",
+	})
+	main, _ := os.ReadFile(mainPath)
+	dependency, _ := os.ReadFile(depPath)
+	files := map[string][]byte{"controlling": main, "searchables": dependency}
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		switch {
+		case len(id) == 2 && id[0] == "project":
+			json.NewEncoder(w).Encode(map[string]any{"id": id[1], "title": id[1], "game_versions": []string{"1.21.1"}, "loaders": []string{"forge"}})
+		case len(id) == 2 && id[0] == "version":
+			data := files[id[1]]
+			sum := sha512.Sum512(data)
+			deps := []map[string]string{}
+			if id[1] == "controlling" {
+				deps = append(deps, map[string]string{"project_id": "searchables", "version_id": "searchables", "dependency_type": "required"})
+			}
+			json.NewEncoder(w).Encode(map[string]any{
+				"id": id[1], "project_id": id[1], "name": id[1], "game_versions": []string{"1.21.1"}, "loaders": []string{"forge"}, "dependencies": deps,
+				"files": []map[string]any{{"filename": id[1] + ".jar", "url": server.URL + "/file/" + id[1], "size": len(data), "hashes": map[string]string{"sha512": hex.EncodeToString(sum[:])}}},
+			})
+		case len(id) == 2 && id[0] == "file":
+			w.Write(files[id[1]])
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	catalog := New("")
+	catalog.Modrinth = server.URL
+	manager := NewManager(catalog)
+	target := Target{ID: "new-instance", Game: "1.21.1", Loader: "forge", Directory: t.TempDir()}
+	plan, err := manager.Prepare(context.Background(), "modrinth", "controlling", "controlling", target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Start(context.Background(), plan.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if state := waitInstall(t, manager); state.Error != "" {
+		t.Fatal("a dependency in the same batch was mistaken for an installed duplicate:", state.Error)
+	}
+	for id := range files {
+		if _, err := os.Stat(filepath.Join(target.Directory, "mods", id+".jar")); err != nil {
+			t.Fatal("missing mod in the new instance", err)
+		}
 	}
 }

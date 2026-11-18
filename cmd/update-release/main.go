@@ -18,6 +18,7 @@ import (
 type payload struct {
 	Version  string   `json:"version"`
 	Channel  string   `json:"channel,omitempty"`
+	Beta     bool     `json:"beta,omitempty"`
 	Notes    []string `json:"notes,omitempty"`
 	URL      string   `json:"url"`
 	SHA256   string   `json:"sha256"`
@@ -34,12 +35,12 @@ func main() {
 	public := flag.Bool("public-key", false, "print the public key as lowercase hex")
 	initKey := flag.Bool("init-key", false, "generate a signing key if missing")
 	version := flag.String("version", "", "release version")
-	channel := flag.String("channel", "", "release channel: empty for stable, test for a targeted preview")
+	channel := flag.String("channel", "", "release channel: empty for stable, beta for a public beta, test for a targeted preview")
 	exe := flag.String("exe", "", "launcher executable to publish")
 	manifest := flag.String("manifest", "", "output signed manifest path")
 	verify := flag.String("verify", "", "verify an existing signed manifest")
 	flag.Parse()
-	if *channel != "" && *channel != "test" {
+	if *channel != "" && *channel != "test" && *channel != "beta" {
 		fatal("unsupported release channel")
 	}
 	if *keyPath == "" {
@@ -87,6 +88,10 @@ func main() {
 	}
 	sum := sha256.Sum256(data)
 	p := payload{Version: *version, Channel: *channel, URL: fmt.Sprintf("https://sintet-updates.zzoyn522.workers.dev/stable/Sintet-%s.exe", *version), SHA256: hex.EncodeToString(sum[:]), Size: int64(len(data)), Released: time.Now().UTC().Format(time.RFC3339)}
+	if *channel == "beta" {
+		// Installed launchers reject unknown channel values on the public feed.
+		p.Channel, p.Beta = "", true
+	}
 	raw, err := json.Marshal(p)
 	if err != nil {
 		fatal(err.Error())

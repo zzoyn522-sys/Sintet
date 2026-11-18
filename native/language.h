@@ -25,6 +25,9 @@ inline const char* OverlayText(const char* russian) {
  const int language=OverlayLanguage();
  if(language==1)return russian;
  static const std::unordered_map<std::string,std::array<const char*,5>> text={
+  {"КБ", {"KB", "КБ", "КБ", "KB", "KB"}},
+  {"МБ", {"MB", "МБ", "МБ", "MB", "MB"}},
+  {"ГБ", {"GB", "ГБ", "ГБ", "GB", "GB"}},
   {"Без доступа к интернету", {"Without internet access", "Без доступа к интернету", "Без доступу до Інтернету", "Sem acesso à internet", "Sin acceso a internet"}},
   {"В игре", {"In the game", "В игре", "У грі", "No jogo", "en el juego"}},
   {"Войдите в аккаунт Sintet ID в лаунчере", {"Log in to your Sintet ID account in the launcher", "Войдите в аккаунт Sintet ID в лаунчере", "Увійдіть до облікового запису Sintet ID у лаунчері", "Faça login na sua conta Sintet ID no inicializador", "Inicie sesión en su cuenta Sintet ID en el iniciador"}},
@@ -149,6 +152,9 @@ inline const char* OverlayText(const char* russian) {
   {"Minecraft не запустился; откройте журнал игры", {"Minecraft won't start; open the game log", "Minecraft не запустился; откройте журнал игры", "Minecraft не запустився; відкрийте журнал ігри", "O Minecraft não inicia; abra o log do jogo", "Minecraft no se inicia; abre el registro del juego"}},
   {"Восстанавливаем соединение", {"Reconnecting to the lobby", "Восстанавливаем соединение", "Відновлюємо з’єднання", "A restabelecer a ligação", "Reconectando a la sala"}},
   {"Подключаемся через ретранслятор", {"Connecting through a relay", "Подключаемся через ретранслятор", "Підключаємося через ретранслятор", "A ligar através de um retransmissor", "Conectando a través de un retransmisor"}},
+  {"Лимит TURN", {"TURN limit", "Лимит TURN", "Ліміт TURN", "Limite de TURN", "Límite de TURN"}},
+  {"Лимит TURN подключения закончился", {"TURN connection limit reached", "Лимит TURN подключения закончился", "Ліміт з’єднання TURN вичерпано", "Limite da ligação TURN atingido", "Se alcanzó el límite de conexión TURN"}},
+  {"Расход резервного подключения. Прямой P2P трафик в лимит не входит.", {"Backup connection usage. Direct P2P traffic does not count.", "Расход резервного подключения. Прямой P2P трафик в лимит не входит.", "Витрати резервного з’єднання. Прямий P2P трафік не враховується.", "Consumo da ligação de reserva. O tráfego P2P direto não conta.", "Consumo de la conexión de respaldo. El tráfico P2P directo no cuenta."}},
   {"Файлы хоста доступны только при прямом соединении", {"Host files require a direct connection", "Файлы хоста доступны только при прямом соединении", "Файли хоста доступні лише за прямого з’єднання", "Os ficheiros do anfitrião requerem uma ligação direta", "Los archivos del anfitrión requieren una conexión directa"}},
   {"Minecraft подключается к миру", {"Minecraft connects to the world", "Minecraft подключается к миру", "Minecraft підключається до світу", "Minecraft se conecta ao mundo", "Minecraft se conecta con el mundo"}},
   {"Minecraft уже запущен; открой мир для сети", {"Minecraft is already running; open the world to the network", "Minecraft уже запущен; открой мир для сети", "Minecraft вже запущено; відкрий світ для мережі", "O Minecraft já está em execução; abra o mundo para a rede", "Minecraft ya está funcionando; abrir el mundo a la red"}},

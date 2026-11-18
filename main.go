@@ -45,7 +45,7 @@ func main() {
 	}
 	app := NewApp()
 	windowTitle := "Sintet"
-	if launcherChannel == "test" {
+	if launcherChannel == "test" || launcherChannel == "beta" {
 		windowTitle += " " + app.LauncherDisplayVersion()
 	}
 	startHidden := hasLauncherArg(os.Args[1:], "--startup") && app.settings.StartInTray
@@ -87,7 +87,7 @@ func main() {
 		Frameless:        true,
 		BackgroundColour: background,
 		AssetServer:      &assetserver.Options{Assets: assets, Middleware: app.serveLauncherAssets},
-		Windows:          &windows.Options{Theme: windows.Dark, WebviewUserDataPath: webviewPath, DisableWindowIcon: true, DisableFramelessWindowDecorations: !supportsRoundedWindow(), WebviewIsTransparent: nativeBackdrop, WindowIsTranslucent: nativeBackdrop, BackdropType: backdrop},
+		Windows:          &windows.Options{Theme: windows.Dark, WebviewUserDataPath: webviewPath, DisableFramelessWindowDecorations: !supportsRoundedWindow(), WebviewIsTransparent: nativeBackdrop, WindowIsTranslucent: nativeBackdrop, BackdropType: backdrop},
 	})
 	if err != nil {
 		println(err.Error())

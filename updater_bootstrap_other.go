@@ -9,3 +9,4 @@ func startPrelaunchUpdater() error {
 }
 func runTargetedBootstrap(string) error { return errors.New("Windows only") }
 func showTargetedBootstrapError(error)  {}
+func refreshLauncherShortcutIcon()      {}

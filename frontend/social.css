@@ -67,13 +67,18 @@
 
 .friends-panel footer #friends-error.is-reconnecting{color:#939393}
 
-.launcher-invitation {
-  --wails-draggable: no-drag;
+.launcher-invitations {
   position: fixed;
   z-index: 12;
   top: 11px;
   left: 50%;
   transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.launcher-invitation {
+  --wails-draggable: no-drag;
   width: max-content;
   max-width: min(560px, calc(100vw - 26px));
   display: grid;
@@ -88,7 +93,7 @@
   animation: launcher-invitation-in .26s cubic-bezier(.22,.8,.24,1) both;
 }
 .launcher-invitation[hidden] {display: none}
-.launcher-invitation .friend-avatar {width: 37px; height: 37px; border-radius: 9px}
+.launcher-invitation :is(.friend-avatar,.shared-person-avatar) {width: 37px; height: 37px; border-radius: 9px}
 .launcher-invitation-copy {display: grid; min-width: 0; gap: 4px}
 .launcher-invitation-copy strong {font-size: 14px; font-weight: 700}
 .launcher-invitation-copy span {display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; color: #b4b4b4; font-size: 12px}
@@ -101,8 +106,8 @@
 .launcher-invitation-actions button:disabled {opacity: .45}
 .launcher-invitation-spinner {width: 17px; height: 17px; margin: 0 9px; border: 2px solid #525252; border-top-color: #a9c8b1; border-radius: 50%; animation: launcher-invitation-spin .8s linear infinite}
 @keyframes launcher-invitation-in {
-  from {opacity: 0; transform: translate(-50%,-10px)}
-  to {opacity: 1; transform: translate(-50%,0)}
+  from {opacity: 0; transform: translateY(-10px)}
+  to {opacity: 1; transform: translateY(0)}
 }
 @keyframes launcher-invitation-spin {to {transform: rotate(360deg)}}
 @media(prefers-reduced-motion: reduce) {.launcher-invitation,.launcher-invitation-spinner {animation: none}}
@@ -119,3 +124,16 @@
 #lobby-reconnect{padding:9px 12px;border-radius:8px;background:#292929;color:#dedede;font-size:12px}
 #lobby-reconnect[hidden]{display:none}
 .lobby-pack.pack-error>p{display:block;grid-column:1/-1;margin-top:4px}.lobby-pack.pack-error .pack-sync-button{grid-row:1;max-width:145px}
+.turn-meter[hidden],.turn-meter [hidden],.turn-notice[hidden]{display:none}
+.turn-meter-lobby{padding:10px 12px;margin:0 0 10px;border-radius:var(--appearance-panel-radius,10px);background:rgba(255,255,255,.055)}
+.turn-meter-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13px}
+.turn-meter-value,.turn-meter-reset{font-size:11px;color:var(--appearance-muted,#aaa);font-variant-numeric:tabular-nums}
+.turn-meter-progress{display:block;appearance:none;width:100%;height:5px;margin:9px 0;border:0;border-radius:10px;overflow:hidden}
+.turn-meter-progress::-webkit-progress-bar{background:rgba(127,127,127,.27)}
+.turn-meter-progress::-webkit-progress-value{background:var(--appearance-accent,#8ac9a4);border-radius:10px;transition:width .25s ease}
+.turn-meter-exhausted .turn-meter-progress::-webkit-progress-value{background:#ef9c83}
+.turn-meter-hint,.turn-meter-reset,.turn-subscription p{margin:6px 0 0;font-size:11px;line-height:1.55}
+.turn-meter-hint,.turn-subscription p{opacity:.72}
+.turn-subscription{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;padding:11px 13px;border-radius:10px;background:rgba(127,127,127,.11);font-size:12px}
+.turn-subscription-badge{padding:4px 8px;border-radius:6px;background:rgba(127,127,127,.19);font-size:10px;white-space:nowrap}
+.launcher-invitation.turn-notice{border:1px solid rgba(218,145,91,.4);padding:12px 16px;font-size:13px;line-height:1.4}

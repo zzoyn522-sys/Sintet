@@ -21,6 +21,7 @@ std::wstring hostname=L"127.0.0.1",authorization;
 INTERNET_PORT port;
 struct Command {std::string action,target;};
 std::deque<Command> commands;
+ULONGLONG autoConnectPendingUntil=0;
 struct AvatarEntry {std::string pixels;ULONGLONG nextAttempt=0;};
 std::unordered_map<std::string,AvatarEntry> avatars;
 std::deque<Person> avatarQueue;
@@ -64,14 +65,25 @@ DWORD WINAPI poll(void*) {
    state.reconnecting=value.value("reconnecting",false);
    state.busy=commandBusy||value.value("busy",false);state.enabled=value.value("enabled",false);state.offline=value.value("offline",false);state.error=value.value("error","");state.connection=value.value("connection","");
    state.leader=value.value("leader",false);state.gameReady=value.value("gameReady",false);state.gameJoining=value.value("gameJoining",false);state.lanPort=value.value("lanPort",0);state.localPort=value.value("localPort",0);state.connected=value.value("connected",0);state.host=value.value("hostName","");
-   state.worldReady=value.value("worldReady",false);state.autoConnect=value.value("autoConnect",false);state.inWorld=value.value("inWorld",false);
+   state.worldReady=value.value("worldReady",false);state.inWorld=value.value("inWorld",false);
    state.preGameLobby=value.value("preGameLobby",false);
+   state.turnActive=value.value("turnActive",false);
+   state.turnNotice=value.value("turnNotice",0LL);
+   const auto usage=value.value("turnUsage",Json());
+   state.turnUsed=usage.is_object()?usage.value("used",0LL):0;
+   state.turnLimit=usage.is_object()?usage.value("limit",0LL):0;
    state.quality=linkQuality(value.value("quality",Json()));
    state.networkPeers.clear();
    if(value.contains("networkPeers")&&value["networkPeers"].is_array())for(const auto& row:value["networkPeers"]){
     if(row.is_object()&&state.networkPeers.size()<4)state.networkPeers.push_back({row.value("name",""),linkQuality(row)});
    }
-   state.room=value.contains("room")&&value["room"].is_object()?value["room"].value("code",""):"";
+   const auto room=value.contains("room")&&value["room"].is_object()?value["room"].value("code",""):"";
+   const bool automatic=value.value("autoConnect",false);
+   if(room!=state.room||state.inWorld||GetTickCount64()>=autoConnectPendingUntil||automatic==state.autoConnect){
+    state.autoConnect=automatic;
+    autoConnectPendingUntil=0;
+   }
+   state.room=room;
    const auto pack=value.value("pack",Json());
    state.packPhase.clear();state.packDigest.clear();state.packError.clear();
    if(pack.is_object()){
@@ -117,7 +129,10 @@ DWORD WINAPI actions(void*) {
   }
   if(!found){Sleep(100);continue;}
   auto result=request(true,L"/action",Json{{"action",command.action},{"target",command.target}}.dump());
-  try{std::lock_guard<std::mutex> lock(mutex);commandBusy=false;state.busy=false;if(result.contains("error"))state.error=result.value("error","");
+  try{std::lock_guard<std::mutex> lock(mutex);commandBusy=false;state.busy=false;if(result.contains("error")){
+   state.error=result.value("error","");
+   if(command.action=="auto-connect")autoConnectPendingUntil=0;
+  }
   }catch(...){std::lock_guard<std::mutex> lock(mutex);commandBusy=false;state.busy=false;state.error=OverlayText("Действие не выполнено");}
  }
  return 0;
@@ -135,7 +150,15 @@ std::string AvatarPixels(const Person& person){
  return entry.pixels;
 }
 State Snapshot(){std::lock_guard<std::mutex> lock(mutex);return state;}
-void Action(const std::string& action,const std::string& target){std::lock_guard<std::mutex> lock(mutex);if(commands.size()<8)commands.push_back({action,target});}
+void Action(const std::string& action,const std::string& target){
+ std::lock_guard<std::mutex> lock(mutex);
+ if(commands.size()>=8)return;
+ if(action=="auto-connect"){
+  state.autoConnect=target=="true";
+  autoConnectPendingUntil=GetTickCount64()+5000;
+ }
+ commands.push_back({action,target});
+}
 void Start(){
  char address[64]={0},secret[65]={0};GetEnvironmentVariableA("SINTET_OVERLAY_IPC",address,sizeof(address));GetEnvironmentVariableA("SINTET_OVERLAY_IPC_SECRET",secret,sizeof(secret));
  const std::string value(address);if(value.rfind("127.0.0.1:",0)!=0||strlen(secret)!=64)return;

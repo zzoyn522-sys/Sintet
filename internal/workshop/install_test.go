@@ -82,6 +82,37 @@ func waitInstall(t *testing.T, m *Manager) InstallState {
 	t.Fatal("installation did not finish")
 	return InstallState{}
 }
+
+func TestSharedCatalogueUsesDraftAndStagesOnlyMissingMods(t *testing.T) {
+	manager, server, _ := fixture(t)
+	directory := t.TempDir()
+	target := Target{ID: "leader-instance", Game: "1.21.1", Loader: "fabric", Directory: directory, SharedID: "shared-build"}
+	mods := []Installed{{Provider: "modrinth", Project: "dep", Filename: "dep.jar", URL: server.URL + "/download/dep.jar"}}
+	plan, err := manager.PrepareSharedMod(t.Context(), "modrinth", "root", "root-v", target, 4, mods)
+	if err != nil || len(plan.Entries) != 2 || !plan.Entries[1].Installed {
+		t.Fatal("existing draft dependency was not recognized", err)
+	}
+	if err := manager.StartWithCommit(t.Context(), plan.ID, true, func(_ context.Context, plan Plan, staging string) error {
+		if plan.Target.SharedID != target.SharedID || plan.DraftVersion != 4 || len(plan.Entries) != 1 {
+			t.Error("wrong draft or download batch")
+		}
+		if _, err := os.Stat(filepath.Join(staging, "mods", "root.jar")); err != nil {
+			t.Error("download missing from staging", err)
+		}
+		if _, err := os.Stat(filepath.Join(staging, "mods", "dep.jar")); !os.IsNotExist(err) {
+			t.Error("downloaded a dependency already in the draft")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if state := waitInstall(t, manager); state.Error != "" || state.Percent != 100 {
+		t.Fatal("shared installation did not commit", state)
+	}
+	if _, err := os.Stat(filepath.Join(directory, "mods")); !os.IsNotExist(err) {
+		t.Fatal("shared installation wrote into the leader's physical mods folder", err)
+	}
+}
 func TestRequiredDependenciesAndRealLocalFiles(t *testing.T) {
 	manager, _, _ := fixture(t)
 	target := Target{ID: "test", Game: "1.21.1", Loader: "fabric", Directory: t.TempDir()}

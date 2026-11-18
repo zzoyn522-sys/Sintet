@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +26,7 @@ type App struct {
 	cacheMu          sync.Mutex
 	internetOffline  atomic.Bool
 	social           *socialManager
+	sharedBuilds     *sharedBuildManager
 	overlayMu        sync.Mutex
 	overlay          *overlayBridge
 	overlayError     error
@@ -118,7 +120,10 @@ func (a *App) startup(ctx context.Context) {
 	if updateHealthMarker != "" {
 		_ = os.WriteFile(updateHealthMarker, []byte("ok"), 0600)
 	}
+	go refreshLauncherShortcutIcon()
 	a.workshop = newWorkshop(a.profiles.root)
+	a.workshop.Client.CurseForgeProxy = true
+	a.workshop.Client.HTTP.Transport = curseForgeTransport{app: a, base: http.DefaultTransport, key: a.workshop.Client.Key}
 	a.profileRefresh = make(chan struct{}, 1)
 	syncCtx, cancel := context.WithCancel(ctx)
 	a.syncCancel = cancel
@@ -136,6 +141,8 @@ func (a *App) startup(ctx context.Context) {
 		a.social.error(err)
 	}
 	go a.social.run()
+	a.sharedBuilds = newSharedBuildManager(a, syncCtx)
+	go a.sharedBuilds.pollTransfers()
 	go a.syncWorkshop(syncCtx)
 	go a.watchCatalogThemes(syncCtx)
 	go a.watchOverlay(syncCtx)
@@ -168,6 +175,9 @@ func (a *App) shutdown(ctx context.Context) {
 	a.draftFont = ""
 	a.removeUnusedAppearanceAsset(font)
 	a.appearanceMu.Unlock()
+	if a.sharedBuilds != nil {
+		a.sharedBuilds.closeHost()
+	}
 	if a.syncCancel != nil {
 		a.syncCancel()
 	}
@@ -231,9 +241,15 @@ func (a *App) Journal(revision string) (launcher.GameJournal, error) {
 	return service.Journal(revision)
 }
 func (a *App) Launch(id, name string) error {
+	if linked, err := a.launchLinkedBuild(id, name); linked {
+		return err
+	}
 	return a.launchInstance(id, name, 0, false, nil)
 }
-func (a *App) launchInstance(id, name string, quickPlayPort int, openLobby bool, queueBridgeJoin func()) error {
+func (a *App) launchInstance(id, name string, quickPlayPort int, openLobby bool, queueBridgeJoin func(bool)) error {
+	return a.launchSharedInstance(id, name, quickPlayPort, openLobby, queueBridgeJoin, "", false)
+}
+func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby bool, queueBridgeJoin func(bool), sharedOwner string, localCopy bool) error {
 	a.contentMu.Lock()
 	defer a.contentMu.Unlock()
 	if a.forceQuit.Load() {
@@ -247,13 +263,30 @@ func (a *App) launchInstance(id, name string, quickPlayPort int, openLobby bool,
 	if err := a.profileChangeAllowed(quickPlayPort > 0); err != nil {
 		return err
 	}
+	if (sharedOwner != "" || strings.HasPrefix(id, sharedProfilePrefix)) && quickPlayPort == 0 {
+		slot := a.profiles.find(a.profiles.active)
+		if sharedOwner == "" || slot == nil || slot.Provider != "sintet" || slot.sintet == nil {
+			return fmt.Errorf("открой общую сборку в мастерской")
+		}
+		if account := slot.sintet.SavedAccount(); account == nil || account.ID != sharedOwner {
+			return fmt.Errorf("аккаунт изменился")
+		}
+	}
 	var account *identity.Account
 	var accessToken, provider, authlibAPI, clientID, xuid string
 	if slot := a.profiles.find(a.profiles.active); slot != nil {
 		provider = slot.Provider
 		switch provider {
 		case "sintet":
-			verified, token, err := slot.sintet.GameIdentity(context.Background())
+			var verified *identity.Account
+			var token string
+			var err error
+			if !localCopy || !a.internetOffline.Load() {
+				verified, token, err = slot.sintet.GameIdentity(context.Background())
+			}
+			if localCopy && (a.internetOffline.Load() || identity.TemporaryServiceError(err)) {
+				verified, token, err = slot.sintet.SavedAccount(), "", nil
+			}
 			if err != nil {
 				return err
 			}
@@ -378,7 +411,7 @@ func (a *App) Installations() []launcher.InstalledProfile {
 	for _, build := range store.Builds {
 		builds[build.ID] = build
 	}
-	result := service.Installations()
+	result := withoutSharedInstallations(service.Installations())
 	for i := range result {
 		build := builds[result[i].ID]
 		result[i].Name, result[i].Icon = build.Name, build.Icon

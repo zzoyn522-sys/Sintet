@@ -204,7 +204,7 @@ func (s *Service) buildLaunch(r Receipt, name string, options LaunchOptions) (la
 		if options.QuickPlayPort < 1 || options.QuickPlayPort > 65535 {
 			return spec, fmt.Errorf("неверный порт P2P")
 		}
-		if options.QueueBridgeJoin == nil {
+		if options.QueueBridgeJoin == nil || supportsQuickPlay(r.Profile) {
 			game = appendQuickPlay(game, r.Profile, options.QuickPlayPort)
 		}
 	}
@@ -213,12 +213,19 @@ func (s *Service) buildLaunch(r Receipt, name string, options LaunchOptions) (la
 }
 func appendQuickPlay(args []string, profile Profile, port int) []string {
 	address := strconv.Itoa(port)
-	for _, value := range profile.Arguments.Game {
-		if strings.Contains(string(value), "--quickPlayMultiplayer") {
-			return append(args, "--quickPlayMultiplayer", "127.0.0.1:"+address)
-		}
+	if supportsQuickPlay(profile) {
+		return append(args, "--quickPlayMultiplayer", "127.0.0.1:"+address)
 	}
 	return append(args, "--server", "127.0.0.1", "--port", address)
+}
+
+func supportsQuickPlay(profile Profile) bool {
+	for _, value := range profile.Arguments.Game {
+		if strings.Contains(string(value), "--quickPlayMultiplayer") {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Receipt, name string, options LaunchOptions) {
@@ -339,7 +346,8 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 			}
 		}
 	}
-	if options.QueueBridgeJoin != nil && !bridgeEnabled && options.QuickPlayPort != 0 {
+	bridgeJoin := options.QueueBridgeJoin != nil && !supportsQuickPlay(r.Profile) && bridgeEnabled
+	if options.QueueBridgeJoin != nil && !supportsQuickPlay(r.Profile) && !bridgeEnabled && options.QuickPlayPort != 0 {
 		spec.Args = appendQuickPlay(spec.Args, r.Profile, options.QuickPlayPort)
 	}
 	cmd := exec.Command(spec.Java, spec.Args...)
@@ -380,8 +388,8 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	s.state.Stage = "Minecraft запущен"
 	s.cancel = nil
 	s.mu.Unlock()
-	if bridgeEnabled && options.QueueBridgeJoin != nil {
-		options.QueueBridgeJoin()
+	if options.QueueBridgeJoin != nil {
+		options.QueueBridgeJoin(bridgeJoin)
 	}
 	e = cmd.Wait()
 	redacted.Flush()

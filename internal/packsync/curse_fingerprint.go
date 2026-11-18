@@ -82,3 +82,17 @@ func curseFileFingerprint(ctx context.Context, path string, count uint32) (uint3
 	}
 	return hasher.sum(), nil
 }
+
+func CurseFingerprint(ctx context.Context, path string) (uint32, error) {
+	input, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	var count curseByteCounter
+	_, err = io.Copy(&count, contextInput{ctx, io.LimitReader(input, MaxMod+1)})
+	input.Close()
+	if err != nil {
+		return 0, err
+	}
+	return curseFileFingerprint(ctx, path, count.n)
+}

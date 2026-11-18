@@ -1,6 +1,12 @@
 # Local toolchains, generated binaries and release output
 /_tools/
-/.codex-build-cache/
+/*-build-cache/
+/README.md
+/frontend/components/README.md
+/installer/README.md
+/native/README.md
+/SLDCFG.md
+/native/P2P.md
 /build/
 /Release/
 /bridge/classes/

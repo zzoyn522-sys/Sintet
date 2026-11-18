@@ -20,12 +20,18 @@ func TestP2PQuickPlayUsesOnlyLoopbackAndRetainsLegacySupport(t *testing.T) {
 	if strings.Count(args, "--quickPlayMultiplayer") != 1 || !strings.Contains(args, "--quickPlayMultiplayer 127.0.0.1:31234") || strings.Contains(args, "${") {
 		t.Fatal(spec.Args)
 	}
+	options.QueueBridgeJoin = func(bool) {}
+	spec, err = service.buildLaunch(r, "Player", options)
+	if err != nil || strings.Count(strings.Join(spec.Args, " "), "--quickPlayMultiplayer 127.0.0.1:31234") != 1 {
+		t.Fatal("modern Minecraft should receive one Quick Play destination even with a bridge", spec.Args, err)
+	}
+	options.QueueBridgeJoin = nil
 	r.Profile.Arguments.Game = rawStrings("--username", "${auth_player_name}")
 	spec, err = service.buildLaunch(r, "Player", options)
 	if err != nil || !strings.Contains(strings.Join(spec.Args, " "), "--server 127.0.0.1 --port 31234") {
 		t.Fatal(spec.Args, err)
 	}
-	options.QueueBridgeJoin = func() {}
+	options.QueueBridgeJoin = func(bool) {}
 	spec, err = service.buildLaunch(r, "Player", options)
 	if err != nil || strings.Contains(strings.Join(spec.Args, " "), "--server 127.0.0.1") {
 		t.Fatal("bridge launch attempted a second connection via command-line flags", spec.Args, err)

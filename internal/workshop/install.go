@@ -27,11 +27,14 @@ import (
 )
 
 type Target struct {
-	ID        string `json:"id"`
-	Name      string `json:"name,omitempty"`
-	Game      string `json:"game"`
-	Loader    string `json:"loader"`
-	Directory string `json:"directory"`
+	ID               string `json:"id"`
+	Name             string `json:"name,omitempty"`
+	Game             string `json:"game"`
+	Loader           string `json:"loader"`
+	Directory        string `json:"directory"`
+	SharedID         string `json:"sharedId,omitempty"`
+	ReadOnly         string `json:"readOnly,omitempty"`
+	RequiresApproval bool   `json:"requiresApproval,omitempty"`
 }
 type PlanEntry struct {
 	Project   Project `json:"project"`
@@ -39,12 +42,13 @@ type PlanEntry struct {
 	Installed bool    `json:"installed"`
 }
 type Plan struct {
-	Kind     string      `json:"kind"`
-	ID       string      `json:"id"`
-	Target   Target      `json:"target"`
-	Entries  []PlanEntry `json:"entries"`
-	Warnings []string    `json:"warnings"`
-	Created  time.Time   `json:"-"`
+	Kind         string      `json:"kind"`
+	ID           string      `json:"id"`
+	Target       Target      `json:"target"`
+	Entries      []PlanEntry `json:"entries"`
+	Warnings     []string    `json:"warnings"`
+	Created      time.Time   `json:"-"`
+	DraftVersion int         `json:"-"`
 }
 type InstallState struct {
 	Busy    bool    `json:"busy"`
@@ -76,6 +80,9 @@ func (m *Manager) PlanTarget(id string) (Target, error) {
 	}
 	return p.Target, nil
 }
+
+type ModCommit func(context.Context, Plan, string) error
+
 func (m *Manager) Cancel() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -92,6 +99,8 @@ type Installed struct {
 	Name     string `json:"name"`
 	Hash     string `json:"sha256"`
 	Icon     string `json:"icon"`
+	SHA1     string `json:"-"`
+	URL      string `json:"-"`
 }
 
 func registry(dir string) (map[string]Installed, error) {
@@ -107,6 +116,20 @@ func registry(dir string) (map[string]Installed, error) {
 		return nil, errors.New("повреждён список установленных модов; существующие файлы сохранены")
 	}
 	return records, nil
+}
+
+func RegisteredMods(dir string) ([]Installed, error) {
+	records, err := registry(dir)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Installed, 0, len(records))
+	for _, record := range records {
+		if safeFilename(record.Filename) {
+			result = append(result, record)
+		}
+	}
+	return result, nil
 }
 func key(provider, id string) string { return provider + ":" + id }
 func fileHash(path string) (string, error) {
@@ -133,14 +156,34 @@ func installedFile(dir string, r Installed) bool {
 	return false
 }
 func (m *Manager) Prepare(ctx context.Context, provider, project, version string, target Target) (Plan, error) {
-	p := Plan{Target: target, Entries: []PlanEntry{}, Warnings: []string{}, Created: time.Now()}
 	if !contains([]string{"fabric", "forge", "neoforge", "quilt"}, target.Loader) || target.Game == "" || !filepath.IsAbs(target.Directory) {
-		return p, errors.New("выберите установленную сборку с модлоадером")
+		return Plan{}, errors.New("выберите установленную сборку с модлоадером")
 	}
 	records, err := registry(target.Directory)
 	if err != nil {
-		return p, err
+		return Plan{}, err
 	}
+	return m.prepareMod(ctx, provider, project, version, target, 0, func(provider, project string) Installed {
+		record := records[key(provider, project)]
+		if installedFile(target.Directory, record) {
+			return record
+		}
+		return Installed{}
+	})
+}
+
+func (m *Manager) PrepareSharedMod(ctx context.Context, provider, project, version string, target Target, draftVersion int, mods []Installed) (Plan, error) {
+	records := make(map[string]Installed, len(mods))
+	for _, mod := range mods {
+		records[key(mod.Provider, mod.Project)] = mod
+	}
+	return m.prepareMod(ctx, provider, project, version, target, draftVersion, func(provider, project string) Installed {
+		return records[key(provider, project)]
+	})
+}
+
+func (m *Manager) prepareMod(ctx context.Context, provider, project, version string, target Target, draftVersion int, installed func(string, string) Installed) (Plan, error) {
+	p := Plan{Kind: "mods", Target: target, Entries: []PlanEntry{}, Warnings: []string{}, Created: time.Now(), DraftVersion: draftVersion}
 	seen := map[string]string{}
 	var visit func(string, string, bool) error
 	visit = func(id, versionID string, root bool) error {
@@ -195,8 +238,9 @@ func (m *Manager) Prepare(ctx context.Context, provider, project, version string
 		if v.URL == "" {
 			return fmt.Errorf("автор %s не разрешил автоматическое скачивание этого файла", info.Name)
 		}
-		current := records[key(provider, id)]
-		present := current.Version == v.ID && installedFile(target.Directory, current)
+		current := installed(provider, id)
+		present := current.Version == v.ID || target.SharedID != "" && current.Filename == v.Filename &&
+			(v.URL == current.URL || v.Hash != "" && (v.Algorithm == "sha1" && v.Hash == current.SHA1 || v.Algorithm == "sha256" && v.Hash == current.Hash))
 		p.Entries = append(p.Entries, PlanEntry{Project: info, Version: v, Installed: present})
 		for _, d := range v.Dependencies {
 			switch d.Kind {
@@ -208,7 +252,7 @@ func (m *Manager) Prepare(ctx context.Context, provider, project, version string
 					return err
 				}
 			case "incompatible":
-				if r, ok := records[key(provider, d.Project)]; ok && installedFile(target.Directory, r) {
+				if r := installed(provider, d.Project); r.Filename != "" {
 					return fmt.Errorf("%s несовместим с установленным %s", info.Name, r.Name)
 				}
 			case "optional":
@@ -221,7 +265,7 @@ func (m *Manager) Prepare(ctx context.Context, provider, project, version string
 		return p, err
 	}
 	var token [16]byte
-	if _, err = rand.Read(token[:]); err != nil {
+	if _, err := rand.Read(token[:]); err != nil {
 		return p, err
 	}
 	p.ID = hex.EncodeToString(token[:])
@@ -252,6 +296,10 @@ func allowedDownload(raw string) bool {
 	return u.Scheme == "https" && (u.Hostname() == "cdn.modrinth.com" || u.Hostname() == "edge.forgecdn.net" || u.Hostname() == "mediafilez.forgecdn.net" || u.Hostname() == "media.forgecdn.net")
 }
 func (m *Manager) Start(ctx context.Context, id string, withDependencies bool) error {
+	return m.StartWithCommit(ctx, id, withDependencies, nil)
+}
+
+func (m *Manager) StartWithCommit(ctx context.Context, id string, withDependencies bool, commit ModCommit) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state.Busy {
@@ -260,6 +308,9 @@ func (m *Manager) Start(ctx context.Context, id string, withDependencies bool) e
 	plan, ok := m.plans[id]
 	if !ok || time.Since(plan.Created) > 10*time.Minute {
 		return errors.New("план установки устарел; выберите мод заново")
+	}
+	if (plan.Target.SharedID != "") != (commit != nil) {
+		return errors.New("папка сборки изменилась; выберите мод заново")
 	}
 	delete(m.plans, id)
 	if !withDependencies && len(plan.Entries) > 1 {
@@ -270,7 +321,12 @@ func (m *Manager) Start(ctx context.Context, id string, withDependencies bool) e
 	m.state = InstallState{Busy: true, Stage: "Подготовка модов", Total: len(plan.Entries)}
 	go func() {
 		defer cancel()
-		err := m.install(run, plan)
+		var err error
+		if commit == nil {
+			err = m.install(run, plan)
+		} else {
+			err = m.installShared(run, plan, commit)
+		}
 		if err != nil && run.Err() != nil {
 			err = errors.New("установка отменена")
 		}
@@ -287,6 +343,31 @@ func (m *Manager) Start(ctx context.Context, id string, withDependencies bool) e
 		}
 	}()
 	return nil
+}
+
+func (m *Manager) installShared(ctx context.Context, plan Plan, commit ModCommit) error {
+	entries := make([]PlanEntry, 0, len(plan.Entries))
+	for _, entry := range plan.Entries {
+		if !entry.Installed {
+			entries = append(entries, entry)
+		}
+	}
+	if len(entries) == 0 {
+		return nil
+	}
+	staging, err := os.MkdirTemp("", "sintet-shared-mods-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(staging)
+	plan.Entries, plan.Target.Directory = entries, staging
+	if err := m.install(ctx, plan); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.state.Stage = "Синхронизация списка модов"
+	m.mu.Unlock()
+	return commit(ctx, plan, staging)
 }
 func (m *Manager) install(ctx context.Context, plan Plan) error {
 	if isZipPack(plan.Kind) {

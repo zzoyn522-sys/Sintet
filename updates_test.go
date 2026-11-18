@@ -32,6 +32,16 @@ func TestScopedReleasesStillRequireSignatureAndDoNotTreatCurrentStableAsAnError(
 	if _, err = parseSignedUpdate(encode(p)); err != nil {
 		t.Fatal(err)
 	}
+	p.Beta = true
+	beta, err := parseSignedUpdate(encode(p))
+	if err != nil || !beta.Beta || beta.Channel != "" || releaseVersionLabel(beta.Version, "beta") != "0.9.9.1 BETA" {
+		t.Fatal("public beta must keep the existing manifest format and show its label", beta, err)
+	}
+	p.Channel = "test"
+	if _, err = parseSignedUpdate(encode(p)); err == nil {
+		t.Fatal("accepted a manifest for both beta and test")
+	}
+	p.Beta = false
 	var envelope signedUpdateEnvelope
 	json.Unmarshal(encode(p), &envelope)
 	envelope.Signature = base64.StdEncoding.EncodeToString(make([]byte, 64))

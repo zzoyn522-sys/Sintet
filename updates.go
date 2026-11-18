@@ -38,6 +38,7 @@ type signedUpdateEnvelope struct {
 type updatePayload struct {
 	Version  string   `json:"version"`
 	Channel  string   `json:"channel,omitempty"`
+	Beta     bool     `json:"beta,omitempty"`
 	Notes    []string `json:"notes,omitempty"`
 	URL      string   `json:"url"`
 	SHA256   string   `json:"sha256"`
@@ -97,6 +98,9 @@ func (a *App) LauncherDisplayVersion() string {
 	return releaseVersionLabel(launcherVersion, launcherChannel)
 }
 func releaseVersionLabel(version, channel string) string {
+	if channel == "beta" {
+		return version + " BETA"
+	}
 	if channel == "test" {
 		parts := strings.Split(version, ".")
 		if len(parts) > 3 {
@@ -184,18 +188,35 @@ func (u *updateManager) check(ctx context.Context, accounts ...*identity.Client)
 	if err != nil {
 		return u.checkFailed(err)
 	}
-	if len(accounts) > 0 && accounts[0] != nil {
+	if launcherChannel == "test" {
+		// A TEST build follows only its account-scoped TEST offer. It must not
+		// silently switch to the public stable or BETA channel.
+		payload = updatePayload{Version: launcherVersion, Channel: "test"}
+		if len(accounts) > 0 && accounts[0] != nil {
+			private, offerErr := accounts[0].UpdateOffer(checkCtx)
+			if offerErr == nil && len(private) > 0 && string(private) != "null" {
+				candidate, validationErr := parseSignedUpdate(private)
+				if validationErr == nil && candidate.Channel == "test" && versionIsNewer(candidate.Version, launcherVersion) {
+					payload = candidate
+				}
+			}
+		}
+	} else if len(accounts) > 0 && accounts[0] != nil {
 		private, offerErr := accounts[0].UpdateOffer(checkCtx)
 		if offerErr == nil && len(private) > 0 && string(private) != "null" {
 			candidate, validationErr := parseSignedUpdate(private)
-			if validationErr == nil && versionIsNewer(candidate.Version, payload.Version) {
+			if validationErr == nil && candidate.Channel == "test" && versionIsNewer(candidate.Version, payload.Version) {
 				payload = candidate
 			}
 		}
 	}
 	u.mu.Lock()
 	u.payload = payload
-	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: releaseVersionLabel(payload.Version, payload.Channel), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion)}
+	channel := payload.Channel
+	if payload.Beta {
+		channel = "beta"
+	}
+	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: releaseVersionLabel(payload.Version, channel), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion)}
 	v := u.state
 	u.mu.Unlock()
 	return v
@@ -239,7 +260,7 @@ func (u *updateManager) checkFailed(err error) updateView {
 }
 
 func validUpdatePayload(p updatePayload) bool {
-	if p.Channel != "" && p.Channel != "test" {
+	if p.Channel != "" && (p.Channel != "test" || p.Beta) {
 		return false
 	}
 	if !versionIsNewer(p.Version, "0.0.0") || p.Size < 1 || p.Size > 350*1024*1024 || len(p.SHA256) != 64 {

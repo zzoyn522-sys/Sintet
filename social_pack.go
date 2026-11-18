@@ -94,7 +94,11 @@ func (m *socialManager) captureHostPack(ctx context.Context, profiles ...string)
 	if build, ok := m.app.workshopBuildByID(profile); ok {
 		name = build.Name
 	}
-	snapshot, err := packsync.Scan(ctx, directory, packMeta(info, name), m.packCache())
+	scan := packsync.Scan
+	if strings.HasPrefix(profile, sharedProfilePrefix) {
+		scan = packsync.ScanSharedMods
+	}
+	snapshot, err := scan(ctx, directory, packMeta(info, name), m.packCache())
 	if err != nil {
 		return snapshot, err
 	}
@@ -350,7 +354,7 @@ func (m *socialManager) connectPreparedPack(ctx context.Context) error {
 		}
 	}
 	m.updatePack(plan.epoch, "launching", "Запускаем Minecraft", 0, 0)
-	if err := m.app.launchInstance(profile, "Player", port, plan.fromInvite, func() { m.queueColdLobbyJoin(plan, port) }); err != nil {
+	if err := m.app.launchInstance(profile, "Player", port, plan.fromInvite, func(useBridge bool) { m.queueColdLobbyJoin(plan, port, useBridge) }); err != nil {
 		m.packFailure(plan.epoch, err)
 		return err
 	}
@@ -463,11 +467,11 @@ func (m *socialManager) syncPack(ctx context.Context, plan *guestPack) error {
 		options.Resolvers = []packsync.Resolver{packsync.ModrinthResolver{HTTP: client.HTTP, BaseURL: client.Modrinth}, packsync.CurseForgeResolver{HTTP: client.HTTP, BaseURL: client.CurseForge, Key: client.Key}}
 	}
 	var fetcher packsync.Fetcher = plan.peer
-	if plan.peer.Relayed() {
+	if !plan.peer.PackFilesAvailable() {
 		fetcher = nil
 	}
 	if err := packsync.DownloadWithOptions(ctx, plan.manifest, m.packCache(), fetcher, plan.local, func(name string, done, total int64) { m.updatePack(plan.epoch, "downloading", name, done, total) }, options); err != nil {
-		if plan.peer.Relayed() && errors.Is(err, packsync.ErrPeerFilesUnavailable) {
+		if !plan.peer.PackFilesAvailable() && errors.Is(err, packsync.ErrPeerFilesUnavailable) {
 			return errors.New("Файлы хоста доступны только при прямом соединении")
 		}
 		return err

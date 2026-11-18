@@ -92,8 +92,8 @@ func (a *App) PrepareShader(provider, project, version, targetID string) (worksh
 }
 func (a *App) prepareWorkshopZip(provider, project, version, targetID, kind string) (workshop.Plan, error) {
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	target, err := a.workshopTarget(targetID)
+	a.mu.RUnlock()
 	if err != nil {
 		return workshop.Plan{}, err
 	}
@@ -109,7 +109,7 @@ func (a *App) WorkshopTargets() ([]workshop.Target, error) {
 	a.mu.RUnlock()
 	names := a.buildNameMap()
 	result := []workshop.Target{}
-	for _, profile := range service.Installations() {
+	for _, profile := range withoutSharedInstallations(service.Installations()) {
 		dir, err := service.ProfileDirectory(profile.ID, mode)
 		if err != nil {
 			return nil, err
@@ -119,6 +119,9 @@ func (a *App) WorkshopTargets() ([]workshop.Target, error) {
 	return result, nil
 }
 func (a *App) workshopTarget(id string) (workshop.Target, error) {
+	if strings.HasPrefix(id, sharedProfilePrefix) {
+		return workshop.Target{}, errors.New("изменяй моды через общую сборку")
+	}
 	names := a.buildNameMap()
 	for _, profile := range a.service.Installations() {
 		if profile.ID == id {
@@ -129,9 +132,16 @@ func (a *App) workshopTarget(id string) (workshop.Target, error) {
 	return workshop.Target{}, errors.New("сборка не установлена")
 }
 func (a *App) PrepareMod(provider, project, version, targetID string) (workshop.Plan, error) {
+	if id := a.sharedWorkshopID(targetID); id != "" {
+		build, err := a.SharedBuildDetail(id)
+		if err != nil {
+			return workshop.Plan{}, err
+		}
+		return a.sharedBuilds.prepareWorkshopMod(a.sharedBuilds.ctx, a.workshop, build, targetID, provider, project, version)
+	}
 	a.mu.RLock()
-	defer a.mu.RUnlock()
 	target, err := a.workshopTarget(targetID)
+	a.mu.RUnlock()
 	if err != nil {
 		return workshop.Plan{}, err
 	}
@@ -140,28 +150,50 @@ func (a *App) PrepareMod(provider, project, version, targetID string) (workshop.
 func (a *App) InstallMod(planID string, dependencies bool) error {
 	a.contentMu.Lock()
 	defer a.contentMu.Unlock()
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	if state := a.service.State(); state.Busy || state.Running {
+	if state := a.State(); state.Busy || state.Running {
 		return errors.New("закройте игру и дождитесь установки Minecraft")
 	}
 	target, err := a.workshop.PlanTarget(planID)
 	if err != nil {
 		return err
 	}
-	current, err := a.workshopTarget(target.ID)
-	if err != nil || !strings.EqualFold(current.Directory, target.Directory) {
-		return errors.New("папка сборки изменилась; выберите мод заново")
-	}
 	ctx := a.ctx
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if target.SharedID != "" {
+		m := a.sharedBuilds
+		s, err := m.session()
+		if err != nil {
+			return err
+		}
+		return a.workshop.StartWithCommit(ctx, planID, dependencies, func(ctx context.Context, plan workshop.Plan, directory string) error {
+			return m.commitWorkshopMods(s, ctx, plan, directory)
+		})
+	}
+	if a.sharedWorkshopID(target.ID) != "" {
+		return errors.New("общий доступ к сборке изменился; выберите мод заново")
+	}
+	a.mu.RLock()
+	current, err := a.workshopTarget(target.ID)
+	a.mu.RUnlock()
+	if err != nil || !strings.EqualFold(current.Directory, target.Directory) {
+		return errors.New("папка сборки изменилась; выберите мод заново")
 	}
 	return a.workshop.Start(ctx, planID, dependencies)
 }
 func (a *App) ModInstallState() workshop.InstallState { return a.workshop.State() }
 func (a *App) CancelModInstall()                      { a.workshop.Cancel() }
 func (a *App) LocalWorkshop(targetID, kind string) ([]workshop.LocalItem, error) {
+	if kind == "mods" {
+		if id := a.sharedWorkshopID(targetID); id != "" {
+			build, err := a.SharedBuildDetail(id)
+			if err != nil {
+				return nil, err
+			}
+			return a.sharedWorkshopItems(build), nil
+		}
+	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	target, err := a.workshopTarget(targetID)
@@ -192,12 +224,22 @@ func (a *App) ToggleMod(targetID, filename string, enabled bool) error {
 }
 
 func (a *App) ToggleLocalWorkshopFile(targetID, kind, filename string, enabled bool) error {
+	if kind == "mods" {
+		if id := a.sharedWorkshopID(targetID); id != "" {
+			return a.changeSharedWorkshopMod(id, filename, "toggle", enabled)
+		}
+	}
 	return a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
 		return workshop.ToggleLocal(target.Directory, kind, filename, enabled)
 	})
 }
 
 func (a *App) RemoveLocalWorkshopFile(targetID, kind, filename string) error {
+	if kind == "mods" {
+		if id := a.sharedWorkshopID(targetID); id != "" {
+			return a.changeSharedWorkshopMod(id, filename, "remove", false)
+		}
+	}
 	return a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
 		return workshop.RemoveLocal(target.Directory, kind, filename)
 	})
@@ -225,6 +267,15 @@ func (a *App) PickLocalWorkshopFiles(targetID, kind string) (int, error) {
 }
 
 func (a *App) AddLocalWorkshopFiles(targetID, kind string, paths []string) (int, error) {
+	if kind == "mods" {
+		if id := a.sharedWorkshopID(targetID); id != "" {
+			build, err := a.SharedBuildDetail(id)
+			if err != nil {
+				return 0, err
+			}
+			return a.SharedBuildAddFiles(id, build.DraftVersion, paths)
+		}
+	}
 	var count int
 	err := a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
 		var err error
@@ -251,6 +302,22 @@ func (a *App) changeLocalWorkshop(targetID string, change func(workshop.Target) 
 func (a *App) OpenWorkshopFolder(targetID, kind string) error {
 	if kind != "mods" && kind != "resourcepacks" && kind != "shaderpacks" {
 		return errors.New("неизвестная папка")
+	}
+	if id, ok := strings.CutPrefix(targetID, sharedWorkshopPrefix); ok && sharedUUID(id) && kind == "mods" {
+		build, err := a.SharedBuildDetail(id)
+		if err != nil {
+			return err
+		}
+		if build.LocalProfile == nil {
+			return errors.New("сначала скачай ревизию сборки")
+		}
+		a.mu.RLock()
+		dir, err := a.service.ProfileDirectory(build.LocalProfile.ID, "profile")
+		a.mu.RUnlock()
+		if err != nil {
+			return err
+		}
+		return exec.Command("explorer.exe", filepath.Join(dir, kind)).Start()
 	}
 	a.mu.RLock()
 	target, err := a.workshopTarget(targetID)

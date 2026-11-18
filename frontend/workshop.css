@@ -198,8 +198,8 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 
 .ws-dialog.ws-build-manage[open] {
   display: flex;
-  width: 830px;
-  height: 540px;
+  width: 872px;
+  height: 572px;
   max-width: calc(100vw - 44px);
   max-height: calc(100dvh - 38px);
   padding: 0;
@@ -211,14 +211,15 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
   flex: none;
   align-items: center;
   gap: 12px;
-  padding: 20px 62px 16px 20px;
+  padding: 21px 62px 18px 23px;
+  border-bottom: 1px solid rgb(255 255 255 / 7%);
 }
-.ws-build-header .ws-build-manage-icon { width: 44px; height: 44px; flex: none; font-size: 20px; }
+.ws-build-header .ws-build-manage-icon { width: 48px; height: 48px; flex: none; font-size: 20px; }
 .ws-build-header > div:nth-child(2) { min-width: 0; }
 .ws-build-header span { color: #969696; font-size: 12px; }
 #ws-build-manage-title {
   margin: 0 0 3px;
-  font-size: 21px;
+  font-size: 23px;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -226,38 +227,44 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 }
 .ws-build-workspace {
   display: grid;
-  grid-template-columns: 146px minmax(0, 1fr);
+  grid-template-columns: 169px minmax(0, 1fr);
   flex: 1;
   min-height: 0;
-  gap: 14px;
-  padding: 0 20px 16px;
+  gap: 18px;
+  padding: 18px 22px 16px;
 }
 .ws-build-tabs {
   display: flex;
   flex-direction: column;
   align-self: start;
-  gap: 4px;
-  padding: 5px;
-  border-radius: 10px;
-  background: #1d1d1d;
+  gap: 5px;
+  padding: 7px;
+  border-radius: 12px;
+  background: #121212;
 }
 .ws-build-tabs button {
-  padding: 9px 10px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 39px;
+  padding: 8px 10px;
   border-radius: 7px;
   color: #aaa;
   font-size: 12px;
   font-weight: 650;
   text-align: left;
 }
+.ws-build-tabs svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 .ws-build-tabs button:hover { background: #282828; color: #eee; }
 .ws-build-tabs button[aria-selected=true] { background: #303030; color: #eee; }
-#ws-build-mod-tab-count { color: #aaa; font-variant-numeric: tabular-nums; }
+.ws-build-tabs button[hidden] { display: none; }
+#ws-build-mod-tab-count:not(:empty) { margin-left: auto; background: rgb(255 255 255 / 7%); border-radius: 5px; padding: 2px 5px; color: #aaa; font-size: 10px; font-variant-numeric: tabular-nums; }
 
 .ws-build-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 10px;
+  gap: 13px;
   padding: 0 4px 3px 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
@@ -274,17 +281,29 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
   flex-direction: column;
   gap: 9px;
 }
-.ws-build-control-card { min-width: 0; padding: 13px; border-radius: 11px; background: #202020; }
+.ws-build-control-card { min-width: 0; padding: 17px; border-radius: 12px; background: #1e1e1e; gap: 12px; }
 .ws-build-control-card > p { color: #a0a0a0; font-size: 12px; line-height: 1.6; margin: 0; }
 .ws-build-control-card .ws-build-variant > div { min-width: 0; overflow-wrap: anywhere; }
 .ws-build-control-card .ws-build-variant button { flex: none; }
+.ws-build-variant-info { display: flex; align-items: center; gap: 12px; }
+.ws-build-variant-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--build-control-radius);
+  background: var(--build-control);
+  color: var(--build-ink);
+}
+.ws-build-variant-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .ws-build-section-title, .ws-build-mod-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
 }
-.ws-build-section-title h2, .ws-build-mod-toolbar h2 { margin: 0; font-size: 13px; font-weight: 700; }
+.ws-build-section-title h2, .ws-build-mod-toolbar h2 { margin: 0; font-size: 14px; font-weight: 700; }
 .ws-build-section-title > span, .ws-build-section-title output { color: #aaa; font-size: 11px; }
 .ws-build-variant p, .ws-build-mod-toolbar > div > span {
   display: block;
@@ -340,7 +359,7 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 #ws-build-jvm-args { font-family: ui-monospace, Consolas, monospace; }
 
 .ws-build-mod-toolbar { flex-wrap: wrap; }
-.ws-build-panel > .ws-build-mod-search {
+.ws-build-panel .ws-build-mod-search {
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -427,8 +446,23 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 .ws-build-toggle[aria-checked=true] { background: #243027; color: #a6d2ae; }
 .ws-build-no-mods { padding: 15px; border-radius: 9px; background: #202020; color: #a0a0a0; font-size: 12px; line-height: 1.5; text-align: center; }
 
-.ws-build-manage > .ws-build-footer { align-items: center; padding: 12px 20px; border-top: 1px solid #272727; background: #181818; }
-#ws-build-manage-status { flex: 1; min-width: 0; color: #a5a5a5; font-size: 11px; overflow-wrap: anywhere; }
+.ws-build-manage > .ws-build-footer { align-items: center; min-height: 61px; padding: 10px 22px; border-top: 1px solid rgb(255 255 255 / 7%); background: #141414; }
+.ws-build-footer-copy { flex: 1; display: grid; min-width: 0; gap: 5px; }
+#ws-build-manage-status { color: #a5a5a5; font-size: 12px; overflow-wrap: anywhere; }
+#ws-build-manage-status:empty, #ws-build-shared-buttons:empty, #ws-build-shared-buttons[hidden] { display: none; }
+#ws-build-shared-actions .shared-build-footer { margin: 0; padding: 0; background: none; }
+.ws-build-settings-actions, #ws-build-shared-buttons, .shared-build-footer-buttons { display: flex; align-items: center; gap: 8px; }
+.ws-build-settings-actions { flex: none; margin-left: auto; }
+.ws-build-settings-actions button { height: 39px; padding: 0 13px; font-size: 12px; font-weight: 650; }
+.ws-build-settings-actions button:not(.primary,.shared-build-primary) { background: #252525; color: #ddd; }
+.ws-build-settings-actions button:not(.primary,.shared-build-primary):hover { background: #303030; }
+.ws-build-manage:is([data-active-build-tab=mods],[data-active-build-tab=access]) #ws-build-save { display: none; }
+.ws-local-pending { color: #d9c394; }
+@media(max-width: 720px) {
+ .ws-build-workspace { grid-template-columns: 135px minmax(0,1fr); gap: 12px; padding-inline: 15px; }
+ .ws-build-panel.ws-build-grid { grid-template-columns: minmax(0,1fr); }
+ .ws-build-manage > .ws-build-footer { padding-inline: 15px; }
+}
 .ws-build-footer > button { flex: none; }
 .ws-build-delete-dialog { width: min(430px, calc(100vw - 32px)); padding: 24px; }
 .ws-build-delete-dialog h2 { margin: 0 0 8px; font-size: 19px; }
@@ -569,3 +603,580 @@ html[data-launcher-panels] .ws-theme-gallery>footer,html[data-launcher-panels] .
 .ws-theme-dialog form footer .primary{padding:8px 15px;border-radius:8px}
 
 #ws-pack-name{width:100%;height:40px;box-sizing:border-box;border:0;border-radius:8px;background:#252525;color:#ddd;font:inherit;font-size:13px;padding:0 12px}.ws-dialog-pack #ws-dependencies{font-size:12px;line-height:1.6}.ws-dialog-pack #ws-dependencies>strong{display:block;color:#ccc;font-size:13px}.ws-dialog-pack #ws-dependencies>p{margin:6px 0 0}
+
+.shared-build-card .shared-build-icon {
+  background: #212c26;
+  color: #a7cfb2;
+}
+.shared-build-card .shared-build-actions {
+  flex: none;
+  justify-content: flex-end;
+}
+.ws-build-card-actions .ws-share-build {
+  min-width: 0;
+  background: #272727;
+  color: #ddd;
+}
+.ws-dialog.shared-build-dialog {
+  width: 850px;
+  height: min(570px, calc(100dvh - 32px));
+  padding: 0;
+  overflow: hidden;
+  background: var(--appearance-panel, #171717);
+}
+.ws-dialog.shared-build-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.shared-build-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  padding: 22px 68px 17px 24px;
+}
+.shared-build-header h1 { margin: 0 0 5px; font-size: 23px; overflow-wrap: anywhere; }
+.shared-build-meta { margin: 0; color: #a0a0a0; font-size: 12px; }
+.shared-build-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 11px;
+  background: #222c26;
+  color: #afd2b8;
+}
+.shared-build-tabs {
+  display: flex;
+  gap: 3px;
+  flex: none;
+  margin: 0 24px 9px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #202020;
+}
+.shared-build-tabs[hidden] { display: none; }
+.shared-build-tabs .ws-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 1;
+  background: transparent;
+  color: #aaa;
+}
+.shared-build-tabs .ws-action[aria-pressed=true] { background: #333; color: #f0f0f0; }
+.shared-build-count { color: #aaa; font-size: 10px; }
+.shared-build-dialog .account-close {
+  top: 19px;
+  right: 19px;
+}
+.shared-build-main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 24px 18px;
+  scrollbar-gutter: stable;
+}
+.shared-build-dialog:has(.ws-build-form), .shared-build-dialog:has(.shared-build-main > .shared-build-hint) {
+  width: min(480px, calc(100vw - 32px));
+  height: auto;
+}
+.shared-build-section {
+  display: grid;
+  gap: 12px;
+}
+.shared-build-section h2 {
+  margin: 0 0 2px;
+  font-size: 15px;
+}
+.shared-build-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.shared-build-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.shared-build-dialog .ws-action {
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #292929;
+  color: #e2e2e2;
+  font-size: 12px;
+  font-weight: 650;
+}
+.shared-build-dialog .ws-action:hover {
+  background: #333;
+}
+.shared-build-dialog .shared-build-primary {
+  background: #ebebeb;
+  color: #151515;
+}
+.shared-build-dialog .shared-build-primary:hover {
+  background: #fff;
+}
+.shared-build-dialog .shared-build-primary:disabled {
+  opacity: .45;
+}
+.shared-build-dialog .shared-build-delete,
+.shared-build-dialog .shared-build-review {
+  justify-self: start;
+  color: #e5b0ac;
+  background: #352727;
+}
+.shared-build-dialog .shared-build-review {
+  color: #d9c49b;
+  background: #302b22;
+}
+.shared-build-dialog .shared-build-mod .ws-build-toggle[aria-checked=true] {
+  background: #233328;
+  color: #acd2b5;
+}
+.shared-build-hint {
+  margin: 0;
+  color: #a4a4a4;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.shared-build-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+}
+.shared-build-search input,
+.shared-catalog :is(input, select) {
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #262626;
+  color: #eee;
+  font: inherit;
+  font-size: 12px;
+}
+.shared-build-results {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.shared-build-footer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 7px;
+  background: #1a1a1a;
+  padding: 12px 24px;
+}
+.shared-build-feedback:has(.shared-build-status:empty):has(progress[hidden]),
+.shared-build-footer-actions:has(.shared-build-footer-caption:empty):not(:has(button)) { display: none; }
+.shared-build-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.shared-build-footer-caption { color: #999; font-size: 12px; }
+.shared-build-footer-buttons:empty { display: none; }
+.shared-build-status {
+  color: #aaa;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.shared-build-footer progress {
+  width: 100%;
+  height: 4px;
+  accent-color: var(--appearance-accent, #eee);
+}
+.shared-catalog { display: grid; gap: 12px; }
+.shared-catalog-toolbar { display: flex; align-items: center; gap: 12px; }
+.shared-catalog-heading h2 { margin: 0 0 4px; font-size: 17px; }
+.shared-catalog-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.shared-catalog-search input { height: 41px; padding: 0 12px; font-size: 13px; }
+.shared-catalog-sources { display: flex; gap: 6px; flex-wrap: wrap; }
+.shared-catalog-sources .ws-action[aria-pressed=false] { background: #202020; color: #aaa; }
+.shared-catalog-sources .ws-action[data-source=modrinth][aria-pressed=true] { background: #24322a; color: #a7d6b2; }
+.shared-catalog-sources .ws-action[data-source=curseforge][aria-pressed=true] { background: #352a23; color: #f0af88; }
+.shared-catalog-columns { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.shared-catalog-results, .shared-catalog-list { display: grid; gap: 6px; }
+.shared-catalog-notice { margin: 0 0 4px; color: #aaa; font-size: 12px; line-height: 1.5; }
+.shared-catalog-notice:empty { display: none; }
+.shared-catalog .shared-catalog-project {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 37px minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  text-align: left;
+  background: #222;
+}
+.shared-catalog .shared-catalog-project[aria-pressed=true] { background: #303030; }
+.shared-catalog-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 37px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #343434;
+  color: #bbb;
+}
+.shared-catalog-icon img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.shared-catalog-project-info { display: grid; gap: 3px; min-width: 0; }
+.shared-catalog-project-info > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shared-catalog-project-info small { color: #999; font-size: 11px; }
+.shared-catalog-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.shared-catalog-tag { padding: 3px 5px; border-radius: 5px; font-size: 9px; }
+.shared-catalog-tag[data-source=modrinth] { background: #24322a; color: #a7d6b2; }
+.shared-catalog-tag[data-source=curseforge] { background: #352a23; color: #f0af88; }
+.shared-catalog-selection {
+  position: sticky;
+  top: 0;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 13px;
+  border-radius: 11px;
+  background: #202020;
+}
+.shared-catalog-selection h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.shared-catalog-version { display: grid; gap: 6px; color: #aaa; font-size: 12px; }
+.shared-catalog-version select { width: 100%; }
+
+@media (max-width: 620px) {
+  .shared-catalog-columns { grid-template-columns: 1fr; }
+  .shared-catalog-selection { position: static; grid-row: 1; }
+  .shared-build-mod {
+    flex-wrap: wrap;
+  }
+  .shared-build-mod .ws-build-mod-info {
+    flex-basis: 100%;
+  }
+}
+
+/* Shared builds keep the live list compact while actions stay aligned. */
+.shared-build-dialog .shared-build-mod {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 13px;
+  padding: 13px;
+  border-radius: 12px;
+  background: #202020;
+  align-items: start;
+}
+.shared-build-dialog .shared-build-mod[hidden] { display: none; }
+.shared-build-mod > .shared-catalog-icon { width: 46px; height: 46px; border-radius: 10px; margin-top: 2px; }
+.shared-build-dialog .shared-build-mod-info { gap: 5px; }
+.shared-build-dialog .shared-build-mod-info > strong { font-size: 14px; }
+.shared-build-dialog .shared-build-mod-info > span { font-size: 11px; color: #a1a1a1; }
+.shared-mod-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; max-width: 190px; }
+.shared-mod-controls > .shared-build-review { flex-basis: 100%; }
+.shared-mod-by { display: flex; align-items: center; gap: 5px; margin-top: 3px; color: #a7a7a7; font-size: 11px; }
+.shared-mod-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
+.shared-mod-state, .shared-mod-local { padding: 3px 6px; border-radius: 5px; font-size: 10px; color: #aaa; background: #292929; }
+.shared-mod-state[data-approved=true] { background: #243229; color: #acd2b5; }
+.shared-mod-state[data-approved=false] { background: #332d22; color: #d9c394; }
+.shared-person-avatar { position: relative; display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 10px; overflow: hidden; color: #ccc; background: #343434; font-size: 14px; font-weight: 650; }
+.shared-person-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.shared-person-avatar.small { width: 19px; height: 19px; border-radius: 6px; font-size: 9px; }
+.shared-build-dialog input.shared-mod-search { display: block; width: 100%; max-width: none; min-height: 36px; padding: 8px 12px; border: 0; outline: none; box-shadow: none; border-radius: 9px; font: inherit; font-size: 12px; color: #eee; background: #232323; }
+.shared-catalog-project-summary { color: #999; line-height: 1.4; }
+.shared-catalog .shared-catalog-project { padding: 11px; }
+.shared-catalog-project-info > strong { color: var(--build-ink,#ededed); font-size: 13px; }
+.shared-catalog-project-info .shared-catalog-project-summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; font-weight: 400; }
+.shared-build-dialog .shared-catalog-columns { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.shared-build-dialog .shared-catalog-tags { max-width: 76px; }
+.shared-build-dialog .shared-catalog-selection { padding: 16px; gap: 13px; }
+
+#ws-build-local-mods { display: grid; gap: 12px; }
+.shared-build-linked #ws-build-edit-variant,
+.shared-build-linked #ws-build-delete,
+.shared-build-external #ws-build-duplicate,
+.shared-build-unprepared #ws-build-panel-general { display: none; }
+.shared-build-embedded {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+.shared-build-embedded .shared-build-main { display: grid; gap: 14px; padding: 0; overflow: visible; }
+.shared-build-embedded .shared-build-tabs { margin: 0; }
+.shared-build-embedded .shared-build-tabs .ws-action { flex: 1; }
+.shared-build-embedded :is(.shared-build-section,.shared-build-availability) {
+  padding: 16px;
+}
+#ws-shared-mods .shared-build-section { padding: 0; }
+#ws-shared-mods .shared-build-section-heading { padding: 0 0 6px; }
+#ws-shared-mods .ws-build-mods { gap: 8px; }
+.shared-build-availability { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.shared-build-availability strong { display: block; color: #e5c8a9; font-size: 13px; }
+.shared-build-availability p { margin: 4px 0 0; color: #b6b6b6; font-size: 12px; }
+:is(.shared-build-embedded,#ws-build-shared-actions) .ws-action:not(.shared-catalog-project) {
+  min-height: 33px; min-width: 0; padding: 6px 10px;
+  font-size: 12px; font-weight: 650;
+}
+.ws-build-settings-actions .ws-action { min-height: 39px; }
+.shared-build-embedded .ws-action:hover:not(:disabled) { filter: brightness(1.14); }
+.shared-build-embedded .ws-action:disabled { opacity: .48; cursor: default; }
+.shared-build-embedded .shared-build-footer { background: none; padding: 0; }
+.shared-build-embedded .shared-build-footer-actions { flex-wrap: wrap; justify-content: flex-end; }
+.shared-build-embedded .shared-build-footer-caption { margin-right: auto; }
+.shared-build-embedded .shared-build-search { grid-template-columns: minmax(0,1fr); }
+.shared-build-embedded .shared-build-results:empty { display: none; }
+.shared-build-embedded :is(.shared-build-search input,.shared-mod-search,.shared-catalog-search input) {
+  box-sizing: border-box; width: 100%; max-width: none; height: 38px;
+  border: 0;
+}
+.shared-build-embedded .shared-build-mod {
+  display: grid; grid-template-columns: 46px minmax(0,1fr) auto;
+  align-items: start; gap: 11px; padding: 11px;
+}
+.shared-build-embedded .shared-mod-controls { max-width: 160px; }
+.shared-build-embedded .shared-build-review { color: #e8cc94; }
+.shared-build-embedded .shared-mod-by img { display: block; }
+.shared-build-embedded .shared-build-dropzone { justify-content: center; min-height: 37px; }
+.shared-build-embedded .shared-catalog-project { min-width: 0; }
+html[data-launcher-accent] .ws-build-card-actions > .ws-action:not(.ws-share-build) {
+  background: var(--launcher-accent); color: var(--launcher-accent-text);
+}
+html[data-launcher-panels] .ws-build-card-actions .ws-share-build {
+  background: color-mix(in srgb,var(--launcher-surface,#191919) 85%, white);
+}
+
+@media (max-width: 620px) {
+ .shared-build-embedded .shared-build-mod { grid-template-columns: 36px minmax(0,1fr); }
+ .shared-build-embedded .shared-catalog-columns { grid-template-columns: minmax(0,1fr); }
+ .shared-build-dialog .shared-build-mod { grid-template-columns: 36px minmax(0, 1fr); }
+ .shared-build-dialog .shared-build-mod-info { grid-column: 2; }
+ .shared-mod-controls { grid-column: 2; justify-content: flex-start; max-width: none; }
+ .shared-mod-controls > .shared-build-review { flex-basis: auto; }
+ .shared-build-dialog .shared-catalog-columns { grid-template-columns: 1fr; }
+}
+
+/* Build dialogs inherit one palette, including controls mounted in their footer or top layer. */
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) {
+  --build-surface: #191919;
+  --build-bar: #141414;
+  --build-ink: #ededed;
+  --build-muted: #aaa;
+  --build-opacity: 100%;
+  --build-radius: 12px;
+  --build-control-radius: 9px;
+  --build-line: color-mix(in srgb,var(--build-ink) 11%,transparent);
+  --build-tile: color-mix(in srgb,var(--build-surface) var(--build-opacity),transparent);
+  --build-inset: color-mix(in srgb,color-mix(in srgb,var(--build-surface),black 20%) var(--build-opacity),transparent);
+  --build-control: color-mix(in srgb,color-mix(in srgb,var(--build-surface),var(--build-ink) 8%) var(--build-opacity),transparent);
+  --build-hover: color-mix(in srgb,var(--build-control),var(--build-ink) 7%);
+  --build-accent: var(--launcher-accent,#ededed);
+  --build-on-accent: var(--launcher-accent-text,#141414);
+  --build-highlight: color-mix(in srgb,var(--build-control),var(--build-accent) 14%);
+  --build-selected-ink: var(--build-ink);
+  --build-warning: color-mix(in srgb,#e1bf7c 76%,var(--build-ink));
+  --build-danger: color-mix(in srgb,#ed9696 76%,var(--build-ink));
+  --build-outline: none;
+  --build-shadow: none;
+  --build-modal-shadow: 0 24px 100px #000c;
+  --select-surface: var(--build-control);
+  --select-text: var(--build-ink);
+  --select-radius: var(--build-control-radius);
+  color: var(--build-ink);
+  outline: var(--build-outline);
+  outline-offset: -1px;
+  box-shadow: var(--build-modal-shadow);
+}
+.ws-dialog.ws-build-manage {
+  --build-bar: #1a1a1a;
+  --build-muted: #b5b5b5;
+  --build-radius: 15px;
+  --build-tile: color-mix(in srgb,color-mix(in srgb,var(--build-surface),var(--build-ink) 5%) var(--build-opacity),transparent);
+  --build-inset: var(--build-tile);
+  --build-control: color-mix(in srgb,color-mix(in srgb,var(--build-surface),var(--build-ink) 10%) var(--build-opacity),transparent);
+}
+html[data-launcher-panels] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) {
+  --build-surface: var(--launcher-surface,#191919);
+  --build-bar: var(--launcher-bar,var(--build-surface));
+  --build-opacity: var(--launcher-opacity,100%);
+  --build-radius: var(--launcher-radius,12px);
+  border-radius: var(--build-radius);
+}
+html[data-launcher-panels] .ws-dialog.ws-build-manage[open] { border-radius: var(--build-radius); }
+html[data-custom-text] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) { --build-ink: var(--custom-text); }
+html[data-custom-muted] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) { --build-muted: var(--custom-muted); }
+html[data-launcher-accent] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) { --build-selected-ink: var(--build-accent); }
+html[data-button-radius] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) { --build-control-radius: var(--button-radius); }
+html[data-panel-borders] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) {
+  --build-outline: var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
+}
+html[data-panel-shadow] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) {
+  --build-shadow: var(--panel-shadow);
+  --build-modal-shadow: var(--panel-shadow);
+}
+.ws-build-manage :is(.ws-build-header,.ws-build-footer) {
+  background: color-mix(in srgb,var(--build-bar) var(--build-opacity),transparent);
+  border-color: var(--build-line);
+  border-radius: 0;
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  .ws-build-header span,.ws-build-dialog-header :is(p,span),#ws-build-create-status,#ws-build-manage-status,
+  .ws-build-control-card > p,.ws-build-section-title :is(span,output),.ws-build-mod-toolbar > div > span,
+  .ws-build-section label,.ws-build-variant p,.ws-build-resolution > span,.ws-build-range-labels,
+  .ws-build-mod-info > span,.ws-build-no-mods,.shared-build-meta,.shared-build-hint,.shared-build-status,
+  .shared-build-footer-caption,.shared-build-availability p,.shared-build-count,.shared-mod-by,
+  .shared-catalog-notice,.shared-catalog-version,.shared-catalog-project-info small
+),
+.ws-dialog.ws-build-delete-dialog > p { color: var(--build-muted); }
+.ws-dialog.ws-build-manage :is(.ws-build-tabs,.shared-build-tabs,.ws-build-control-card,.shared-build-availability,.shared-catalog-selection),
+.ws-build-manage #ws-shared-access .shared-build-section {
+  background: var(--build-inset);
+  border-radius: var(--build-radius);
+  outline: var(--build-outline);
+  outline-offset: -1px;
+}
+.ws-dialog.ws-build-manage :is(.ws-build-control-card,.shared-build-availability,.shared-catalog-selection),
+.ws-build-manage #ws-shared-access .shared-build-section { box-shadow: var(--build-shadow); }
+html:not([data-launcher-panels],[data-panel-borders]) .ws-dialog.ws-build-manage .ws-build-tabs {
+  background: transparent;
+  padding: 0;
+  outline: none;
+}
+.ws-build-manage .ws-build-tabs button { min-height: 42px; padding-inline: 12px; font-size: 13px; }
+.ws-build-manage .ws-build-control-card { padding: 18px; gap: 13px; }
+.ws-build-manage .ws-build-section-title h2 { font-size: 15px; }
+.ws-build-manage .ws-build-variant p { font-size: 12px; }
+.ws-build-manage .ws-build-section :is(input[type=text],input:not([type]),input[type=number],select,.s-select-trigger) { height: 38px; }
+.ws-build-manage .ws-build-panel { scrollbar-color: var(--build-hover) transparent; }
+.ws-build-manage .ws-build-panel :is(.ws-build-mod,.ws-build-no-mods,.shared-catalog-project) {
+  background: var(--build-tile);
+  border-radius: var(--build-radius);
+  outline: var(--build-outline);
+  outline-offset: -1px;
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  .ws-build-manage-icon,.ws-build-mod-avatar,.shared-catalog-icon,.shared-person-avatar,.shared-build-mark,
+  #ws-build-mod-tab-count,.shared-mod-local,.ws-build-state:not([data-state=ready],[data-state=busy])
+) {
+  background: var(--build-control);
+  border-radius: var(--build-radius);
+  color: var(--build-ink);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  input:not([type=checkbox],[type=range]),select,.s-select-trigger,.ws-build-mod-search
+) {
+  background: var(--build-control);
+  color: var(--build-ink);
+  border-radius: var(--build-control-radius);
+}
+.ws-build-manage .ws-build-panel .ws-build-mod-search input { background: transparent; }
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) input::placeholder,
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) .s-select-trigger svg {
+  color: var(--build-muted);
+  opacity: 1;
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) .s-select-trigger svg { stroke: currentColor; }
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) .s-select-menu {
+  background: var(--build-tile);
+  backdrop-filter: blur(var(--launcher-blur,0px));
+  border-radius: var(--build-radius);
+  outline: var(--build-outline);
+  outline-offset: -1px;
+  --select-hover: var(--build-hover);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) .s-select-option {
+  color: var(--build-ink);
+  border-radius: var(--build-control-radius);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  .s-select-option[aria-selected=true],.ws-build-tabs button[aria-selected=true],
+  .shared-build-tabs button[aria-pressed=true],.ws-build-toggle[aria-checked=true],
+  .shared-catalog-project[aria-pressed=true],.shared-catalog-sources .ws-action[aria-pressed=true]
+) {
+  color: var(--build-selected-ink);
+  background: var(--build-highlight);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  .ws-action,.ws-build-secondary,.ws-build-actions button,.ws-build-java-row button,.account-close,
+  footer button,.ws-build-tabs button,.s-select-trigger
+) { border-radius: var(--build-control-radius); }
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  .ws-action:not(.shared-catalog-project),.ws-build-secondary,.ws-build-actions button,
+  .ws-build-java-row button,.account-close,footer button
+):not(.primary,.shared-build-primary,.danger,.shared-build-delete,.shared-build-review,[aria-pressed=true],[aria-checked=true]) {
+  background: var(--build-control);
+  color: var(--build-ink);
+}
+.ws-build-manage .ws-build-tabs button:not([aria-selected=true]) { color: var(--build-muted); }
+.ws-dialog.ws-build-manage .shared-build-tabs button[aria-pressed=false] {
+  background: transparent;
+  color: var(--build-muted);
+}
+.ws-build-manage .ws-build-tabs button:hover:not([aria-selected=true]),
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(
+  .ws-action,.ws-build-secondary,.ws-build-actions button,.ws-build-java-row button,.account-close,footer button,.s-select-trigger
+):is(:hover,[aria-expanded=true]):not(:disabled,.primary,.shared-build-primary,.danger,.shared-build-delete,.shared-build-review,[aria-pressed=true],[aria-checked=true]) {
+  background: var(--build-hover);
+  color: var(--build-ink);
+}
+.ws-dialog.ws-build-manage .shared-build-tabs button[aria-pressed=false]:hover { background: var(--build-hover); }
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(.primary,.shared-build-primary) {
+  background: var(--build-accent);
+  border-color: var(--build-accent);
+  color: var(--build-on-accent);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(.primary,.shared-build-primary):hover:not(:disabled) {
+  background: var(--build-accent);
+  filter: brightness(.9);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(.danger,.shared-build-delete) {
+  background: color-mix(in srgb,var(--build-control),var(--build-danger) 15%);
+  color: var(--build-danger);
+}
+.ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(.danger,.shared-build-delete):hover:not(:disabled) {
+  background: color-mix(in srgb,var(--build-control),var(--build-danger) 25%);
+}
+.ws-build-manage :is(.shared-build-review,.shared-mod-state[data-approved=false],.ws-build-state[data-state=busy]) {
+  background: color-mix(in srgb,var(--build-control),var(--build-warning) 12%);
+  color: var(--build-warning);
+}
+.ws-build-manage :is(.shared-mod-state[data-approved=true],.ws-build-state[data-state=ready]) {
+  background: var(--build-highlight);
+  color: var(--build-selected-ink);
+}
+.ws-build-manage :is(.shared-mod-state,.shared-mod-local,.ws-build-state,.shared-catalog-tag) {
+  border-radius: min(8px,var(--build-control-radius));
+}
+.ws-build-manage .shared-mod-local { color: var(--build-muted); }
+.ws-build-manage .shared-build-availability[data-available=true] strong { color: var(--build-selected-ink); }
+.ws-build-manage .shared-build-availability[data-available=false] strong { color: var(--build-warning); }
+.ws-build-manage .ws-build-dropzone { color: var(--build-muted); border-color: var(--build-line); border-radius: var(--build-radius); }
+.ws-build-manage .ws-build-dropzone:is(.wails-drop-target-active,:has(.wails-drop-target-active)) {
+  background: var(--build-highlight);
+  border-color: var(--build-accent);
+  color: var(--build-ink);
+}
+html[data-text-scale] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(button,input,select,label) {
+  font-size: calc(12px * var(--text-scale,1));
+}
+html[data-text-scale] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) .account-close {
+  font-size: calc(17px * var(--text-scale,1));
+}
+html[data-text-scale] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(.ws-build-header h1,.ws-build-dialog-header h1,.shared-build-header h1) {
+  font-size: calc(23px * var(--text-scale,1));
+}
+html[data-text-scale] .ws-build-manage :is(.ws-build-section h2,.shared-build-section h2,.ws-build-mod-info strong) {
+  font-size: calc(14px * var(--text-scale,1));
+}
+html[data-text-weight] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :is(button,input,select,label) {
+  font-weight: var(--text-weight);
+}
+html[data-compact-layout] .ws-build-manage :is(.ws-build-tabs button,.ws-build-mod) { min-height: 33px; padding-block: 6px; }
+html[data-compact-layout] .ws-build-manage :is(.ws-build-panel,.shared-build-section) { gap: 8px; }
+html[data-compact-layout] .ws-build-manage :is(.ws-build-control-card,.shared-build-availability) { padding: 12px; }

@@ -1,4 +1,15 @@
 (()=>{
+ Object.assign(window.SintetLanguageCatalog,{
+  'Лимит TURN':['TURN limit','Лимит TURN','Ліміт TURN','Limite de TURN','Límite de TURN'],
+  'Лимит TURN подключения закончился':['TURN connection limit reached','Лимит TURN подключения закончился','Ліміт з’єднання TURN вичерпано','Limite da ligação TURN atingido','Se alcanzó el límite de conexión TURN'],
+  'Расход резервного подключения. Прямой P2P трафик в лимит не входит.':['Backup connection usage. Direct P2P traffic does not count.','Расход резервного подключения. Прямой P2P трафик в лимит не входит.','Витрати резервного з’єднання. Прямий P2P трафік не враховується.','Consumo da ligação de reserva. O tráfego P2P direto não conta.','Consumo de la conexión de respaldo. El tráfico P2P directo no cuenta.'],
+  'Подписка TURN':['TURN subscription','Подписка TURN','Підписка TURN','Subscrição de TURN','Suscripción de TURN'],
+  'Больше трафика для игры и передачи сборок.':['More data for playing and sharing modpacks.','Больше трафика для игры и передачи сборок.','Більше трафіку для гри й передачі збірок.','Mais dados para jogar e partilhar modpacks.','Más datos para jugar y compartir modpacks.'],
+  'Лимит обновится %s':['Limit resets on %s','Лимит обновится %s','Ліміт оновиться %s','O limite é renovado a %s','El límite se renueva el %s'],
+  'Считаем расход…':['Checking usage…','Считаем расход…','Перевіряємо витрати…','A consultar o consumo…','Consultando el consumo…'],
+  'Расход временно недоступен':['Usage temporarily unavailable','Расход временно недоступен','Дані про витрати тимчасово недоступні','Consumo temporariamente indisponível','Consumo no disponible temporalmente'],
+  'Если прямое соединение не удалось, Sintet попробует резервный канал TURN. На аккаунт доступно 5 ГБ каждые два месяца, включая игру и передачу сборок. Остаток можно посмотреть в настройках.':['If the direct connection fails, Sintet will try the TURN backup. Each account gets 5 GB every two months for play and modpack transfers. Check your remaining data in Settings.','Если прямое соединение не удалось, Sintet попробует резервный канал TURN. На аккаунт доступно 5 ГБ каждые два месяца, включая игру и передачу сборок. Остаток можно посмотреть в настройках.','Якщо пряме з’єднання не вдалося, Sintet спробує резервний канал TURN. На акаунт доступно 5 ГБ кожні два місяці для гри й передачі збірок. Залишок можна переглянути в налаштуваннях.','Se a ligação direta falhar, o Sintet tentará usar o canal de reserva TURN. Cada conta tem 5 GB a cada dois meses para jogar e transferir modpacks. Consulte o saldo nas definições.','Si falla la conexión directa, Sintet probará el canal de respaldo TURN. Cada cuenta tiene 5 GB cada dos meses para jugar y transferir modpacks. Consulta el saldo en Ajustes.'],
+ });
  const toggle=document.querySelector('#friends-toggle'),panel=document.querySelector('#friends-panel');
  const list=document.querySelector('#friends-list'),footer=panel.querySelector('footer');
  const presence=document.querySelector('#rich-presence');
@@ -39,7 +50,8 @@
    <section>
     <h3>Как друг попадает в твой мир</h3>
     <p>Создай лобби, выбери сборку и пригласи друзей. Подготовить файлы можно до запуска игры. Когда лидер откроет мир для сети, участники смогут запустить Minecraft и присоединиться. Между лаунчерами используется зашифрованное P2P-соединение.</p>
-    <p>Участники прямого соединения могут узнать сетевые IP-адреса друг друга. Приглашай тех, кому доверяешь. Роутер или провайдер может помешать установить туннель. Тогда подключение к миру не состоится.</p>
+    <p>Участники прямого соединения могут узнать сетевые IP-адреса друг друга. Приглашай тех, кому доверяешь.</p>
+    <p>Если прямое соединение не удалось, Sintet попробует резервный канал TURN. На аккаунт доступно 5 ГБ каждые два месяца, включая игру и передачу сборок. Остаток можно посмотреть в настройках.</p>
    </section>
    <section>
     <h3>Как оверлей появляется в Minecraft</h3>
@@ -111,12 +123,99 @@
  };
 
  let busy=false,state=null,searchGeneration=0,activeTab='friends',showRequests=false,lastPackPhase='',lastPackProfile='';
- let acceptedInvite=null,inviteError='',inviteView='';
+ let acceptedInvite=null,inviteError='',inviteView='',autoConnectPending=null,stateRead=0,stateApplied=0;
  const invitationBanner=document.createElement('aside');
  invitationBanner.className='launcher-invitation';
  invitationBanner.setAttribute('aria-label','Приглашение в лобби');
  invitationBanner.hidden=true;
- document.body.append(invitationBanner);
+ document.querySelector('.launcher-invitations').append(invitationBanner);
+ const turnNotice=element('aside','launcher-invitation turn-notice');
+ turnNotice.setAttribute('role','status');
+ turnNotice.hidden=true;
+ document.querySelector('.launcher-invitations').append(turnNotice);
+ const turnLobby=turnMeter(false),turnSettings=turnMeter(true);
+ let shownTURNNotice=0,turnNoticeTimer,settingsUsageLoading=false,settingsUsageGeneration=0;
+ document.querySelector('#settings-form .settings-grid').append(turnSettings);
+ function turnMeter(settings){
+  const root=element(settings?'article':'section',settings?'preference-card wide turn-meter':'turn-meter turn-meter-lobby');
+  root.hidden=!settings;
+  const header=element('div','turn-meter-head');
+  header.append(element('strong','','Лимит TURN'),element('span','turn-meter-value'));
+  const progress=element('progress','turn-meter-progress');
+  progress.max=1;progress.value=0;progress.setAttribute('aria-label','Лимит TURN');progress.hidden=true;
+  const hint=element('p','turn-meter-hint','Расход резервного подключения. Прямой P2P трафик в лимит не входит.');
+  root.append(header,progress,hint,element('p','turn-meter-reset'));
+  if(settings){
+   const subscription=element('div','turn-subscription');
+   const desc=element('div','');
+   desc.append(element('strong','','Подписка TURN'),element('p','','Больше трафика для игры и передачи сборок.'));
+   subscription.append(desc,element('span','turn-subscription-badge','Скоро'));
+   root.append(subscription);
+  }
+  return root;
+ }
+ function updateTurnMeter(root,usage,fallback=''){
+  const progress=root.querySelector('progress'),value=root.querySelector('.turn-meter-value');
+  const reset=root.querySelector('.turn-meter-reset');
+  const valid=usage?.limit>0;
+  progress.hidden=!valid;
+  if(valid){
+   const used=Math.min(usage.used,usage.limit);
+   const formatUsed=used>=1e9?window.SintetLanguage.formatSize(used/1e9,'gigabyte',2):
+    used>=1e6?window.SintetLanguage.formatSize(used/1e6,'megabyte',2):
+    used>=1e3?window.SintetLanguage.formatSize(used/1e3,'kilobyte',1):window.SintetLanguage.formatSize(used,'byte');
+   value.textContent=formatUsed+' / '+window.SintetLanguage.formatSize(usage.limit/1e9,'gigabyte',usage.limit%1e9?2:0);
+   progress.value=Math.min(1,usage.used/usage.limit);
+   root.classList.toggle('turn-meter-exhausted',progress.value===1);
+   if(usage.periodEnd){
+    const date=new Date(usage.periodEnd+'T00:00:00Z');
+    const formatted=new Intl.DateTimeFormat(document.documentElement.lang||undefined,{day:'numeric',month:'long',timeZone:'UTC'}).format(date);
+    reset.textContent=window.SintetText.format('Лимит обновится %s',formatted);
+   }
+  }else{
+   value.textContent=window.SintetText.translate(fallback);
+   reset.textContent='';
+   root.classList.remove('turn-meter-exhausted');
+  }
+  reset.hidden=!reset.textContent;
+ }
+ function renderTurn(state){
+  turnLobby.hidden=!state?.turnActive;
+  if(state?.turnActive)updateTurnMeter(turnLobby,state.turnUsage,'Считаем расход…');
+  if(state?.turnNotice&&shownTURNNotice!==state.turnNotice){
+   shownTURNNotice=state.turnNotice;
+   if(Date.now()-shownTURNNotice<12000){
+    turnNotice.textContent='Лимит TURN подключения закончился';
+    turnNotice.hidden=false;
+    clearTimeout(turnNoticeTimer);
+    turnNoticeTimer=setTimeout(()=>{turnNotice.hidden=true},8500);
+   }
+  }
+ }
+ async function refreshSettingsTurn(){
+  if(!api()?.TurnUsage||settingsUsageLoading||turnSettings.getClientRects().length===0)return;
+  if(!state?.enabled){
+   updateTurnMeter(turnSettings,null,'Войди через Sintet ID');
+   return;
+  }
+  settingsUsageLoading=true;
+  const generation=settingsUsageGeneration;
+  try{
+   const usage=await api().TurnUsage();
+   if(generation===settingsUsageGeneration)updateTurnMeter(turnSettings,usage);
+  }catch{
+   if(generation===settingsUsageGeneration)updateTurnMeter(turnSettings,null,'Расход временно недоступен');
+  }finally{settingsUsageLoading=false}
+ }
+ document.querySelector('#settings-nav').addEventListener('click',()=>requestAnimationFrame(refreshSettingsTurn));
+ document.querySelector('#settings-tab-launcher').addEventListener('click',()=>requestAnimationFrame(refreshSettingsTurn));
+ window.addEventListener('sintet:identity',()=>{
+  settingsUsageGeneration++;
+  updateTurnMeter(turnSettings,null,'Считаем расход…');
+  refresh();
+ });
+ setInterval(refreshSettingsTurn,15000);
+ updateTurnMeter(turnSettings,null,'Считаем расход…');
  function position(){const anchor=toggle.getBoundingClientRect(),top=anchor.bottom+10;panel.style.left=Math.max(12,Math.min(anchor.left,innerWidth-410))+'px';panel.style.top=top+'px';panel.style.maxHeight=Math.max(160,innerHeight-top-12)+'px'}
  panel.addEventListener('beforetoggle',event=>{if(event.newState==='open'){position();refresh()}});
  panel.addEventListener('toggle',event=>toggle.setAttribute('aria-expanded',String(event.newState==='open')));
@@ -156,6 +255,7 @@
  presence.querySelector('#presence-open-lobby').onclick=()=>openSocialTab('lobby');
  presenceLogin.onclick=()=>document.querySelector('#account-button').click();
  footer.innerHTML='<div id="friends-room" class="friends-room" hidden><span>Код комнаты</span><button type="button" id="friends-copy-room"></button></div><button type="button" id="friends-host" class="friends-create-lobby">Создать комнату</button><form id="friends-join" class="friends-search"><input id="friends-code" placeholder="Код комнаты · 6 цифр" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required><button type="submit">Войти в лобби</button></form><p id="friends-connection" role="status"></p><div class="lobby-address-actions"><button type="button" id="friends-endpoint" hidden></button><button type="button" id="friends-auto-join" hidden><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M4 2v12l10-6z"/></svg></button></div><p id="friends-error" role="alert"></p>';
+ footer.prepend(turnLobby);
  function element(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text)node.textContent=text;return node}
  function button(label,action,target){const node=element('button','friend-action',label);node.type='button';node.disabled=busy||state?.busy;node.onclick=()=>act(action,target);return node}
  async function act(action,target=''){
@@ -179,6 +279,18 @@
    else toast(message);
    return false;
   }finally{busy=false;await refresh()}
+ }
+ async function setAutoConnect(checked){
+  if(autoConnectPending!==null||!api()||window.SintetNetwork.offline)return;
+  autoConnectPending=checked;
+  render();
+  try{await api().FriendsAction('auto-connect',String(checked))}
+  catch(error){toast(String(error?.message||error))}
+  finally{
+   await refresh();
+   autoConnectPending=null;
+   render();
+  }
  }
  function friendAvatar(account){
   const avatar=element('span','friend-avatar',account.username?.slice(0,1).toUpperCase()||'?');
@@ -720,11 +832,46 @@
   const syncMessage=document.querySelector('#friends-error');syncMessage.textContent=state.error||(state.reconnecting?'Восстанавливаем связь с Sintet ID…':'');syncMessage.classList.toggle('is-reconnecting',!state.error&&!!state.reconnecting);
   for(const field of footer.querySelectorAll('input,button'))field.disabled=busy||state.busy||!state.enabled||(field===autoJoin&&!state.gameReady&&state.pack?.phase!=='ready');
   changePack.disabled=busy||state.busy||!state.enabled||!lobbyProfile.value||lobbyProfile.value===state.hostProfile;
-  let autoOption=document.querySelector('#lobby-auto-connect');if(!autoOption){autoOption=element('label','lobby-auto-option');autoOption.id='lobby-auto-connect';const check=element('input','');check.type='checkbox';check.onchange=()=>act('auto-connect',String(check.checked));autoOption.append(check,element('span','','Подключиться, когда мир будет готов'));document.querySelector('#friends-connection').after(autoOption)}autoOption.hidden=!state.preGameLobby||!state.lobbyConnected||state.leader||state.inWorld||state.pack?.phase==='error';autoOption.querySelector('input').checked=!!state.autoConnect;
+  let autoOption=document.querySelector('#lobby-auto-connect');
+  if(!autoOption){
+   autoOption=element('label','lobby-auto-option');autoOption.id='lobby-auto-connect';
+   const check=element('input','');check.type='checkbox';
+   check.onchange=()=>void setAutoConnect(check.checked);
+   autoOption.append(check,element('span','','Подключиться, когда мир будет готов'));
+   document.querySelector('#friends-connection').after(autoOption);
+  }
+  autoOption.hidden=!state.preGameLobby||!state.lobbyConnected||state.leader||state.inWorld;
+  const autoCheck=autoOption.querySelector('input');
+  autoCheck.disabled=autoConnectPending!==null||!state.enabled;
+  autoCheck.checked=autoConnectPending??!!state.autoConnect;
   let reconnect=document.querySelector('#lobby-reconnect');if(!reconnect){reconnect=button('Восстановить соединение','reconnect-lobby');reconnect.id='lobby-reconnect';document.querySelector('#friends-error').after(reconnect)}reconnect.hidden=!state.room||state.leader||state.lobbyConnected||busy||state.busy;
   renderPack();
  }
- async function refresh(){if(!api())return;try{state=await api().FriendsState();const phase=state.pack?.phase||'';if(!acceptedInvite&&['downloading','stopping','installing','launching'].includes(phase)&&phase!==lastPackPhase){selectTab('lobby');if(!panel.matches(':popover-open')&&!document.querySelector('dialog[open]')){position();panel.showPopover()}}lastPackPhase=phase;if(state.pack?.profile&&state.pack.profile!==lastPackProfile){lastPackProfile=state.pack.profile;window.dispatchEvent(new CustomEvent('sintet:p2p-profile',{detail:{id:lastPackProfile}}))}render();await refreshLobbyProfiles()}catch{}}
+ async function refresh(){
+  if(!api())return;
+  const request=++stateRead;
+  try{
+   const next=await api().FriendsState();
+   if(request<stateApplied)return;
+   stateApplied=request;
+   const enabledChanged=state?.enabled!==next.enabled;
+   state=next;
+   renderTurn(state);
+   if(enabledChanged)refreshSettingsTurn();
+   const phase=state.pack?.phase||'';
+   if(!acceptedInvite&&['downloading','stopping','installing','launching'].includes(phase)&&phase!==lastPackPhase){
+    selectTab('lobby');
+    if(!panel.matches(':popover-open')&&!document.querySelector('dialog[open]')){position();panel.showPopover()}
+   }
+   lastPackPhase=phase;
+   if(state.pack?.profile&&state.pack.profile!==lastPackProfile){
+    lastPackProfile=state.pack.profile;
+    window.dispatchEvent(new CustomEvent('sintet:p2p-profile',{detail:{id:lastPackProfile}}));
+   }
+   render();
+   await refreshLobbyProfiles();
+  }catch{}
+ }
  async function openCommunity(service){try{if(!api())throw Error('Запусти Sintet через Start.bat');await api().OpenCommunity(service)}catch(error){toast(String(error?.message||error))}}
  document.querySelector('#community-discord').onclick=()=>openCommunity('discord');
  document.querySelector('#community-telegram').onclick=()=>openCommunity('telegram');

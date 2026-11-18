@@ -21,6 +21,8 @@ struct State {
  bool enabled=false,busy=false,gameReady=false,gameJoining=false,leader=false,offline=false,reconnecting=false;
  bool worldReady=false,autoConnect=false,inWorld=false;
  bool preGameLobby=false;
+ bool turnActive=false;
+ long long turnUsed=0,turnLimit=0,turnNotice=0;
  std::string error,connection,room,host;
  int lanPort=0,localPort=0,connected=0;
  LinkQuality quality;

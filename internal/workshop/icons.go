@@ -18,6 +18,12 @@ func Icon(dir, kind, filename string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return archiveIcon(path, kind)
+}
+
+func ModIcon(path string) ([]byte, error) { return archiveIcon(path, "mods") }
+
+func archiveIcon(path, kind string) ([]byte, error) {
 	jar, err := zip.OpenReader(path)
 	if err != nil {
 		return nil, err

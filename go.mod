@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	github.com/abadojack/whatlanggo v1.0.1
+	github.com/tc-hib/winres v0.3.1
 	github.com/wailsapp/wails/v2 v2.11.0
 	golang.org/x/image v0.36.0
 )
@@ -24,6 +25,7 @@ require (
 	github.com/leaanthony/u v1.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/pion/datachannel v1.6.3 // indirect
 	github.com/pion/dtls/v3 v3.1.15 // indirect
 	github.com/pion/ice/v4 v4.4.8 // indirect

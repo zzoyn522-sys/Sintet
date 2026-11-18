@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cmath>
+#include <chrono>
 #include <cfloat>
 #include <cstring>
 #include <cstdlib>
@@ -134,15 +135,18 @@ void drawWelcome() {
                                 bodyFont->CalcTextSizeA(shortcutSize,FLT_MAX,0,shortcut.c_str()).x);
  const float width=std::min(ImGui::GetIO().DisplaySize.x-12*scale,std::max(310*scale,left+textWidth+right+2*scale));
  if(width<=left+right)return;
- const ImVec2 top(-(1-fade)*width,26*scale),bottom(top.x+width,top.y+height);
+ const float animScale=.9f+.1f*fade;
+ const float fullWidth=width;
+ const float offset=(1-animScale)*width*.5f;
+ const ImVec2 top(offset,26*scale-(1-fade)*35*scale),bottom(top.x+width*animScale,top.y+height*animScale);
  ImDrawList* draw=ImGui::GetForegroundDrawList();
  draw->AddRectFilled(ImVec2(top.x,top.y+5*scale),ImVec2(bottom.x+5*scale,bottom.y+5*scale),IM_COL32(0,0,0,(int)(65*fade)),6*scale);
  draw->AddRectFilled(top,bottom,IM_COL32(22,23,23,(int)(250*fade)),6*scale,ImDrawFlags_RoundCornersRight);
- draw->AddRectFilled(top,ImVec2(top.x+3*scale,bottom.y),IM_COL32(119,196,139,(int)(255*fade)));
- logo(draw,ImVec2(top.x+20*scale,top.y+26*scale),scale,IM_COL32(255,255,255,(int)(255*fade)));
- drawFittedText(draw,headingFont,titleSize,ImVec2(top.x+left,top.y+17*scale),width-left-right,
+ draw->AddRectFilled(top,ImVec2(top.x+3*scale*animScale,bottom.y),IM_COL32(119,196,139,(int)(255*fade)));
+ logo(draw,ImVec2(top.x+20*scale*animScale,top.y+26*scale*animScale),scale*animScale,IM_COL32(255,255,255,(int)(255*fade)));
+ drawFittedText(draw,headingFont,titleSize*animScale,ImVec2(top.x+left*animScale,top.y+17*scale*animScale),(fullWidth-left-right)*animScale,
                 IM_COL32(237,239,238,(int)(255*fade)),title);
- drawFittedText(draw,bodyFont,shortcutSize,ImVec2(top.x+left,top.y+47*scale),width-left-right,
+ drawFittedText(draw,bodyFont,shortcutSize*animScale,ImVec2(top.x+left*animScale,top.y+47*scale*animScale),(fullWidth-left-right)*animScale,
                 IM_COL32(160,165,162,(int)(255*fade)),shortcut);
 }
 
@@ -833,19 +837,52 @@ void drawMedia(float scale){
  ImGui::Dummy(ImVec2(0,px(5)));
 }
 
+bool drawTURNNotice(const SintetSocial::State& state){
+ if(state.turnNotice<=0)return false;
+ const auto now=std::chrono::duration_cast<std::chrono::milliseconds>(
+  std::chrono::system_clock::now().time_since_epoch()).count();
+ if(now<state.turnNotice||now-state.turnNotice>8500)return false;
+ const float elapsed=(now-state.turnNotice)/1000.0f;
+ const float fade=elapsed>8.2f?1-easeOut((elapsed-8.2f)/.3f):easeOut(elapsed/.3f);
+ const auto scale=interfaceScale;
+ const float width=std::min(330*scale,ImGui::GetIO().DisplaySize.x-24*scale);
+ const float size=.92f+.08f*fade;
+ ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x-width*size-12*scale,24*scale-(1-fade)*35*scale));
+ ImGui::SetNextWindowSize(ImVec2(width*size,0));
+ ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,8*scale);
+ ImGui::PushStyleVar(ImGuiStyleVar_Alpha,fade);
+ ImGui::Begin("##turn-limit-notice",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoSavedSettings|
+  ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoInputs);
+ ImGui::SetWindowFontScale(size);
+ ImGui::TextWrapped("%s",OverlayText("Лимит TURN подключения закончился"));
+ ImGui::End();
+ ImGui::PopStyleVar(2);
+ return true;
+}
+
 void drawInvitation(const SintetSocial::State& state,bool hasNetworkHUD){
- static std::string last;static ULONGLONG started=0;
- if(state.invites.empty())return;
- const auto& invite=state.invites[0];if(last!=invite.id){last=invite.id;started=GetTickCount64();}
- float elapsed=(GetTickCount64()-started)/1000.f;if(elapsed>10&&!visible)return;
- float scale=interfaceScale,fade=easeOut(elapsed/.3f);auto& io=ImGui::GetIO();
- ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x-330*scale+(1-fade)*350*scale,(visible?70:hasNetworkHUD?48:24)*scale));ImGui::SetNextWindowSize(ImVec2(310*scale,0));
+ static std::string last;static ULONGLONG started=0,removed=0;static SintetSocial::Invite cached;
+ const auto now=GetTickCount64();
+ if(!state.invites.empty()){
+  cached=state.invites[0];removed=0;
+  if(last!=cached.id){last=cached.id;started=now;}
+ }else if(!last.empty()&&!removed)removed=now;
+ if(last.empty())return;
+ const auto& invite=cached;
+ float elapsed=(now-started)/1000.f;
+ float fade=easeOut(elapsed/.3f);
+ if(removed)fade=1-easeOut((now-removed)/300.f);
+ else if(!visible&&elapsed>9.7f)fade=1-easeOut((elapsed-9.7f)/.3f);
+ if(fade<=0){if(removed){last.clear();removed=0;}return;}
+ float scale=interfaceScale,size=.92f+.08f*fade;auto& io=ImGui::GetIO();
+ ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x-(310*size+20)*scale,(visible?70:hasNetworkHUD?48:24)*scale-(1-fade)*35*scale));ImGui::SetNextWindowSize(ImVec2(310*scale*size,0));
  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,6*scale);ImGui::PushStyleVar(ImGuiStyleVar_Alpha,fade);
  ImGui::Begin("Game invitation",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoFocusOnAppearing|(visible?0:ImGuiWindowFlags_NoInputs));
+ ImGui::SetWindowFontScale(size);
  socialTitle(invite.sender.name.c_str());ImGui::TextUnformatted(OverlayText("Приглашает вас в лобби"));
  const auto details=invitationDetails(invite);
  if(!details.empty())ImGui::TextWrapped("%s",details.c_str());
- if(visible){ImGui::BeginDisabled(state.busy);socialButton(OverlayText("Принять"),"invite-accept",invite.id);ImGui::SameLine();socialButton(OverlayText("Отклонить"),"invite-decline",invite.id);ImGui::EndDisabled();}
+ if(visible){ImGui::BeginDisabled(state.busy||removed);socialButton(OverlayText("Принять"),"invite-accept",invite.id);ImGui::SameLine();socialButton(OverlayText("Отклонить"),"invite-decline",invite.id);ImGui::EndDisabled();}
  else ImGui::TextDisabled(OverlayText("%s · Ответить"),overlayHotkey.c_str());
  ImGui::End();ImGui::PopStyleVar(2);
 }
@@ -890,6 +927,38 @@ void drawPanel(const SintetSocial::State& state) {
  draw->AddLine(ImVec2(cross.x+px(18),cross.y+px(10)),ImVec2(cross.x+px(10),cross.y+px(18)),muted,px(1.6f));
  ImGui::Dummy(ImVec2(0,px(18)));
  drawMedia(scale);
+ if(state.turnActive){
+  ImGui::Spacing();
+  ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.105f,.105f,.105f,.95f));
+  ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,px(7));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(px(9),px(5)));
+  ImGui::BeginChild("turn-usage",ImVec2(0,px(43)),ImGuiChildFlags_AlwaysUseWindowPadding,SintetLayout::FixedCard);
+  ImGui::SetWindowFontScale(.75f);
+  ImGui::PushFont(titleFont);
+  ImGui::TextUnformatted(OverlayText("Лимит TURN"));
+  ImGui::PopFont();
+  if(state.turnLimit>0){
+   const auto used=std::min(state.turnUsed,state.turnLimit);
+   ImGui::SameLine();
+   if(used>=1000000000LL)ImGui::TextDisabled("%.2f %s / %.0f %s",used/1e9,OverlayText("ГБ"),state.turnLimit/1e9,OverlayText("ГБ"));
+   else if(used>=1000000LL)ImGui::TextDisabled("%.2f %s / %.0f %s",used/1e6,OverlayText("МБ"),state.turnLimit/1e9,OverlayText("ГБ"));
+   else if(used>=1000LL)ImGui::TextDisabled("%.1f %s / %.0f %s",used/1e3,OverlayText("КБ"),state.turnLimit/1e9,OverlayText("ГБ"));
+   else ImGui::TextDisabled("%lld B / %.0f %s",static_cast<long long>(used),state.turnLimit/1e9,OverlayText("ГБ"));
+   ImGui::PushStyleColor(ImGuiCol_FrameBg,ImVec4(.22f,.22f,.22f,1));
+   const float fraction=std::clamp(static_cast<float>(used)/state.turnLimit,0.0f,1.0f);
+   const float first=std::min(fraction*2.0f,1.0f);
+   const float second=std::max(fraction*2.0f-1.0f,0.0f);
+   const ImVec4 color(.45f+.48f*first,.78f+.02f*first-.42f*second,.54f-.25f*first-.06f*second,1);
+   ImGui::PushStyleColor(ImGuiCol_PlotHistogram,color);
+   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding,px(4));
+   ImGui::ProgressBar(fraction,ImVec2(-1,px(4)),"");
+   ImGui::PopStyleVar();
+   ImGui::PopStyleColor(2);
+  }
+  ImGui::EndChild();
+  ImGui::PopStyleVar(2);
+  ImGui::PopStyleColor();
+ }
  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(px(16),px(10)));
  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(px(8),px(3)));
  ImGui::BeginChild("Player",ImVec2(0,px(70)),ImGuiChildFlags_AlwaysUseWindowPadding,SintetLayout::FixedCard);
@@ -1074,7 +1143,9 @@ void renderFrame(GLFWwindow* current) {
  drawPanel(state);
  const bool networkHUD=!visible&&showPassive&&SintetWidgets::NetworkPinned()&&drawNetworkHUD(state);
  SintetWidgets::Draw(visible,interfaceScale,headingFont,state,gpuRenderer.c_str());
- if(visible||showPassive)drawInvitation(state,networkHUD);
+ if(visible||showPassive){
+  if(!drawTURNNotice(state))drawInvitation(state,networkHUD);
+ }
  // ImGui has only recorded vertices so far. The back buffer still contains just Minecraft.
  SintetScreenshot::Capture(window);
  drawScreenshotNotice();

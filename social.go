@@ -90,6 +90,9 @@ type socialRemote struct {
 	Peers        []socialPeer    `json:"peers"`
 }
 type socialState struct {
+	TURNActive   bool             `json:"turnActive,omitempty"`
+	TURNUsage    *turnUsageView   `json:"turnUsage,omitempty"`
+	TURNNotice   int64            `json:"turnNotice,omitempty"`
 	PreGameLobby bool             `json:"preGameLobby"`
 	Pack         *packStatus      `json:"pack,omitempty"`
 	Quality      *p2p.LinkQuality `json:"quality,omitempty"`
@@ -130,6 +133,8 @@ type socialManager struct {
 	guestWorldDigest  string
 	memberPreparation map[string]lobbyPreparation
 	lobbyConnectBusy  bool
+	autoJoinAttempts  int
+	autoJoinRetryAt   time.Time
 	guestPack         *guestPack
 	packCancel        context.CancelFunc
 	packConsent       string
@@ -222,6 +227,9 @@ func (m *socialManager) snapshot() socialState {
 	for id, peer := range m.peers {
 		if peer == nil || !peer.Connected() {
 			continue
+		}
+		if peer.Relayed() && peer.PackFilesAvailable() {
+			state.TURNActive = true
 		}
 		if id != m.guest {
 			state.Connected++
@@ -352,6 +360,9 @@ func playerFacingSocialError(err error) string {
 		return lobbyDiskFullMessage
 	}
 	text := err.Error()
+	if strings.Contains(text, turnLimitMessage) {
+		return turnLimitMessage
+	}
 	if errors.Is(err, errDirectTunnel) || strings.Contains(text, "WebRTC закрыт") || strings.Contains(text, "P2P") || strings.Contains(text, "соединиться напрямую") {
 		return "Не удалось подключиться. Попробуйте ещё раз."
 	}
@@ -726,6 +737,9 @@ func (m *socialManager) answer(remote socialPeer, port int, epoch uint64) {
 	}
 	if err != nil {
 		finishTrace(remote.ID, nil, "peer_init_failed")
+		if errors.Is(err, errTURNLimit) {
+			m.notifyTURNLimit()
+		}
 		m.logError(err)
 		return
 	}
@@ -802,6 +816,7 @@ func (m *socialManager) disconnect() uint64 {
 	m.memberPreparation = nil
 	m.state.WorldReady = false
 	m.state.AutoConnect = false
+	m.resetAutoLobbyRetryLocked()
 	m.state.InWorld = false
 	m.gameCommandPort = 0
 	m.gameJoinUntil = time.Time{}
@@ -910,6 +925,12 @@ func (m *socialManager) joinRoom(ctx context.Context, code string, fromInvite bo
 		if attempt == len(attempts) || !errors.Is(err, errDirectTunnel) || ctx.Err() != nil {
 			break
 		}
+		m.mu.Lock()
+		relayAvailable := m.state.RelayEnabled
+		m.mu.Unlock()
+		if relayAvailable {
+			break
+		}
 		m.logError(fmt.Errorf("попытка подключения %d: %w", attempt, err))
 	}
 	if errors.Is(err, errDirectTunnel) && ctx.Err() == nil {
@@ -917,7 +938,7 @@ func (m *socialManager) joinRoom(ctx context.Context, code string, fromInvite bo
 		relayEnabled := m.state.RelayEnabled
 		m.mu.Unlock()
 		if relayEnabled {
-			err = m.joinOnce(ctx, code, "", true, fromInvite, true, 18*time.Second, 15*time.Second)
+			err = m.joinOnce(ctx, code, "", true, fromInvite, true, 40*time.Second, 20*time.Second)
 		}
 	}
 	return err
@@ -1026,6 +1047,10 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 	if relay {
 		relayPeer, relayErr := m.newRelayPeer(connect, result.Peer.ID, 0, trace)
 		if relayErr != nil {
+			if errors.Is(relayErr, errTURNLimit) {
+				m.notifyTURNLimit()
+				return relayErr
+			}
 			return fmt.Errorf("%w: ретранслятор: %w", errDirectTunnel, relayErr)
 		}
 		m.mu.Lock()
@@ -1141,7 +1166,8 @@ func (m *socialManager) finishGuest(epoch uint64, id string, peer *p2p.Peer) (gu
 		return guestLobbyRecovery{}, false
 	}
 	recovery := m.guestRecoveryLocked()
-	reconnect := m.guestPort != 0 && recovery.guarded && recovery.code != "" &&
+	limited := peer != nil && peer.Relayed() && m.state.TURNUsage.exhausted()
+	reconnect := !limited && m.guestPort != 0 && recovery.guarded && recovery.code != "" &&
 		time.Since(m.lastGuestRecovery) >= 45*time.Second
 	if reconnect {
 		m.lastGuestRecovery = time.Now()
@@ -1161,6 +1187,10 @@ func (m *socialManager) finishGuest(epoch uint64, id string, peer *p2p.Peer) (gu
 		m.state.HostName = ""
 	}
 	m.state.Status = "Связь прервалась. Подключись повторно"
+	if limited {
+		m.state.Status = turnLimitMessage
+		m.state.AutoConnect = false
+	}
 	if m.packCancel != nil {
 		m.packCancel()
 		m.packCancel = nil
@@ -1171,6 +1201,13 @@ func (m *socialManager) finishGuest(epoch uint64, id string, peer *p2p.Peer) (gu
 }
 
 func (m *socialManager) action(ctx context.Context, action, target string) error {
+	if action == "auto-connect" {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		m.identity()
+		return m.setAutoLobbyConnect(target == "true")
+	}
 	m.actions.Lock()
 	defer m.actions.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -1183,7 +1220,7 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 	m.mu.Lock()
 	syncing := m.packCancel != nil
 	m.mu.Unlock()
-	if syncing && action != "close" && action != "cancel-pack" && action != "auto-connect" {
+	if syncing && action != "close" && action != "cancel-pack" {
 		return errors.New("дождитесь синхронизации сборки или отмените её")
 	}
 	m.mu.Lock()
@@ -1192,10 +1229,6 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 	defer func() { m.mu.Lock(); m.state.Busy = false; m.mu.Unlock() }()
 	var err error
 	switch action {
-	case "auto-connect":
-		m.mu.Lock()
-		m.state.AutoConnect = target == "true"
-		m.mu.Unlock()
 	case "reconnect-lobby":
 		m.mu.Lock()
 		recovery := m.guestRecoveryLocked()
@@ -1215,6 +1248,13 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 		err = m.retryGuestPack(ctx)
 	case "connect-game":
 		err = m.connectPreparedPack(ctx)
+	case "auto-join":
+		m.mu.Lock()
+		wanted := m.state.AutoConnect && m.lobbyConnectBusy && !m.state.InWorld
+		m.mu.Unlock()
+		if wanted {
+			err = m.connectPreparedPack(ctx)
+		}
 	case "sync-pack":
 		err = m.startPackSync(target)
 	case "cancel-pack":
@@ -1506,10 +1546,17 @@ func (m *socialManager) pollGameCommand(menuReady bool) (uint64, int) {
 	return id, port
 }
 
-func (m *socialManager) queueColdLobbyJoin(plan *guestPack, port int) {
+func (m *socialManager) queueColdLobbyJoin(plan *guestPack, port int, useBridge bool) {
 	const timeout = 4 * time.Minute
 	m.mu.Lock()
 	if m.guestPack != plan || m.epoch != plan.epoch || m.state.LocalPort != port || !plan.peer.Connected() {
+		m.mu.Unlock()
+		return
+	}
+	if !useBridge {
+		m.gameCommandEpoch = m.epoch
+		m.gameJoinUntil = time.Now().Add(2 * time.Minute)
+		m.state.Status = "Minecraft подключается к миру"
 		m.mu.Unlock()
 		return
 	}

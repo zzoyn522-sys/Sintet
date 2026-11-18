@@ -37,6 +37,7 @@ type WorkshopBuild struct {
 	Height            int    `json:"height,omitempty"`
 	Installed         bool   `json:"installed"`
 	Installing        bool   `json:"installing"`
+	SharedRevision    int    `json:"sharedRevision,omitempty"`
 }
 
 type WorkshopBuildSettings struct {
@@ -122,6 +123,9 @@ func (a *App) WorkshopBuilds() ([]WorkshopBuild, error) {
 	dirty := false
 	for _, build := range store.Builds {
 		if build.ID == "" || seen[build.ID] {
+			continue
+		}
+		if strings.HasPrefix(build.ID, sharedProfilePrefix) {
 			continue
 		}
 		seen[build.ID] = true
@@ -286,7 +290,7 @@ func (a *App) RenameWorkshopBuild(id, name string) error {
 }
 
 func (a *App) SaveWorkshopBuildSettings(id string, settings WorkshopBuildSettings) error {
-	if !regexp.MustCompile(`^build-[a-z0-9-]+-[0-9a-f]{10}$`).MatchString(id) {
+	if !regexp.MustCompile(`^build-(?:shared-[0-9a-f]{32}|[a-z0-9-]+-[0-9a-f]{10})$`).MatchString(id) {
 		return errors.New("неверная сборка")
 	}
 	name, err := normalizeWorkshopBuildName(settings.Name)
@@ -559,8 +563,20 @@ func copyWorkshopTree(source, destination string) error {
 	})
 }
 
+var deletableWorkshopBuildID = regexp.MustCompile(`^build-([a-z0-9-]+-[0-9a-f]{10}|shared-[0-9a-f]{32})$`)
+
 func (a *App) DeleteWorkshopBuild(id string) error {
-	if !regexp.MustCompile(`^build-[a-z0-9-]+-[0-9a-f]{10}$`).MatchString(id) {
+	if !deletableWorkshopBuildID.MatchString(id) || strings.HasPrefix(id, sharedProfilePrefix) {
+		return errors.New("неверная сборка")
+	}
+	if shared := a.sharedWorkshopID(id); shared != "" {
+		return a.DeleteSharedWorkshopBuild(shared)
+	}
+	return a.deleteWorkshopBuild(id, nil)
+}
+
+func (a *App) deleteWorkshopBuild(id string, beforeDelete func() error) error {
+	if !deletableWorkshopBuildID.MatchString(id) {
 		return errors.New("неверная сборка")
 	}
 	a.contentMu.Lock()
@@ -586,6 +602,11 @@ func (a *App) DeleteWorkshopBuild(id string) error {
 	}
 	if index < 0 {
 		return errors.New("сборка не найдена")
+	}
+	if beforeDelete != nil {
+		if err := beforeDelete(); err != nil {
+			return err
+		}
 	}
 	for _, path := range []string{filepath.Join(root, "instances", id), filepath.Join(root, ".sintet", "installed", id+".json"), filepath.Join(root, ".sintet", "profiles", id+".json")} {
 		if err = os.RemoveAll(path); err != nil {

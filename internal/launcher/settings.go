@@ -132,7 +132,7 @@ type LaunchOptions struct {
 	ObserveLog            func([]byte)
 	ObserveRun            func(bool)
 	PrepareGameBridge     func() (string, error)
-	QueueBridgeJoin       func()
+	QueueBridgeJoin       func(bool)
 	OverlayIPC            string
 	OverlayIPCSecret      string
 	OverlayAvatar         string

@@ -52,6 +52,7 @@ type Version struct {
 	Hash         string       `json:"-"`
 	Algorithm    string       `json:"-"`
 	Size         int64        `json:"size"`
+	Unavailable  bool         `json:"unavailable,omitempty"`
 	Games        []string     `json:"games"`
 	Loaders      []string     `json:"loaders"`
 	Dependencies []Dependency `json:"dependencies"`
@@ -69,6 +70,7 @@ type Client struct {
 	categoryIDs                       map[string]int
 	HTTP                              *http.Client
 	Modrinth, CurseForge, Sintet, Key string
+	CurseForgeProxy                   bool
 }
 
 var safeID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,80}$`)
@@ -102,7 +104,7 @@ func (c *Client) get(ctx context.Context, provider, path string, out any) error 
 func (c *Client) getOnce(ctx context.Context, provider, path string, out any) error {
 	base := c.Modrinth
 	if provider == "curseforge" {
-		if c.Key == "" {
+		if c.Key == "" && !c.CurseForgeProxy {
 			return errors.New("ключ CurseForge не настроен")
 		}
 		base = c.CurseForge
@@ -117,7 +119,7 @@ func (c *Client) getOnce(ctx context.Context, provider, path string, out any) er
 	}
 	request.Header.Set("User-Agent", "Sintet/0.9 (sintet.xyz)")
 	request.Header.Set("Accept", "application/json")
-	if provider == "curseforge" {
+	if provider == "curseforge" && c.Key != "" {
 		request.Header.Set("x-api-key", c.Key)
 	}
 	response, err := c.HTTP.Do(request)
@@ -257,6 +259,7 @@ type cfFile struct {
 func (f cfFile) version() Version {
 	v := Version{ID: strconv.Itoa(f.ID), Project: strconv.Itoa(f.ModID), Name: f.DisplayName, Filename: f.FileName, URL: f.DownloadURL, Size: f.FileLength, Games: Games(f.GameVersions), Loaders: Loaders(f.GameVersions), Dependencies: []Dependency{}}
 	v.Release = map[int]string{1: "release", 2: "beta", 3: "alpha"}[f.ReleaseType]
+	v.Unavailable = v.URL == ""
 	for _, h := range f.Hashes {
 		if h.Algo == 1 {
 			v.Hash = h.Value

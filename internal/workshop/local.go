@@ -27,6 +27,9 @@ type LocalItem struct {
 	ModID       string `json:"modID,omitempty"`
 	Authors     string `json:"authors,omitempty"`
 	PackFormat  string `json:"packFormat,omitempty"`
+	Shared      bool   `json:"shared,omitempty"`
+	Approved    bool   `json:"approved"`
+	ReadOnly    string `json:"readOnly,omitempty"`
 }
 
 func zipBytes(file *zip.Reader, name string, limit uint64) ([]byte, error) {
@@ -74,13 +77,27 @@ func modIDs(path string) []string {
 	for _, name := range []string{"META-INF/neoforge.mods.toml", "META-INF/mods.toml"} {
 		if data, err := zipBytes(&jar.Reader, name, 256<<10); err == nil {
 			result := []string{}
-			for _, match := range tomlID.FindAllSubmatch(data, -1) {
-				result = append(result, string(match[1]))
+			for _, table := range modTable.FindAllIndex(data, -1) {
+				fields := data[table[1]:]
+				if next := tomlTable.FindIndex(fields); next != nil {
+					fields = fields[:next[0]]
+				}
+				if match := tomlID.FindSubmatch(fields); len(match) > 1 {
+					result = append(result, string(match[1]))
+				}
 			}
 			return result
 		}
 	}
 	return nil
+}
+
+func ModIDs(path string) []string { return modIDs(path) }
+
+func ModMetadata(path string) LocalItem {
+	item := LocalItem{}
+	localMetadata(path, "mods", &item)
+	return item
 }
 
 type packMetadata struct {

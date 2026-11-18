@@ -128,6 +128,7 @@ namespace SintetUpdater {
      output.Flush(true);if(copied!=size)throw new IOException(SetupLanguage.T("Размер обновления не совпадает с манифестом."));
     }
     string label=candidate;if(payload.ContainsKey("channel")&&Convert.ToString(payload["channel"])=="test"){var parts=candidate.Split('.');label=parts[0]+"."+parts[1]+"."+parts[2]+" TEST";}
+    else if(payload.ContainsKey("beta")&&payload["beta"] is bool&&(bool)payload["beta"]){label=candidate+" BETA";}
     return new Release{Version=candidate,DisplayVersion=label,Url=url,Sha256=sha,Size=size,Manifest=manifestPath,DownloadPath=download};
    }catch{try{if(File.Exists(download))File.Delete(download);}catch{}try{if(File.Exists(manifestPath))File.Delete(manifestPath);}catch{}throw;}
   }

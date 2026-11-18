@@ -33,3 +33,37 @@ func TestGameJoinRequiresLiveBridgeAndTunnel(t *testing.T) {
 		t.Fatal("command did not follow current tunnel")
 	}
 }
+
+func TestLobbyAutoConnectWaitsForActualJoinAndBoundsRetries(t *testing.T) {
+	m := &socialManager{epoch: 1, state: socialState{
+		AutoConnect: true, WorldReady: true, LocalPort: 25565, Pack: &packStatus{Phase: "ready"},
+	}}
+	now := time.Now()
+	if !m.autoLobbyReadyLocked(1, now) {
+		t.Fatal("armed guest did not start when the world became available")
+	}
+	m.setGameCommandLocked(25565, true, time.Minute)
+	if m.autoLobbyReadyLocked(1, now) || !m.state.AutoConnect {
+		t.Fatal("queuing a command should retain intent and prevent duplicate joins")
+	}
+	m.gameCommandPort = 0
+	m.gameJoinUntil = now.Add(time.Minute)
+	if m.autoLobbyReadyLocked(1, now) || !m.state.AutoConnect {
+		t.Fatal("launching with Quick Play should wait for the world connection")
+	}
+	m.gameJoinUntil = now.Add(-time.Second)
+	m.autoJoinAttempts = 1
+	m.autoJoinRetryAt = now.Add(-time.Second)
+	if !m.autoLobbyReadyLocked(1, now) {
+		t.Fatal("a failed join should allow one retry")
+	}
+	m.autoJoinAttempts = 2
+	if m.autoLobbyReadyLocked(1, now) || !m.state.AutoConnect {
+		t.Fatal("exhausting retries should leave the user's setting selected")
+	}
+	m.state.InWorld = true
+	m.resetAutoLobbyRetryLocked()
+	if m.autoLobbyReadyLocked(1, now) {
+		t.Fatal("an already joined guest should never auto-connect again")
+	}
+}

@@ -44,7 +44,7 @@ func (p *Peer) servePack(session *yamux.Session) {
 			http.Error(w, "Method not allowed", 405)
 			return
 		}
-		if p.relay && r.Method == http.MethodGet && r.URL.Path != "/manifest" {
+		if !p.PackFilesAvailable() && r.Method == http.MethodGet && r.URL.Path != "/manifest" {
 			http.Error(w, "Pack files unavailable over relay", http.StatusForbidden)
 			return
 		}
@@ -56,7 +56,7 @@ func (p *Peer) servePack(session *yamux.Session) {
 func (p *Peer) Relayed() bool { return p.relay }
 
 func (p *Peer) PackGet(ctx context.Context, path string) (*http.Response, error) {
-	if len(path) > 200 || (path != "/manifest" && (len(path) != 70 || path[:6] != "/file/")) {
+	if path != "/manifest" && (len(path) != 70 || (path[:6] != "/file/" && path[:6] != "/icon/")) {
 		return nil, errors.New("invalid pack endpoint")
 	}
 	return p.packRequest(ctx, http.MethodGet, path, nil)

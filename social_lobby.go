@@ -43,7 +43,7 @@ func (m *socialManager) lobbyHostProfile(requested string) (string, error) {
 		return requested, nil
 	}
 	if requested == "" {
-		profiles := m.app.service.Installations()
+		profiles := withoutSharedInstallations(m.app.service.Installations())
 		if len(profiles) > 0 {
 			return profiles[0].ID, nil
 		}
@@ -161,7 +161,7 @@ func (m *socialManager) launchLobbyHost(ctx context.Context) error {
 	if m.app.State().Running {
 		return errors.New("Minecraft уже запущен; открой мир для сети")
 	}
-	return m.app.launchInstance(profile, "Player", 0, false, nil)
+	return m.app.Launch(profile, "Player")
 }
 
 func allowedLobbyPhase(phase string) bool {
@@ -278,6 +278,9 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 		return "", context.Canceled
 	}
 	m.state.WorldReady = result.WorldReady
+	if m.guestWorldDigest != result.Digest {
+		m.resetAutoLobbyRetryLocked()
+	}
 	m.guestWorldDigest = result.Digest
 	m.state.InWorld = report.Phase == "world"
 	m.state.LocalPort = 0
@@ -295,10 +298,13 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 	now := time.Now()
 	switch {
 	case m.state.InWorld:
+		m.state.AutoConnect = false
+		m.resetAutoLobbyRetryLocked()
 		m.gameCommandPort = 0
 		m.gameJoinUntil = time.Time{}
 		m.state.Status = "В мире"
 	case !result.WorldReady:
+		m.resetAutoLobbyRetryLocked()
 		m.gameCommandPort = 0
 		m.gameJoinUntil = time.Time{}
 		m.state.Status = "Ждём, пока лидер откроет мир для сети"
@@ -389,11 +395,25 @@ func offerUsesRelay(offer *webrtc.SessionDescription) bool {
 func (m *socialManager) newRelayPeer(ctx context.Context, peerID string, port int, trace *p2p.ICETrace) (*p2p.Peer, error) {
 	var credentials struct {
 		Servers []webrtc.ICEServer `json:"iceServers"`
+		Metered bool               `json:"metered"`
 	}
-	if err := m.post(ctx, map[string]any{"action": "relay-credentials", "peer": peerID}, &credentials); err != nil {
-		return nil, err
+	m.mu.Lock()
+	client, account := m.client, m.account
+	m.mu.Unlock()
+	if client == nil || account == "" {
+		return nil, errors.New("войдите через Sintet ID")
 	}
-	return p2p.NewRelayPeer(port, credentials.Servers, trace)
+	if err := client.SocialRequest(ctx, "POST", "/api/social", map[string]any{"action": "relay-credentials", "peer": peerID}, &credentials); err != nil {
+		return nil, normalizeTURNError(err)
+	}
+	if !credentials.Metered {
+		return p2p.NewRelayPeer(port, credentials.Servers, trace)
+	}
+	peer, err := p2p.NewMeteredRelayPeer(port, credentials.Servers, trace)
+	if err == nil {
+		go m.watchTURNPeer(client, account, peer)
+	}
+	return peer, err
 }
 
 type guestLobbyRecovery struct {
@@ -455,7 +475,7 @@ func (m *socialManager) resumeGuestLobby(ctx context.Context, recovery guestLobb
 			relay := m.state.RelayEnabled && current.code == recovery.code
 			m.mu.Unlock()
 			if relay {
-				err = m.joinOnce(ctx, recovery.code, current.peer, true, false, true, 18*time.Second, 15*time.Second)
+				err = m.joinOnce(ctx, recovery.code, current.peer, true, false, true, 40*time.Second, 20*time.Second)
 			}
 		}
 	} else {
@@ -467,11 +487,15 @@ func (m *socialManager) resumeGuestLobby(ctx context.Context, recovery guestLobb
 	m.mu.Lock()
 	plan := m.guestPack
 	room := m.state.Room
-	if plan == nil || room == nil || room.Code != recovery.code || plan.epoch != m.epoch || !plan.peer.Connected() {
+	if room == nil || room.Code != recovery.code {
 		m.mu.Unlock()
 		return nil
 	}
 	m.state.AutoConnect = recovery.autoConnect
+	if plan == nil || plan.epoch != m.epoch || !plan.peer.Connected() {
+		m.mu.Unlock()
+		return nil
+	}
 	resumePack := m.state.Pack != nil && m.state.Pack.Phase == "required" && plan.manifest.Digest == recovery.digest
 	if resumePack {
 		m.packConsent = recovery.digest
@@ -496,25 +520,61 @@ func (m *socialManager) resumeGuestLobby(ctx context.Context, recovery guestLobb
 	return m.startPackSync(recovery.digest)
 }
 
+func (m *socialManager) resetAutoLobbyRetryLocked() {
+	m.autoJoinAttempts = 0
+	m.autoJoinRetryAt = time.Time{}
+}
+
+func (m *socialManager) setAutoLobbyConnect(enabled bool) error {
+	m.mu.Lock()
+	if !m.state.Enabled || m.state.Room == nil || m.state.Room.Host == m.account || m.guest == "" {
+		m.mu.Unlock()
+		return errors.New("сначала войди в лобби")
+	}
+	m.state.AutoConnect = enabled && !m.state.InWorld
+	m.resetAutoLobbyRetryLocked()
+	epoch := m.epoch
+	m.mu.Unlock()
+	if enabled {
+		m.tryAutoLobbyConnect(m.ctx, epoch)
+	}
+	return nil
+}
+
+func (m *socialManager) autoLobbyReadyLocked(epoch uint64, now time.Time) bool {
+	return m.epoch == epoch && m.state.AutoConnect && m.state.WorldReady && m.state.LocalPort != 0 &&
+		!m.state.InWorld && !m.state.Busy && m.packCancel == nil && !m.lobbyConnectBusy &&
+		!m.gameJoinPendingLocked() && m.autoJoinAttempts < 2 && !now.Before(m.autoJoinRetryAt) &&
+		m.state.Pack != nil && m.state.Pack.Phase == "ready"
+}
+
 func (m *socialManager) tryAutoLobbyConnect(ctx context.Context, epoch uint64) {
-	if m.app.State().Busy {
+	game := m.app.State()
+	if game.Busy {
 		return
 	}
 	m.mu.Lock()
-	ready := m.epoch == epoch && m.state.AutoConnect && m.state.WorldReady && m.state.LocalPort != 0 && !m.state.InWorld && !m.state.Busy && m.packCancel == nil && !m.lobbyConnectBusy && m.state.Pack != nil && m.state.Pack.Phase == "ready"
+	now := time.Now()
+	ready := m.autoLobbyReadyLocked(epoch, now)
+	if ready && game.Running && m.guestPack != nil && game.Profile == m.guestPack.profile &&
+		now.Sub(m.bridgeSeen) > 3*time.Second && game.GameStarted > 0 && now.Sub(time.Unix(game.GameStarted, 0)) < 2*time.Minute {
+		// Give a still-loading game time to start reporting through the bridge.
+		ready = false
+	}
 	if ready {
 		m.lobbyConnectBusy = true
+		m.autoJoinAttempts++
+		m.autoJoinRetryAt = now.Add(5 * time.Second)
 	}
 	m.mu.Unlock()
 	if !ready {
 		return
 	}
 	go func() {
-		err := m.action(ctx, "connect-game", "")
+		err := m.action(ctx, "auto-join", "")
 		m.mu.Lock()
 		if m.epoch == epoch {
 			m.lobbyConnectBusy = false
-			m.state.AutoConnect = false
 		}
 		m.mu.Unlock()
 		if err != nil {
