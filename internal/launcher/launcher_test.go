@@ -15,6 +15,35 @@ import (
 	"testing"
 )
 
+func TestInstallPlanKeepsNativeOnlyLibrariesOutOfClasspath(t *testing.T) {
+	var profile Profile
+	err := json.Unmarshal([]byte(`{"libraries":[
+		{"name":"net.java.jinput:jinput-platform:2.0.5","natives":{"windows":"natives-windows"},
+		 "downloads":{"classifiers":{"natives-windows":{"path":"net/java/jinput/jinput-platform/2.0.5/jinput-platform-2.0.5-natives-windows.jar","url":"https://example.test/windows.jar"}}}},
+		{"name":"example:both:1","natives":{"windows":"natives-windows"},
+		 "downloads":{"artifact":{"path":"example/both/1/both-1.jar","url":"https://example.test/both.jar"},
+		 "classifiers":{"natives-windows":{"path":"example/both/1/both-1-natives-windows.jar","url":"https://example.test/both-windows.jar"}}}},
+		{"name":"example:loader:1","url":"https://example.test/maven/"}
+	]}`), &profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := New(t.TempDir())
+	receipt, err := service.plan(context.Background(), profile, "rd-132211")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(receipt.Files) != 5 || len(receipt.NativeJars) != 2 || len(receipt.Classpath) != 3 {
+		t.Fatalf("unexpected installation plan: files=%v natives=%v classpath=%v", receipt.Files, receipt.NativeJars, receipt.Classpath)
+	}
+	if !strings.HasSuffix(receipt.NativeJars[0], "/jinput-platform-2.0.5-natives-windows.jar") {
+		t.Fatalf("Windows JInput is missing: %v", receipt.NativeJars)
+	}
+	if filepath.Base(receipt.Classpath[0]) != "both-1.jar" || receipt.Files[4].URL != "https://example.test/maven/example/loader/1/loader-1.jar" {
+		t.Fatalf("ordinary artifacts were lost: %v, %v", receipt.Classpath, receipt.Files)
+	}
+}
+
 func TestFailedLaunchLogCanBeReadAfterRestart(t *testing.T) {
 	root := t.TempDir()
 	service := New(root)

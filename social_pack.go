@@ -110,7 +110,7 @@ func (m *socialManager) captureHostPack(ctx context.Context, profiles ...string)
 }
 func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, epoch uint64, host socialAccount, fromInvite bool) error {
 	m.mu.Lock()
-	if m.epoch != epoch || !peer.Connected() {
+	if m.epoch != epoch || m.state.NoPack || !peer.Connected() {
 		m.mu.Unlock()
 		return context.Canceled
 	}
@@ -193,7 +193,7 @@ func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, ep
 		status.Restart, status.NeedsGame = false, false
 	}
 	m.mu.Lock()
-	if m.epoch != epoch || m.peers[m.guest] != peer || !peer.Connected() {
+	if m.epoch != epoch || m.state.NoPack || m.peers[m.guest] != peer || !peer.Connected() {
 		m.mu.Unlock()
 		return context.Canceled
 	}
@@ -269,7 +269,7 @@ func (m *socialManager) retryGuestPack(ctx context.Context) error {
 func (m *socialManager) packFailure(epoch uint64, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.epoch != epoch || m.guest == "" || m.peers[m.guest] == nil {
+	if m.epoch != epoch || m.state.NoPack || m.guest == "" || m.peers[m.guest] == nil {
 		return
 	}
 	if m.state.Pack == nil {
@@ -314,6 +314,10 @@ func (m *socialManager) connectPreparedPack(ctx context.Context) error {
 		}
 	}
 	m.mu.Lock()
+	if m.state.NoPack {
+		m.mu.Unlock()
+		return m.connectGame()
+	}
 	plan := m.guestPack
 	status := m.state.Pack
 	if plan == nil || status == nil || status.Phase != "ready" || plan.epoch != m.epoch {

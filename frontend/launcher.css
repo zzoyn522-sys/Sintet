@@ -62,5 +62,28 @@
 .journal-actions button{border:0;border-radius:7px;padding:8px 10px;background:#292929;color:#ddd;font-size:12px;cursor:pointer}
 .journal-actions button:disabled{opacity:.5;cursor:default}
 .custom-build-icon{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.game-icon{flex:none}
+.minecraft-game-icon{display:block;width:27px;height:27px}
+#delete-version-home { margin-inline-start: 0; }
+#delete-version-home[hidden] { display: none; }
+#delete-version-home:hover:not(:disabled) { color: #f1aaa5; background: #5c353455; }
+#version-delete-dialog { --utility-width: 448px; }
+.version-delete-game { display: grid; place-items: center; }
+.version-delete-game .minecraft-game-icon {
+  position: static;
+  width: 29px;
+  height: 29px;
+  background: transparent;
+}
+.version-delete-selection { display: flex; flex-wrap: wrap; column-gap: 6px; }
+.version-delete-selection span + span::before { content: '·'; margin-inline-end: 6px; }
+.version-delete-effects { display: grid; gap: 12px; margin: 0; list-style: none; }
+.version-delete-effects li { display: grid; grid-template-columns: 18px minmax(0,1fr); align-items: start; gap: 9px; }
+.version-delete-effects strong { font-size: 13px; line-height: 1.4; }
+.version-delete-effects p { margin: 3px 0 0; color: var(--build-muted); font-size: 12px; line-height: 1.5; }
+.version-delete-effect-icon { display: grid; place-items: center; color: var(--build-muted); }
+.version-delete-effect-icon svg, .version-delete-warning svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+.version-delete-warning { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--build-danger); font-size: 12px; line-height: 1.45; }
+.version-delete-error { margin: 0; color: var(--build-danger); font-size: 12px; overflow-wrap: anywhere; }
 
 #install-error-details{flex:none;white-space:nowrap;padding:3px 8px;border-radius:6px;background:#292929;color:#eee;font:inherit;font-size:11px;cursor:pointer}#install-error-details[hidden]{display:none}.install-error-dialog{width:620px;max-width:calc(100vw - 48px);max-height:calc(100vh - 48px);box-sizing:border-box;padding:24px;border:0;border-radius:18px;background:#171717;color:#eee;box-shadow:0 25px 80px #0009}.install-error-dialog::backdrop{background:#0009;backdrop-filter:blur(7px)}.install-error-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}.install-error-dialog h2{margin:0;font-size:21px}.install-error-dialog header button{width:30px;height:30px;border-radius:50%;background:#292929;color:#aaa;font-size:22px}.install-error-dialog pre{max-height:48vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;font-family:inherit;font-size:14px;line-height:1.6;padding:16px;background:#101010;border-radius:12px}.install-error-dialog footer{display:flex;justify-content:flex-end;gap:10px}.install-error-dialog footer button{height:38px;padding:0 16px;border-radius:9px;background:#2a2a2a;color:#eee;font:inherit;font-size:13px}

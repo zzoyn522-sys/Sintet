@@ -1176,3 +1176,26 @@ html[data-text-weight] .ws-dialog:is(.ws-build-dialog,.ws-build-delete-dialog) :
 html[data-compact-layout] .ws-build-manage :is(.ws-build-tabs button,.ws-build-mod) { min-height: 33px; padding-block: 6px; }
 html[data-compact-layout] .ws-build-manage :is(.ws-build-panel,.shared-build-section) { gap: 8px; }
 html[data-compact-layout] .ws-build-manage :is(.ws-build-control-card,.shared-build-availability) { padding: 12px; }
+
+.ws-dialog.ws-build-manage.ws-utility-dialog[open] {
+  width: var(--utility-width);
+  height: fit-content;
+  box-sizing: border-box;
+}
+.ws-utility-body {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  padding: 17px 22px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--build-hover) transparent;
+}
+.ws-utility-dialog .ws-build-header h1 { margin: 0 0 3px; font-size: 23px; font-weight: 700; overflow-wrap: anywhere; }
+.ws-utility-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.55; stroke-linecap: round; stroke-linejoin: round; }
+.ws-utility-dialog > .ws-build-footer { flex-wrap: wrap; }
+.ws-utility-dialog > .ws-build-footer button { padding-inline: 13px; font-size: 12px; }
+@media(max-width: 520px) {
+ .ws-utility-body { padding-inline: 15px; }
+ .ws-utility-dialog .ws-build-header { padding-inline-start: 15px; }
+}

@@ -67,6 +67,8 @@ DWORD WINAPI poll(void*) {
    state.leader=value.value("leader",false);state.gameReady=value.value("gameReady",false);state.gameJoining=value.value("gameJoining",false);state.lanPort=value.value("lanPort",0);state.localPort=value.value("localPort",0);state.connected=value.value("connected",0);state.host=value.value("hostName","");
    state.worldReady=value.value("worldReady",false);state.inWorld=value.value("inWorld",false);
    state.preGameLobby=value.value("preGameLobby",false);
+   state.noPack=value.value("noPack",false);
+   state.lobbyConnected=value.value("lobbyConnected",false);
    state.turnActive=value.value("turnActive",false);
    state.turnNotice=value.value("turnNotice",0LL);
    const auto usage=value.value("turnUsage",Json());

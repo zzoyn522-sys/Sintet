@@ -20,7 +20,7 @@ struct State {
 	int packMissing=0;
  bool enabled=false,busy=false,gameReady=false,gameJoining=false,leader=false,offline=false,reconnecting=false;
  bool worldReady=false,autoConnect=false,inWorld=false;
- bool preGameLobby=false;
+ bool preGameLobby=false,noPack=false,lobbyConnected=false;
  bool turnActive=false;
  long long turnUsed=0,turnLimit=0,turnNotice=0;
  std::string error,connection,room,host;

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -27,8 +28,38 @@ type lobbyMemberState struct {
 }
 type lobbyExchange struct {
 	WorldReady bool               `json:"worldReady"`
+	NoPack     bool               `json:"noPack,omitempty"`
 	Digest     string             `json:"digest"`
 	Members    []lobbyMemberState `json:"members"`
+}
+
+type lobbyHostSelection struct {
+	profile, version, loader, name string
+	pack                           *packsync.Snapshot
+}
+
+func (m *socialManager) prepareLobbyHost(ctx context.Context, profile string) (lobbyHostSelection, error) {
+	if profile == manualLobbyProfile {
+		// The room service preserves the version string and validates the loader on changes.
+		return lobbyHostSelection{profile: profile, version: manualLobbyProfile, loader: "vanilla"}, nil
+	}
+	pack, err := m.captureHostPack(ctx, profile)
+	if err != nil {
+		return lobbyHostSelection{}, fmt.Errorf("не удалось подготовить сборку: %w", err)
+	}
+	manifest := pack.Manifest
+	return lobbyHostSelection{profile: profile, version: manifest.Game, loader: manifest.Loader, name: cleanActivityLabel(manifest.Name), pack: &pack}, nil
+}
+
+func (m *socialManager) applyLobbyHostLocked(selection lobbyHostSelection) {
+	m.hostProfile = selection.profile
+	m.hostPack = selection.pack
+	m.state.NoPack = selection.pack == nil
+	m.state.Pack = nil
+	if selection.pack != nil {
+		manifest := selection.pack.Manifest
+		m.state.Pack = &packStatus{Phase: "hosting", Name: manifest.Name, Game: manifest.Game, Loader: manifest.Loader, Digest: manifest.Digest, Missing: len(manifest.Files)}
+	}
 }
 
 func (m *socialManager) lobbyHostProfile(requested string) (string, error) {
@@ -56,12 +87,13 @@ func (m *socialManager) updateHostedWorld(port int) {
 	game := m.app.service.State()
 	m.mu.Lock()
 	profile, epoch := m.hostProfile, m.epoch
+	manual := m.state.Room.manual()
 	previous := m.state.WorldReady
 	m.mu.Unlock()
-	if !game.Running || game.Profile != profile {
+	if !game.Running || (!manual && game.Profile != profile) {
 		port = 0
 	}
-	if port > 0 && !previous {
+	if port > 0 && !previous && !manual {
 		ctx, cancel := context.WithTimeout(m.ctx, 45*time.Second)
 		err := m.refreshLobbyPack(ctx)
 		cancel()
@@ -72,7 +104,7 @@ func (m *socialManager) updateHostedWorld(port int) {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.epoch != epoch || m.hostProfile != profile {
+	if m.epoch != epoch || m.hostProfile != profile || m.state.Room.manual() != manual {
 		return
 	}
 	m.state.WorldReady = port > 0
@@ -91,19 +123,18 @@ func (m *socialManager) changeLobbyPack(ctx context.Context, profile string) err
 	if room == nil || room.Host != account {
 		return errors.New("сборку может сменить только лидер лобби")
 	}
-	if profile == "" || !m.app.service.Installed(profile) {
+	if profile != manualLobbyProfile && (profile == "" || !m.app.service.Installed(profile)) {
 		return errors.New("сначала установи выбранную сборку")
 	}
-	snapshot, err := m.captureHostPack(ctx, profile)
+	selection, err := m.prepareLobbyHost(ctx, profile)
 	if err != nil {
 		return err
 	}
-	manifest := snapshot.Manifest
 	var reply struct {
 		Room *socialRoom `json:"room"`
 	}
 	if err := m.post(ctx, map[string]any{"action": "room-pack", "code": room.Code,
-		"version": manifest.Game, "loader": manifest.Loader, "pack_name": cleanActivityLabel(manifest.Name)}, &reply); err != nil {
+		"version": selection.version, "loader": selection.loader, "pack_name": selection.name}, &reply); err != nil {
 		return err
 	}
 	m.mu.Lock()
@@ -114,7 +145,7 @@ func (m *socialManager) changeLobbyPack(ctx context.Context, profile string) err
 	if reply.Room != nil {
 		m.state.Room = reply.Room
 	}
-	if m.hostPack == nil || m.hostPack.Manifest.Digest != manifest.Digest || m.hostProfile != profile {
+	if m.hostProfile != profile || (selection.pack != nil && (m.hostPack == nil || m.hostPack.Manifest.Digest != selection.pack.Manifest.Digest)) {
 		m.state.WorldReady = false
 		m.memberPreparation = make(map[string]lobbyPreparation)
 		for _, peer := range m.peers {
@@ -123,9 +154,7 @@ func (m *socialManager) changeLobbyPack(ctx context.Context, profile string) err
 			}
 		}
 	}
-	m.hostProfile = profile
-	m.hostPack = &snapshot
-	m.state.Pack = &packStatus{Phase: "hosting", Name: manifest.Name, Game: manifest.Game, Loader: manifest.Loader, Digest: manifest.Digest}
+	m.applyLobbyHostLocked(selection)
 	return nil
 }
 
@@ -190,11 +219,15 @@ func (m *socialManager) hostLobbyHandler(guest string) http.Handler {
 			http.Error(w, "Lobby unavailable", 403)
 			return
 		}
-		if snapshot == nil {
+		if snapshot == nil && !room.manual() {
 			http.Error(w, "Host pack not prepared", http.StatusServiceUnavailable)
 			return
 		}
 		if r.URL.Path != "/lobby" {
+			if room.manual() {
+				http.NotFound(w, r)
+				return
+			}
 			revisionMu.Lock()
 			if revision == nil || r.URL.Path == "/manifest" {
 				revision = snapshot
@@ -216,18 +249,29 @@ func (m *socialManager) hostLobbyHandler(guest string) http.Handler {
 		}
 		m.mu.Lock()
 		defer m.mu.Unlock()
-		if m.hostPack == nil || m.state.Room == nil || m.state.Room.Code != room.Code {
+		if m.state.Room == nil || m.state.Room.Code != room.Code {
 			http.Error(w, "Lobby closed", 410)
 			return
 		}
 		if m.memberPreparation == nil {
 			m.memberPreparation = make(map[string]lobbyPreparation)
 		}
-		if report.Digest != m.hostPack.Manifest.Digest {
+		manual := m.state.Room.manual()
+		digest := ""
+		if !manual && m.hostPack == nil {
+			http.Error(w, "Host pack not prepared", http.StatusServiceUnavailable)
+			return
+		}
+		if !manual {
+			digest = m.hostPack.Manifest.Digest
+		}
+		if manual && report.Phase != "world" {
+			report = lobbyPreparation{Phase: "ready"}
+		} else if report.Digest != digest && !manual {
 			report = lobbyPreparation{Phase: "checking"}
 		}
 		m.memberPreparation[guest] = report
-		result := lobbyExchange{WorldReady: m.state.WorldReady, Digest: m.hostPack.Manifest.Digest}
+		result := lobbyExchange{WorldReady: m.state.WorldReady, NoPack: manual, Digest: digest}
 		for _, member := range m.state.Members {
 			if member.Leader {
 				continue
@@ -278,6 +322,15 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 		return "", context.Canceled
 	}
 	m.state.WorldReady = result.WorldReady
+	m.state.NoPack = result.NoPack
+	if result.NoPack {
+		if m.packCancel != nil {
+			m.packCancel()
+		}
+		m.guestPack = nil
+		m.packConsent = ""
+		m.state.Pack = nil
+	}
 	if m.guestWorldDigest != result.Digest {
 		m.resetAutoLobbyRetryLocked()
 	}
@@ -347,12 +400,15 @@ func (m *socialManager) watchGuestLobby(ctx context.Context, peer *p2p.Peer, epo
 		if err != nil {
 			continue
 		}
+		if digest == "" {
+			retriedDigest = ""
+		}
 		m.mu.Lock()
 		plan := m.guestPack
 		pack := m.state.Pack
 		cancelSync := m.packCancel
 		changed := plan != nil && digest != "" && digest != plan.manifest.Digest
-		recovered := plan == nil && digest != "" && digest != retriedDigest && pack != nil && pack.Phase == "error" && pack.Digest == ""
+		recovered := plan == nil && digest != "" && digest != retriedDigest && (pack == nil || pack.Phase == "error" && pack.Digest == "")
 		port := m.state.LocalPort
 		m.mu.Unlock()
 		if changed && cancelSync != nil {
@@ -545,7 +601,7 @@ func (m *socialManager) autoLobbyReadyLocked(epoch uint64, now time.Time) bool {
 	return m.epoch == epoch && m.state.AutoConnect && m.state.WorldReady && m.state.LocalPort != 0 &&
 		!m.state.InWorld && !m.state.Busy && m.packCancel == nil && !m.lobbyConnectBusy &&
 		!m.gameJoinPendingLocked() && m.autoJoinAttempts < 2 && !now.Before(m.autoJoinRetryAt) &&
-		m.state.Pack != nil && m.state.Pack.Phase == "ready"
+		(m.state.NoPack && now.Sub(m.bridgeSeen) <= 3*time.Second || m.state.Pack != nil && m.state.Pack.Phase == "ready")
 }
 
 func (m *socialManager) tryAutoLobbyConnect(ctx context.Context, epoch uint64) {

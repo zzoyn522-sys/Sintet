@@ -6,13 +6,13 @@
   target.dataset.icon=value;
   target.replaceChildren();
   if(!value)return;
-  if(!isCustom(value)){target.textContent=presets[value]||presets.grass;return}
+  if(value!=='minecraft'&&!isCustom(value)){target.textContent=presets[value]||presets.grass;return}
   const img=document.createElement('img');
   img.alt='';
   img.draggable=false;
-  img.className='custom-build-icon';
+  img.className=value==='minecraft'?'minecraft-game-icon':'custom-build-icon';
   img.onerror=()=>{if(target.contains(img))target.textContent=presets.grass};
-  img.src='/build-icons/'+value.slice(7)+'.png';
+  img.src=value==='minecraft'?'assets/launcher-import/minecraft.svg':'/build-icons/'+value.slice(7)+'.png';
   target.append(img);
  }
  window.SintetBuildIcon={render,isCustom};

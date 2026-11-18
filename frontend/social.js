@@ -321,7 +321,9 @@
  const presenceLabels={lobby:'В лобби',singleplayer:'Одиночный мир',multiplayer:'Мультиплеер',world:'В мире Minecraft',menu:'В главном меню',launcher:'В лаунчере',offline:'Не в сети'};
  const presenceOrder={lobby:0,multiplayer:1,singleplayer:1,world:1,menu:2,launcher:3};
  const loaderNames={fabric:'Fabric',forge:'Forge',neoforge:'NeoForge',quilt:'Quilt',vanilla:'Vanilla'};
+ const manualLobbyProfile='sintet:manual';
  function invitationDetails(invite){
+  if(invite.game===manualLobbyProfile)return 'Ничего не ставить';
   const game=invite.game?'Minecraft '+invite.game:'';
   return [game,invite.build!==game?invite.build:'',loaderNames[invite.loader]].filter(Boolean).join(' · ');
  }
@@ -691,6 +693,8 @@
  document.querySelector('#friends-join').onsubmit=event=>{event.preventDefault();act('join',document.querySelector('#friends-code').value.trim())};
  const lobbySetup=element('label','lobby-setup');lobbySetup.append(element('span','','Сборка лобби'));
  const lobbyProfile=element('select','');lobbyProfile.setAttribute('aria-label','Сборка лобби');lobbySetup.append(lobbyProfile);
+ const manualLobbyOption=()=>{const option=element('option','','Ничего не ставить');option.value=manualLobbyProfile;return option};
+ lobbyProfile.append(manualLobbyOption());
  const changePack=element('button','pack-cancel','Сменить сборку');changePack.type='button';changePack.hidden=true;
  lobbySetup.append(changePack);document.querySelector('#friends-host').before(lobbySetup);
  let currentLobbyProfile='';
@@ -701,13 +705,13 @@
   if(state?.room&&!state.leader||Date.now()-lobbyProfilesAt<15000)return;
   lobbyProfilesAt=Date.now();
   try{const profiles=await api().Installations(),key=JSON.stringify(profiles);if(key===lobbyProfilesKey)return;lobbyProfilesKey=key;
-   let preferred=lobbyProfile.value||state?.hostProfile;try{const saved=JSON.parse(localStorage.getItem('sintet.selectedProfile'));if(!preferred&&saved)preferred=saved.id||(saved.loader==='vanilla'?saved.base:`${saved.loader}-${saved.loaderVersion}-${saved.base}`)}catch{}
-   lobbyProfile.replaceChildren();for(const profile of profiles||[]){const option=element('option','',profile.name?profile.name+' · '+profile.base:profile.base+' · '+(loaderNames[profile.loader]||profile.loader));option.value=profile.id;lobbyProfile.append(option)}
+   const preferred=lobbyProfile.value;
+   lobbyProfile.replaceChildren(manualLobbyOption());for(const profile of profiles||[]){const option=element('option','',profile.name?profile.name+' · '+profile.base:profile.base+' · '+(loaderNames[profile.loader]||profile.loader));option.value=profile.id;lobbyProfile.append(option)}
    if([...lobbyProfile.options].some(option=>option.value===preferred))lobbyProfile.value=preferred;
-   if(!lobbyProfile.options.length){const option=element('option','','Сначала установи Minecraft');option.value='';lobbyProfile.append(option)}window.SintetUI?.select.refresh(lobbyProfile);
+   window.SintetUI?.select.refresh(lobbyProfile);
   }catch{}
  }
- document.querySelector('#friends-host').onclick=()=>act(state?.room?'close':'host',state?.gameRunning?'':lobbyProfile.value);
+ document.querySelector('#friends-host').onclick=()=>act(state?.room?'close':'host',lobbyProfile.value===manualLobbyProfile||!state?.gameRunning?lobbyProfile.value:'');
  document.querySelector('#friends-copy-room').onclick=()=>{if(state?.room?.code)navigator.clipboard.writeText(state.room.code).then(()=>toast('Код скопирован'))};
  document.querySelector('#friends-auto-join').onclick=()=>act('connect-game');
  document.querySelector('#friends-endpoint').onclick=()=>{
@@ -801,7 +805,8 @@
   if(!list.children.length&&!showRequests){const empty=element('div','friends-empty');empty.append(element('strong','',state.enabled?(filter?'Друзья не найдены':'Пока нет друзей'):'Войди через Sintet ID'),element('span','',state.enabled?(filter?'Можно поискать аккаунт по нику или ID':'Найди друга по нику или ID'):'Друзья и приглашения привязаны к аккаунту'));list.append(empty)}
   document.querySelector('#friends-join').hidden=!!state.room||!!state.localPort;
   const chooseLobbyProfile=state.hostNeedsPack||state.preGameLobby&&(!state.room||state.leader);
-  lobbySetup.hidden=!chooseLobbyProfile||state.gameRunning&&!state.leader;
+ lobbySetup.hidden=!chooseLobbyProfile;
+ if(!state.hostProfile)currentLobbyProfile='';
   if(state.hostProfile&&state.hostProfile!==currentLobbyProfile&&[...lobbyProfile.options].some(option=>option.value===state.hostProfile)){
    currentLobbyProfile=state.hostProfile;lobbyProfile.value=state.hostProfile;window.SintetUI?.select.refresh(lobbyProfile);
   }
@@ -825,10 +830,14 @@
   endpoint.title='Скопировать адрес';
   let address=document.querySelector('#lobby-address');if(!address){address=element('p','');address.id='lobby-address';endpoint.parentElement.before(address)}address.hidden=endpoint.hidden||overlayHidden;address.textContent=address.hidden?'':'127.0.0.1:'+state.localPort;
   const autoJoin=document.querySelector('#friends-auto-join');
-  autoJoin.hidden=!state.worldReady||!state.localPort||state.inWorld||state.gameJoining||!!state.pack&&state.pack.phase!=='ready';
+  autoJoin.hidden=!state.worldReady||!state.localPort||state.inWorld||state.gameJoining||state.noPack&&!state.gameReady||!!state.pack&&state.pack.phase!=='ready';
   autoJoin.textContent=state.gameRunning?(state.pack?.restart?'Перезапустить и войти':'Присоединиться'):'Запустить и присоединиться';
   autoJoin.title=state.gameReady?'Автоматически войти в мир':'Запустить Minecraft и войти в мир';
   autoJoin.setAttribute('aria-label','Автоматически войти в мир');
+  let manualNote=document.querySelector('#lobby-manual-note');
+  if(!manualNote){manualNote=element('p','');manualNote.id='lobby-manual-note';document.querySelector('#friends-connection').after(manualNote);}
+  manualNote.hidden=!state.noPack||state.leader;
+  manualNote.textContent='Запусти ту же версию Minecraft, что и у лидера';
   const syncMessage=document.querySelector('#friends-error');syncMessage.textContent=state.error||(state.reconnecting?'Восстанавливаем связь с Sintet ID…':'');syncMessage.classList.toggle('is-reconnecting',!state.error&&!!state.reconnecting);
   for(const field of footer.querySelectorAll('input,button'))field.disabled=busy||state.busy||!state.enabled||(field===autoJoin&&!state.gameReady&&state.pack?.phase!=='ready');
   changePack.disabled=busy||state.busy||!state.enabled||!lobbyProfile.value||lobbyProfile.value===state.hostProfile;

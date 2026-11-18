@@ -63,6 +63,11 @@ type socialRoom struct {
 	PackName string `json:"pack_name,omitempty"`
 	Loader   string `json:"loader,omitempty"`
 }
+
+const manualLobbyProfile = "sintet:manual"
+
+func (r *socialRoom) manual() bool { return r != nil && r.Version == manualLobbyProfile }
+
 type socialPeer struct {
 	ID     string                     `json:"id"`
 	Guest  string                     `json:"guest"`
@@ -106,6 +111,7 @@ type socialState struct {
 	JoinAttempt    int    `json:"joinAttempt,omitempty"`
 	LobbyConnected bool   `json:"lobbyConnected"`
 	HostNeedsPack  bool   `json:"hostNeedsPack,omitempty"`
+	NoPack         bool   `json:"noPack,omitempty"`
 	HostProfile    string `json:"hostProfile,omitempty"`
 	Status         string `json:"connection"`
 	Error          string `json:"error"`
@@ -198,9 +204,16 @@ func (m *socialManager) snapshot() socialState {
 		state.Offline = !m.app.InternetAvailable()
 	}
 	state.Leader = state.Room != nil && state.Room.Host == m.account
-	state.HostNeedsPack = state.Leader && m.hostPack == nil
+	state.NoPack = state.Room != nil && state.NoPack
+	if state.Leader {
+		state.NoPack = state.Room.manual()
+	}
+	state.HostNeedsPack = state.Leader && !state.NoPack && m.hostPack == nil
 	if state.Leader {
 		state.HostProfile = m.hostProfile
+		if state.NoPack {
+			state.HostProfile = manualLobbyProfile
+		}
 	}
 	state.LobbyConnected = state.Room != nil && (state.Leader || m.guestPort != 0 && m.peers[m.guest] != nil && m.peers[m.guest].Connected())
 	for i := range state.Members {
@@ -282,7 +295,9 @@ func (m *socialManager) snapshot() socialState {
 		state.Status = ""
 	} else if state.LobbyConnected && !state.Busy {
 		if !state.WorldReady {
-			if state.Leader {
+			if state.Leader && state.NoPack {
+				state.Status = "Запусти Minecraft и открой мир для сети"
+			} else if state.Leader {
 				state.Status = "Запусти сборку и открой мир для сети"
 			} else {
 				state.Status = "Ждём, пока лидер откроет мир для сети"
@@ -823,6 +838,7 @@ func (m *socialManager) disconnect() uint64 {
 	m.lobbyConnectBusy = false
 	m.guestPack = nil
 	m.state.Pack = nil
+	m.state.NoPack = false
 	m.roomCancel = nil
 	m.guest = ""
 	m.state.LocalPort = 0
@@ -856,18 +872,20 @@ func (m *socialManager) host(ctx context.Context, profiles ...string) error {
 	if len(profiles) > 0 {
 		profile = profiles[0]
 	}
-	profile, err := m.lobbyHostProfile(profile)
+	if profile != manualLobbyProfile {
+		resolved, err := m.lobbyHostProfile(profile)
+		if err != nil {
+			return err
+		}
+		profile = resolved
+	}
+	selection, err := m.prepareLobbyHost(ctx, profile)
 	if err != nil {
 		return err
 	}
-	snapshot, err := m.captureHostPack(ctx, profile)
-	if err != nil {
-		return fmt.Errorf("не удалось подготовить сборку: %w", err)
-	}
-	version := snapshot.Manifest.Game
 	if state.HostNeedsPack &&
-		(state.Room.Version != version || state.Room.Loader != "" && state.Room.Loader != snapshot.Manifest.Loader ||
-			state.Room.PackName != "" && state.Room.PackName != cleanActivityLabel(snapshot.Manifest.Name)) {
+		(state.Room.Version != selection.version || state.Room.Loader != "" && state.Room.Loader != selection.loader ||
+			state.Room.PackName != "" && state.Room.PackName != selection.name) {
 		return errors.New("выбери исходную сборку лобби или закрой комнату и создай новую")
 	}
 	m.mu.Lock()
@@ -880,16 +898,17 @@ func (m *socialManager) host(ctx context.Context, profiles ...string) error {
 	var result struct {
 		Room *socialRoom `json:"room"`
 	}
-	if err := m.post(ctx, map[string]any{"action": "room-create", "version": version,
-		"pack_name": cleanActivityLabel(snapshot.Manifest.Name), "loader": snapshot.Manifest.Loader}, &result); err != nil {
+	if err := m.post(ctx, map[string]any{"action": "room-create", "version": selection.version,
+		"pack_name": selection.name, "loader": selection.loader}, &result); err != nil {
 		return err
+	}
+	if result.Room == nil || result.Room.manual() != (selection.profile == manualLobbyProfile) {
+		return errors.New("закрой текущее лобби и создай новое")
 	}
 	m.mu.Lock()
 	m.state.Room = result.Room
-	m.hostPack = &snapshot
-	m.hostProfile = profile
+	m.applyLobbyHostLocked(selection)
 	m.memberPreparation = make(map[string]lobbyPreparation)
-	m.state.Pack = &packStatus{Phase: "hosting", Name: snapshot.Manifest.Name, Game: version, Loader: snapshot.Manifest.Loader, Digest: snapshot.Manifest.Digest, Missing: len(snapshot.Manifest.Files)}
 	m.state.Status = "Лобби создано"
 	m.mu.Unlock()
 	_, _, port := m.game()
@@ -1042,6 +1061,7 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 	}
 	m.state.HostName = result.Host.Username
 	m.state.Room = &result.Room
+	m.state.NoPack = result.Room.manual()
 	m.mu.Unlock()
 	traceResult = "offer_failed"
 	if relay {
@@ -1139,6 +1159,7 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 	}
 	m.roomCancel = cancelAnnounce
 	m.state.Room = &result.Room
+	m.state.NoPack = result.Room.manual()
 	m.guestPort = port
 	m.state.Status = "Вы в лобби"
 	m.mu.Unlock()
@@ -1154,6 +1175,12 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 	_, _ = m.exchangeLobby(exchange, peer, epoch)
 	cancelExchange()
 	go m.watchGuestLobby(announce, peer, epoch, result.Host)
+	m.mu.Lock()
+	manual := m.state.NoPack
+	m.mu.Unlock()
+	if manual {
+		return nil
+	}
 	return m.prepareGuestPack(ctx, peer, epoch, result.Host, fromInvite)
 }
 

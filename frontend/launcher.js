@@ -1,16 +1,18 @@
 (() => {
  const q=s=>document.querySelector(s),popover=q('#versions-dialog');
  let api,catalog=[],variants=[],installs=[],selected=null,busy=false,running=false,resolving=false,previousStage='',catalogLoading=false,selectionRequest=0;
+ let deleteTarget=null,deletingVersion=false;
  try{selected=JSON.parse(localStorage.getItem('sintet.selectedProfile'))}catch{}
  const names={vanilla:'Vanilla',fabric:'Fabric',forge:'Forge',neoforge:'NeoForge'};
  const profileID=p=>p.id|| (p.loader==='vanilla'?p.base:`${p.loader}-${p.loaderVersion}-${p.base}`);
  const isBuild=p=>p?.id?.startsWith('build-');
  const installed=p=>!!p&&installs.some(item=>item.id===profileID(p));
+ const canDeleteVersion=()=>!!api&&installed(selected)&&!isBuild(selected)&&!busy&&!running&&!resolving&&!deletingVersion&&!window.Sintedot.active();
  const label=p=>p.name?`${p.name} · ${p.base}`:`${p.base} · ${names[p.loader]}`;
  const isOpen=()=>popover.matches(':popover-open');
  function closeVersions(){if(isOpen())popover.hidePopover();q('#version').setAttribute('aria-expanded','false')}
  function positionVersions(){if(!isOpen())return;const rect=q('#version').getBoundingClientRect(),gap=7;const width=Math.min(Math.max(rect.width,280),innerWidth-24);const height=Math.max(0,Math.min(350,innerHeight-rect.bottom-gap-12));popover.style.width=width+'px';popover.style.height=height+'px';popover.style.left=Math.max(12,Math.min(rect.right-width,innerWidth-width-12))+'px';popover.style.top=(rect.bottom+gap)+'px'}
- function updateButton(){q('#sintedot-home').disabled=!api||!selected||!installed(selected)||busy||running||resolving;q('#open-profile-folder').disabled=!api||!selected||!installed(selected)||resolving;q('#play').disabled=!selected||busy||running||resolving||window.Sintedot.active();q('#play').textContent=running?'Игра запущена':(busy||window.Sintedot.active())?'Подождите…':resolving?'Выбор версии…':selected?(installed(selected)?'Играть':'Установить'):'Выберите версию';if(selected){q('#version-text').textContent=label(selected);const icon=q('#version-icon');icon.hidden=!isBuild(selected);window.SintetBuildIcon.render(icon,isBuild(selected)?selected.icon||'grass':'');q('#selected-version').textContent=selected.base;q('#version').classList.toggle('installed',installed(selected));q('.current-game>div>span').textContent=`${names[selected.loader]} · Java Edition`}}
+ function updateButton(){const remove=q('#delete-version-home');remove.hidden=isBuild(selected);remove.disabled=!canDeleteVersion();q('#sintedot-home').disabled=!api||!selected||!installed(selected)||busy||running||resolving;q('#open-profile-folder').disabled=!api||!selected||!installed(selected)||resolving;q('#play').disabled=!selected||busy||running||resolving||window.Sintedot.active();q('#play').textContent=running?'Игра запущена':(busy||window.Sintedot.active())?'Подождите…':resolving?'Выбор версии…':selected?(installed(selected)?'Играть':'Установить'):'Выберите версию';window.SintetBuildIcon.render(q('#launch-game-icon'),isBuild(selected)?selected.icon||'grass':'minecraft');if(selected){q('#version-text').textContent=label(selected);const icon=q('#version-icon');icon.hidden=!isBuild(selected);window.SintetBuildIcon.render(icon,isBuild(selected)?selected.icon||'grass':'');q('#selected-version').textContent=selected.base;q('#version').classList.toggle('installed',installed(selected));q('.current-game>div>span').textContent=`${names[selected.loader]} · Java Edition`}}
  function seedVariants(){const keys=new Set();const list=[];for(const installedProfile of installs){const p=installedProfile.id?.startsWith('build-')?{...installedProfile}:{base:installedProfile.base,loader:installedProfile.loader,loaderVersion:installedProfile.loaderVersion};const key=p.id||p.base+'/'+p.loader;if(!keys.has(key)){keys.add(key);list.push(p)}}for(const p of [...variants,...catalog.map(v=>({base:v.id,loader:'vanilla',loaderVersion:''}))]){const key=p.base+'/'+p.loader;if(!keys.has(key)){keys.add(key);list.push(p)}}const order=new Map(catalog.map((v,i)=>[v.id,i])),rank={forge:0,fabric:1,neoforge:2,vanilla:3};list.sort((a,b)=>(order.get(a.base)??9999)-(order.get(b.base)??9999)||rank[a.loader]-rank[b.loader]||String(a.name||'').localeCompare(String(b.name||''),'ru'));variants=list}
  async function choose(entry){const request=++selectionRequest;closeVersions();resolving=true;updateButton();try{const value={...entry};if(value.loader!=='vanilla'&&!value.loaderVersion){const builds=await api.LoaderVersions(value.base,value.loader);if(!builds?.length)throw Error('Для этой версии загрузчик недоступен');value.loaderVersion=builds[0]}if(request!==selectionRequest)return;selected=value;try{localStorage.setItem('sintet.selectedProfile',JSON.stringify(selected))}catch{}q('#version').focus()}catch(e){if(request===selectionRequest)toast(String(e))}finally{if(request===selectionRequest){resolving=false;updateButton()}}}
  function visibleVersion(version,type,settings){
@@ -120,6 +122,76 @@
   }catch(error){busy=false;updateButton();toast(String(error))}
  }
  q('#sintedot-home').onclick=()=>{if(selected)window.Sintedot.open(profileID(selected),label(selected))};
+ const deleteDialog=document.createElement('dialog');
+ deleteDialog.id='version-delete-dialog';
+ deleteDialog.className='ws-dialog ws-build-dialog ws-build-manage ws-utility-dialog';
+ deleteDialog.setAttribute('aria-labelledby','version-delete-title');
+ deleteDialog.setAttribute('aria-describedby','version-delete-details');
+ deleteDialog.innerHTML=`<header class="ws-build-header">
+   <span class="mod-avatar ws-build-manage-icon version-delete-game" aria-hidden="true"></span>
+   <div><h1 id="version-delete-title">Удалить версию?</h1>
+    <div class="version-delete-selection"><span data-version-name></span><span data-version-loader></span></div>
+   </div>
+   <button type="button" class="account-close" data-delete-close aria-label="Закрыть">×</button>
+  </header>
+  <div class="ws-utility-body" id="version-delete-details">
+   <ul class="ws-build-control-card version-delete-effects">
+    <li>
+     <span class="version-delete-effect-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 12h10"/><circle cx="12" cy="12" r="8"/></svg></span>
+     <div><strong>Будут удалены</strong><p>Файлы версии и её отдельная папка с мирами, модами и настройками.</p></div>
+    </li>
+    <li>
+     <span class="version-delete-effect-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4-2.8 7.3-7 10-4.2-2.7-7-6-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+     <div><strong>Сохранятся</strong><p>Java, общие библиотеки и данные в общих папках.</p></div>
+    </li>
+   </ul>
+   <p class="version-delete-warning"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4m0 3v.1M10.4 4.9 3.5 17a1.8 1.8 0 0 0 1.6 2.7h13.8a1.8 1.8 0 0 0 1.6-2.7L13.6 4.9a1.8 1.8 0 0 0-3.2 0Z"/></svg><span>Это действие нельзя отменить.</span></p>
+   <p class="version-delete-error" data-delete-error role="alert" hidden></p>
+  </div>
+  <footer class="ws-build-footer"><button type="button" data-delete-cancel autofocus>Отмена</button><button type="button" class="danger" data-delete-confirm>Удалить версию</button></footer>`;
+ document.body.append(deleteDialog);
+ const deleteCancel=deleteDialog.querySelector('[data-delete-cancel]');
+ const deleteClose=deleteDialog.querySelector('[data-delete-close]');
+ const deleteConfirm=deleteDialog.querySelector('[data-delete-confirm]');
+ const deleteError=deleteDialog.querySelector('[data-delete-error]');
+ q('#delete-version-home').onclick=()=>{
+  if(!canDeleteVersion())return;
+  deleteTarget=profileID(selected);
+  deleteDialog.querySelector('[data-version-name]').textContent='Minecraft '+selected.base;
+  deleteDialog.querySelector('[data-version-loader]').textContent=[names[selected.loader]||selected.loader,selected.loaderVersion].filter(Boolean).join(' · ');
+  window.SintetBuildIcon.render(deleteDialog.querySelector('.version-delete-game'),'minecraft');
+  deleteError.hidden=true;
+  deleteError.textContent='';
+  deleteDialog.querySelector('.ws-utility-body').scrollTop=0;
+  deleteDialog.showModal();
+ };
+ deleteCancel.onclick=deleteClose.onclick=()=>{if(!deletingVersion)deleteDialog.close()};
+ deleteDialog.addEventListener('cancel',event=>{if(deletingVersion)event.preventDefault()});
+ deleteDialog.addEventListener('close',()=>{deleteTarget=null});
+ deleteConfirm.onclick=async()=>{
+  if(!api||!deleteTarget||deletingVersion)return;
+  const id=deleteTarget;
+  deletingVersion=true;
+  deleteError.hidden=true;
+  deleteCancel.disabled=deleteClose.disabled=deleteConfirm.disabled=true;
+  updateButton();
+  try{
+   await api.DeleteVersion(id);
+   installs=installs.filter(item=>item.id!==id);
+   seedVariants();
+   deleteDialog.close();
+   window.dispatchEvent(new Event('sintet:builds'));
+   toast('Версия удалена');
+  }catch(error){
+   deleteError.textContent=String(error?.message||error);
+   deleteError.hidden=false;
+   void refreshInstalled().catch(()=>{});
+  }finally{
+   deletingVersion=false;
+   deleteCancel.disabled=deleteClose.disabled=deleteConfirm.disabled=false;
+   updateButton();
+  }
+ };
  q('#open-profile-folder').onclick=async()=>{if(!api||!selected||!installed(selected)||resolving)return;try{await api.OpenProfileFolder(profileID(selected))}catch(error){toast(String(error))}};
  q('#play').onclick=async()=>{if(!selected||busy||running||resolving)return;if(!await saveNick()||busy||running||resolving)return;if(!installed(selected)){await install();return}busy=true;updateButton();try{await api.Launch(profileID(selected),q('#nickname').value.trim());await poll()}catch(e){busy=false;updateButton();toast(String(e))}};
  const logDialog=q('#logs-dialog'),gameLog=q('#game-log'),analysis=q('#journal-analysis');

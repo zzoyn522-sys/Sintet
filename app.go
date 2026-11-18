@@ -202,7 +202,7 @@ func (a *App) OpenCommunity(service string) error {
 	case "discord":
 		address = "https://discord.gg/KURVdKAUAy"
 	case "telegram":
-		address = "https://t.me/sinted_launcher"
+		address = "https://t.me/sintet_launcher"
 	case "monobank":
 		address = "https://send.monobank.ua/jar/9bgbYgZ9QU"
 	default:
@@ -413,6 +413,16 @@ func (a *App) OpenProfileFolder(id string) error {
 		return err
 	}
 	return exec.Command("explorer.exe", path).Start()
+}
+func (a *App) DeleteVersion(id string) error {
+	a.contentMu.Lock()
+	defer a.contentMu.Unlock()
+	if a.workshopBusy() {
+		return fmt.Errorf("дождитесь установки модов")
+	}
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.service.DeleteVersion(id)
 }
 func (a *App) Installations() []launcher.InstalledProfile {
 	a.mu.RLock()

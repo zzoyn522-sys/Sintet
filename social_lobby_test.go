@@ -202,4 +202,33 @@ func TestPreparedGuestWaitsForHostInsteadOfLaunchingGame(t *testing.T) {
 	if state := guest.snapshot(); !state.LobbyConnected || state.LocalPort != 0 {
 		t.Fatal("guest should retain membership and wait for the new pack")
 	}
+
+	manual, err := hostManager.prepareLobbyHost(ctx, manualLobbyProfile)
+	if err != nil || manual.pack != nil || manual.version != manualLobbyProfile {
+		t.Fatalf("manual lobby tried to prepare files: %+v, %v", manual, err)
+	}
+	hostManager.mu.Lock()
+	hostManager.state.Room = &socialRoom{Code: "123456", Host: "host", Version: manualLobbyProfile}
+	hostManager.applyLobbyHostLocked(manual)
+	hostManager.mu.Unlock()
+	if state := hostManager.snapshot(); !state.NoPack || state.HostNeedsPack || state.Pack != nil {
+		t.Fatalf("manual host unexpectedly requires a pack: %+v", state)
+	}
+	if digest, err := guest.exchangeLobby(ctx, peer, 1); err != nil || digest != "" {
+		t.Fatalf("manual lobby advertised a pack: %q, %v", digest, err)
+	}
+	if state := guest.snapshot(); !state.NoPack || !state.WorldReady || state.LocalPort != port || state.Pack != nil {
+		t.Fatalf("guest could not reach the world without a pack: %+v", state)
+	}
+	if _, err = readLobbyManifest(ctx, peer); err == nil {
+		t.Fatal("manual lobby exposed the previous pack")
+	}
+	guest.gameJoinUntil = time.Time{}
+	guest.bridgeSeen = time.Now()
+	if err = guest.connectPreparedPack(ctx); err != nil {
+		t.Fatal("manual lobby could not hand off to the existing game bridge", err)
+	}
+	if _, commandPort := guest.pollGameCommand(true); commandPort != port || guest.app.State().Busy {
+		t.Fatal("manual lobby started installation instead of handing off to Minecraft")
+	}
 }

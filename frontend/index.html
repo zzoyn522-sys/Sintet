@@ -65,7 +65,7 @@
   </footer>
   <button type="button" id="presence-login" class="presence-login" hidden>Войти через Sintet ID</button>
 </section>
-</div><div class="launchbar"><div class="current-game"><span class="game-icon">M</span><div><strong>Minecraft <span id="selected-version">1.21.1</span></strong><span>Vanilla · Java Edition</span></div><button type="button" id="open-profile-folder" class="profile-folder-button" aria-label="Открыть папку выбранной сборки" title="Папка сборки: mods, миры и настройки" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></button><button type="button" id="sintedot-home" class="profile-folder-button" aria-label="Открыть Sintedot" title="Sintedot" aria-haspopup="dialog" aria-controls="sintedot-dialog" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-7.4 7.4a2.1 2.1 0 0 1-3-3l7.4-7.4a6 6 0 0 1 7.9-7.9z"/></svg></button></div><button id="play" class="primary" disabled>Загрузка… <svg viewBox="0 0 16 16"><path d="m6 4 5 4-5 4Z"/></svg></button></div></section><section id="settings" class="page settings-page hidden" aria-labelledby="settings-nav">
+</div><div class="launchbar"><div class="current-game"><span class="game-icon" id="launch-game-icon" data-icon="minecraft" aria-hidden="true"><img class="minecraft-game-icon" src="assets/launcher-import/minecraft.svg" alt="" draggable="false"></span><div><strong>Minecraft <span id="selected-version">1.21.1</span></strong><span>Vanilla · Java Edition</span></div><button type="button" id="open-profile-folder" class="profile-folder-button" aria-label="Открыть папку выбранной сборки" title="Папка сборки: mods, миры и настройки" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></button><button type="button" id="sintedot-home" class="profile-folder-button" aria-label="Открыть Sintedot" title="Sintedot" aria-haspopup="dialog" aria-controls="sintedot-dialog" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-7.4 7.4a2.1 2.1 0 0 1-3-3l7.4-7.4a6 6 0 0 1 7.9-7.9z"/></svg></button><button type="button" id="delete-version-home" class="profile-folder-button" aria-label="Удалить версию" title="Удалить версию" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v6m4-6v6"/></svg></button></div><button id="play" class="primary" disabled>Загрузка… <svg viewBox="0 0 16 16"><path d="m6 4 5 4-5 4Z"/></svg></button></div></section><section id="settings" class="page settings-page hidden" aria-labelledby="settings-nav">
 <div class="workshop-categories settings-tabs" role="tablist" aria-label="Разделы настроек">
   <button type="button" class="workshop-category" id="settings-tab-launcher" role="tab" aria-controls="settings-launcher" aria-selected="true"><strong>Лаунчер</strong></button>
   <button type="button" class="workshop-category" id="settings-tab-appearance" role="tab" aria-controls="settings-appearance" aria-selected="false" tabindex="-1"><strong>Оформление</strong></button>
@@ -493,19 +493,19 @@
  <footer class="import-footer"><button type="button" id="launcher-import-browse">Выбрать папку</button><button type="button" id="launcher-import-skip">Пропустить</button><button type="button" class="primary" id="launcher-import-start">Перенести сборки</button><button type="button" class="primary" id="launcher-import-restart" hidden>Перезапустить Sintet</button></footer>
 </dialog>
 
-<dialog id="sintedot-dialog" aria-labelledby="sintedot-title">
-  <header>
-    <span class="sintedot-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-7.4 7.4a2.1 2.1 0 0 1-3-3l7.4-7.4a6 6 0 0 1 7.9-7.9z"/></svg></span>
-    <div><h2 id="sintedot-title">Sintedot</h2><p id="sintedot-target"></p></div>
-    <button type="button" id="sintedot-close" aria-label="Закрыть">×</button>
+<dialog id="sintedot-dialog" class="ws-dialog ws-build-dialog ws-build-manage ws-utility-dialog" aria-labelledby="sintedot-title">
+  <header class="ws-build-header">
+    <span class="mod-avatar ws-build-manage-icon ws-utility-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-7.4 7.4a2.1 2.1 0 0 1-3-3l7.4-7.4a6 6 0 0 1 7.9-7.9z"/></svg></span>
+    <div><h1 id="sintedot-title">Sintedot</h1><span id="sintedot-target"></span></div>
+    <button type="button" id="sintedot-close" class="account-close" aria-label="Закрыть">×</button>
   </header>
-  <div class="sintedot-body">
-    <div id="sintedot-choices" aria-label="Действие Sintedot">
-      <button type="button" data-sintedot="repair" aria-pressed="true"><strong>Найти и устранить проблемы</strong><span>JAR, дубли и зависимости</span></button>
-      <button type="button" data-sintedot="update" aria-pressed="false"><strong>Обновить моды</strong><span>Совместимые версии из каталогов</span></button>
+  <div class="ws-utility-body sintedot-body">
+    <div id="sintedot-choices" class="ws-build-tabs" role="group" aria-label="Действие Sintedot">
+      <button type="button" data-sintedot="repair" aria-pressed="true">Найти и устранить проблемы</button>
+      <button type="button" data-sintedot="update" aria-pressed="false">Обновить моды</button>
     </div>
-    <fieldset id="sintedot-options">
-      <legend>Настройки проверки</legend>
+    <fieldset id="sintedot-options" class="ws-build-control-card" aria-labelledby="sintedot-options-title">
+      <h2 id="sintedot-options-title">Настройки проверки</h2>
       <label><input id="sintedot-preview" type="checkbox"><span>Только проверка<small>Показать план без применения.</small></span></label>
       <label><input id="sintedot-stable" type="checkbox"><span>Только стабильные версии<small>Пропускать альфа- и бета-релизы при подборе обновлений.</small></span></label>
       <label id="sintedot-config-row"><input id="sintedot-configs" type="checkbox" checked><span>Проверять конфиги<small>При ремонте сохранять повреждённые JSON и TOML как .broken.</small></span></label>
@@ -518,7 +518,7 @@
     <section id="sintedot-journal" class="sintedot-warning" hidden><h3>Диагностика</h3><ul></ul></section>
     <p id="sintedot-backup" class="sintedot-backup" hidden></p>
   </div>
-  <footer>
+  <footer class="ws-build-footer">
     <button type="button" id="sintedot-rollback" hidden>Откатить последний прогон</button>
     <button class="primary" type="button" id="sintedot-run">Запустить проверку</button>
   </footer>

@@ -322,7 +322,9 @@ func (s *Service) plan(ctx context.Context, p Profile, base string) (Receipt, er
 			continue
 		}
 		artifact := lib.Downloads.Artifact
-		if artifact.Path == "" {
+		// Older Minecraft manifests list some libraries only as native classifiers.
+		// Loader metadata without structured downloads still uses Maven coordinates.
+		if artifact.Path == "" && (artifact != (File{}) || len(lib.Downloads.Classifiers) == 0) {
 			path, e := mavenPath(lib.Name)
 			if e != nil {
 				return r, e
@@ -336,13 +338,15 @@ func (s *Service) plan(ctx context.Context, p Profile, base string) (Receipt, er
 			}
 			artifact.URL = strings.TrimRight(url, "/") + "/" + path
 		}
-		artifact.Path = "libraries/" + artifact.Path
-		add(artifact)
-		abs, e := join(s.Root, artifact.Path)
-		if e != nil {
-			return r, e
+		if artifact.Path != "" {
+			artifact.Path = "libraries/" + artifact.Path
+			add(artifact)
+			abs, e := join(s.Root, artifact.Path)
+			if e != nil {
+				return r, e
+			}
+			r.Classpath = append(r.Classpath, abs)
 		}
-		r.Classpath = append(r.Classpath, abs)
 		if classifier := lib.Natives["windows"]; classifier != "" {
 			classifier = strings.ReplaceAll(classifier, "${arch}", "64")
 			native, ok := lib.Downloads.Classifiers[classifier]

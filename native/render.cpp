@@ -463,6 +463,7 @@ void socialButton(const char* label,const char* action,const std::string& target
 }
 std::string invitationDetails(const SintetSocial::Invite& invite){
  std::string text=invite.game.empty()?"":"Minecraft "+invite.game;
+ if(invite.game=="sintet:manual")return OverlayText("Ничего не ставить");
  if(!invite.build.empty()&&invite.build!=text){if(!text.empty())text+=" · ";text+=invite.build;}
  return text;
 }
@@ -583,9 +584,9 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    if(state.preGameLobby&&!state.leader&&!state.inWorld){
     bool automatic=state.autoConnect;
     if(ImGui::Checkbox(OverlayText("Подключиться, когда мир готов"),&automatic))SintetSocial::Action("auto-connect",automatic?"true":"false");
-    if(ImGui::IsItemHovered())ImGui::SetTooltip(OverlayText("Если запущена другая сборка, Minecraft перезапустится"));
+    if(ImGui::IsItemHovered())ImGui::SetTooltip(OverlayText(state.noPack?"Запустите Minecraft из Sintet для автовхода":"Если запущена другая сборка, Minecraft перезапустится"));
    }
-   if(!state.leader&&state.packDigest.empty()&&!state.busy)socialButton(OverlayText("Восстановить соединение"),"reconnect-lobby");
+   if(!state.leader&&!state.lobbyConnected&&!state.busy)socialButton(OverlayText("Восстановить соединение"),"reconnect-lobby");
    if(!state.packPhase.empty()){
     const bool required=state.packPhase=="required"||state.packPhase=="error";
     const bool working=state.packPhase=="downloading"||state.packPhase=="stopping"||state.packPhase=="installing"||state.packPhase=="launching"||state.packPhase=="checking";
