@@ -79,6 +79,7 @@ func (s *Service) LaunchWithOptions(id, name string, options LaunchOptions) erro
 	validation.Height = options.Height
 	validation.InstanceMode = options.InstanceMode
 	validation.JavaPath = options.JavaPath
+	validation.GamePreferences = options.GamePreferences
 	if e := ValidateSettings(validation); e != nil {
 		return e
 	}
@@ -389,6 +390,13 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	cmd.Stdout = redacted
 	cmd.Stderr = redacted
 	hideProcess(cmd)
+	if e = ctx.Err(); e != nil {
+		fail(e)
+		return
+	}
+	if err := s.applyGamePreferences(r, options.GamePreferences); err != nil {
+		fmt.Fprintf(log, "Настройки Minecraft: %v\n", err)
+	}
 	if e = cmd.Start(); e != nil {
 		fail(e)
 		return

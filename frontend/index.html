@@ -71,6 +71,48 @@
   <button type="button" class="workshop-category" id="settings-tab-appearance" role="tab" aria-controls="settings-appearance" aria-selected="false" tabindex="-1"><strong>Оформление</strong></button>
 </div>
 <div id="settings-launcher" role="tabpanel" aria-labelledby="settings-tab-launcher"><div class="settings-heading"><div><h1>Настройки</h1><p>Применяются при следующем запуске игры</p></div><button type="button" id="open-game-folder" class="soft-button">Папка игры ↗</button></div><form id="settings-form"><div class="settings-grid"><article class="preference-card wide"><label id="interface-language-label" for="interface-language">Interface language</label><select id="interface-language"><option value="">System language</option></select></article><article class="preference-card wide"><h2>Файлы игры</h2><label for="game-directory">Директория Minecraft</label><div class="path-row"><input id="game-directory" type="text" required spellcheck="false" autocomplete="off"><button id="browse-directory" type="button" class="soft-button">Обзор</button></div><div class="directory-options"><label class="check-label"><input type="checkbox" id="move-game-files" checked> Перенести установленные версии и миры</label><select id="instance-mode" aria-label="Режим папок игры"><option value="profile">Отдельная папка для каждого профиля</option><option value="family">Отдельная папка для семейства версий</option><option value="shared">Общая папка Minecraft</option></select></div><p class="preference-hint">Библиотеки и версии общие. Миры и моды зависят от выбранного режима папок.</p><button type="button" id="open-launcher-import" class="soft-button" disabled>Перенести из другого лаунчера</button></article><article class="preference-card"><h2>Окно Minecraft</h2><label for="game-width">Разрешение</label><div class="resolution-row"><input id="game-width" type="number" min="640" max="16384" required aria-label="Ширина окна Minecraft"><span>×</span><input id="game-height" type="number" min="480" max="16384" required aria-label="Высота окна Minecraft"></div><label class="check-label"><input id="fullscreen" type="checkbox"> Полноэкранный режим</label></article><article class="preference-card"><div class="preference-title"><h2>Оперативная память</h2><label class="check-label"><input id="auto-memory" type="checkbox"> Авто</label></div><label for="memory-mb" id="memory-system">Память для Minecraft</label><div class="memory-row"><input id="ram" type="range" min="512" max="32768" step="256" value="4096" aria-label="Оперативная память"><input id="memory-mb" type="number" min="512" max="131072" step="256" required aria-label="Память в мегабайтах"><span>МБ</span></div><output id="ram-value" class="preference-hint">4 ГБ</output></article><article class="preference-card wide"><div class="preference-title"><h2>Java</h2><select id="java-mode" aria-label="Выбор Java"><option value="auto">Автоматически для версии игры</option><option value="custom">Указать java.exe вручную</option></select></div><div class="path-row"><input id="java-path" type="text" placeholder="Подходящая Java загружается автоматически" spellcheck="false" aria-label="Путь к Java"><button id="browse-java" type="button" class="soft-button">Обзор</button><button id="check-java" type="button" class="soft-button">Проверить</button></div><p id="java-info" class="preference-hint" role="status">Выбирается по требованиям Minecraft</p></article><article class="preference-card behavior-card wide"><h2>Окно и процессы</h2><div class="behavior-grid"><div><label for="game-start-action">При запуске Minecraft</label><select id="game-start-action"><option value="tray">Сворачивать в трей</option><option value="keep">Оставлять открытым</option><option value="quit">Полностью закрывать</option></select></div><div><label for="close-action">При нажатии на крестик</label><select id="close-action"><option value="tray">Сворачивать в трей</option><option value="quit">Завершать работу лаунчера</option></select></div></div><p id="window-behavior-note" class="preference-hint">Из трея можно открыть Sintet или завершить работу.</p><div class="autostart-options"><label class="check-label"><input type="checkbox" id="minimize-to-tray">Сворачивать в трей при сворачивании окна</label><label class="check-label"><input type="checkbox" id="start-with-windows">Запускать вместе с Windows</label><label class="check-label" id="start-in-tray-label"><input type="checkbox" id="start-in-tray">Тихий запуск в трей</label></div></article><article class="preference-card hotkey-card"><h2>Оверлей Minecraft</h2><label class="check-label"><input id="hide-overlay" type="checkbox"> Скрыть оверлей в игре</label><p class="preference-hint">Лобби и статусы продолжат работать. Применится при следующем запуске игры.</p><label for="overlay-hotkey">Открыть оверлей в Minecraft</label><div class="path-row"><input id="overlay-hotkey" readonly spellcheck="false" aria-describedby="hotkey-hint" value="Shift + Tab"><button type="button" id="reset-hotkey" class="soft-button">Сбросить</button></div><p id="hotkey-hint" class="preference-hint">Нажми на поле и задай комбинацию. Применится при следующем запуске игры.</p><label class="appearance-switch overlay-font-switch" for="apply-overlay-font"><input id="apply-overlay-font" type="checkbox" role="switch" checked>Применять шрифт лаунчера к оверлею</label><p class="preference-hint">Импортированные шрифты TTF и OTF применятся при следующем запуске игры.</p></article><article class="preference-card cache-card"><div class="preference-title"><h2>Очистка кэша</h2><span id="cache-size">…</span></div><div id="cache-groups" class="cache-groups"></div><p class="preference-hint">Изображения загрузятся заново. Журналы за последние 7 дней сохранятся.</p><div class="cache-actions"><span id="cache-status" role="status"></span><button type="button" id="clear-cache" class="soft-button" disabled>Очистить</button></div></article>
+<article class="preference-card behavior-card wide">
+  <h2>Интерфейс и звук Minecraft</h2>
+  <div class="behavior-grid">
+    <div>
+      <label for="minecraft-language">Язык Minecraft</label>
+      <select id="minecraft-language"><option value="">Как в игре</option></select>
+    </div>
+    <div>
+      <label for="minecraft-gui-scale">Масштаб интерфейса Minecraft</label>
+      <select id="minecraft-gui-scale">
+        <option value="">Как в игре</option>
+        <option value="0">Автоматически</option>
+        <option value="1">1×</option><option value="2">2×</option><option value="3">3×</option>
+        <option value="4">4×</option><option value="5">5×</option><option value="6">6×</option>
+        <option value="7">7×</option><option value="8">8×</option>
+      </select>
+    </div>
+    <div>
+      <label for="minecraft-master-volume">Общая громкость при запуске</label>
+      <select id="minecraft-master-volume">
+        <option value="">Как в игре</option>
+        <option value="0">0%</option><option value="30">30%</option><option value="50">50%</option>
+        <option value="75">75%</option><option value="100">100%</option>
+      </select>
+    </div>
+    <div>
+      <label for="minecraft-fov">Поле зрения (FOV)</label>
+      <select id="minecraft-fov">
+        <option value="">Как в игре</option>
+        <option value="70">Обычное · 70°</option>
+        <option value="85">85°</option><option value="90">90°</option>
+        <option value="110">Quake Pro · 110°</option>
+      </select>
+    </div>
+  </div>
+  <div class="autostart-options">
+    <label class="check-label"><input id="minecraft-disable-music" type="checkbox"> Отключать музыку в Minecraft</label>
+    <label class="check-label"><input id="minecraft-disable-narrator" type="checkbox"> Отключать нарратор Minecraft</label>
+    <label class="check-label"><input id="minecraft-disable-bobbing" type="checkbox"> Отключать покачивание камеры</label>
+  </div>
+  <p class="preference-hint">Выбранные параметры применяются при запуске любой версии или сборки. Доступность зависит от версии Minecraft.</p>
+</article>
 <article class="preference-card wide">
   <h2>Версии в списке Minecraft</h2>
   <div class="autostart-options">

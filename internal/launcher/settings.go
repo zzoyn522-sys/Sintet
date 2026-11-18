@@ -16,31 +16,32 @@ import (
 )
 
 type Settings struct {
-	InterfaceLanguage    string `json:"interfaceLanguage,omitempty"`
-	OverlayEnabled       bool   `json:"overlayEnabled"`
-	GameDirectory        string `json:"gameDirectory"`
-	InstanceMode         string `json:"instanceMode"`
-	Width                int    `json:"width"`
-	Height               int    `json:"height"`
-	Fullscreen           bool   `json:"fullscreen"`
-	JavaPath             string `json:"javaPath"`
-	MemoryMB             int    `json:"memoryMB"`
-	AutoMemory           bool   `json:"autoMemory"`
-	AutoClose            bool   `json:"autoClose"`
-	GameStartAction      string `json:"gameStartAction"`
-	CloseAction          string `json:"closeAction"`
-	MinimizeToTray       bool   `json:"minimizeToTray"`
-	StartWithWindows     bool   `json:"startWithWindows"`
-	StartInTray          bool   `json:"startInTray"`
-	OverlayHotkey        string `json:"overlayHotkey"`
-	ApplyOverlayFont     bool   `json:"applyOverlayFont"`
-	WorkshopLanguage     string `json:"workshopLanguage,omitempty"`
-	Snapshots            bool   `json:"snapshots"`
-	PreReleases          bool   `json:"preReleases"`
-	ReleaseCandidates    bool   `json:"releaseCandidates"`
-	ExperimentalVersions bool   `json:"experimentalVersions"`
-	OldVersions          bool   `json:"oldVersions"`
-	OnlyInstalled        bool   `json:"onlyInstalled"`
+	InterfaceLanguage    string          `json:"interfaceLanguage,omitempty"`
+	GamePreferences      GamePreferences `json:"gamePreferences"`
+	OverlayEnabled       bool            `json:"overlayEnabled"`
+	GameDirectory        string          `json:"gameDirectory"`
+	InstanceMode         string          `json:"instanceMode"`
+	Width                int             `json:"width"`
+	Height               int             `json:"height"`
+	Fullscreen           bool            `json:"fullscreen"`
+	JavaPath             string          `json:"javaPath"`
+	MemoryMB             int             `json:"memoryMB"`
+	AutoMemory           bool            `json:"autoMemory"`
+	AutoClose            bool            `json:"autoClose"`
+	GameStartAction      string          `json:"gameStartAction"`
+	CloseAction          string          `json:"closeAction"`
+	MinimizeToTray       bool            `json:"minimizeToTray"`
+	StartWithWindows     bool            `json:"startWithWindows"`
+	StartInTray          bool            `json:"startInTray"`
+	OverlayHotkey        string          `json:"overlayHotkey"`
+	ApplyOverlayFont     bool            `json:"applyOverlayFont"`
+	WorkshopLanguage     string          `json:"workshopLanguage,omitempty"`
+	Snapshots            bool            `json:"snapshots"`
+	PreReleases          bool            `json:"preReleases"`
+	ReleaseCandidates    bool            `json:"releaseCandidates"`
+	ExperimentalVersions bool            `json:"experimentalVersions"`
+	OldVersions          bool            `json:"oldVersions"`
+	OnlyInstalled        bool            `json:"onlyInstalled"`
 }
 type Configuration struct {
 	InterfaceLanguage string   `json:"interfaceLanguage"`
@@ -73,6 +74,9 @@ func WriteSettings(path string, settings Settings) error {
 	return accountfiles.Write(path, data)
 }
 func ValidateSettings(s Settings) error {
+	if err := s.GamePreferences.validate(); err != nil {
+		return err
+	}
 	if s.InterfaceLanguage != "" && InterfaceLanguage(s.InterfaceLanguage, "") != s.InterfaceLanguage {
 		return fmt.Errorf("invalid interface language")
 	}
@@ -126,6 +130,7 @@ func EffectiveMemory(settings Settings, total int) int {
 }
 
 type LaunchOptions struct {
+	GamePreferences          GamePreferences
 	QuickPlayPort            int
 	OpenOverlayLobby         bool
 	LauncherVersion          string
@@ -164,7 +169,7 @@ type LaunchOptions struct {
 }
 
 func (s Settings) LaunchOptions(total int) LaunchOptions {
-	return LaunchOptions{MinMemoryMB: 512, MemoryMB: EffectiveMemory(s, total), Width: s.Width, Height: s.Height, Fullscreen: s.Fullscreen, JavaPath: s.JavaPath, InstanceMode: s.InstanceMode}
+	return LaunchOptions{MinMemoryMB: 512, MemoryMB: EffectiveMemory(s, total), Width: s.Width, Height: s.Height, Fullscreen: s.Fullscreen, JavaPath: s.JavaPath, InstanceMode: s.InstanceMode, GamePreferences: s.GamePreferences}
 }
 
 type JavaInfo struct {
