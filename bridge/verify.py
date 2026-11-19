@@ -7,7 +7,8 @@ sources={
 "net/minecraft/client/gui/screens/TitleScreen.java":"package net.minecraft.client.gui.screens; public class TitleScreen extends Screen {}",
 "net/minecraft/client/multiplayer/ClientLevel.java":"package net.minecraft.client.multiplayer; public class ClientLevel {}",
 "net/minecraft/client/Minecraft.java":'package net.minecraft.client; public class Minecraft implements java.util.concurrent.Executor {static final Minecraft INSTANCE=new Minecraft(); public net.minecraft.client.gui.screens.Screen screen; public net.minecraft.client.multiplayer.ClientLevel level; public net.minecraft.client.server.IntegratedServer singleplayer; public net.minecraft.client.multiplayer.ServerData remote; public net.minecraft.client.multiplayer.ServerData getCurrentServer(){return remote;} public static Minecraft renamedSingleton(){return INSTANCE;} public LoaderProbe probe(){return null;} public void execute(Runnable r){new Thread(r,"GAME-THREAD").start();}}',
-"net/minecraft/client/server/IntegratedServer.java":'package net.minecraft.client.server; public class IntegratedServer {}',
+"net/minecraft/client/server/IntegratedServer.java":'package net.minecraft.client.server; public class IntegratedServer implements java.util.concurrent.Executor { public final net.minecraft.server.players.PlayerList list=new net.minecraft.server.players.PlayerList(); public int getMaxPlayers(){return 8;} public void execute(Runnable r){r.run();} }',
+"net/minecraft/server/players/PlayerList.java":'package net.minecraft.server.players; public class PlayerList { private final int maxPlayers; public PlayerList(){maxPlayers=8;} public int limit(){return maxPlayers;} }',
 "net/minecraft/client/LoaderProbe.java":"package net.minecraft.client; public class LoaderProbe {}",
 "net/minecraft/client/multiplayer/resolver/ServerAddress.java":'package net.minecraft.client.multiplayer.resolver; public class ServerAddress {public String host; public static ServerAddress renamedParse(String s){ServerAddress a=new ServerAddress();a.host=s;return a;}}',
 "net/minecraft/client/multiplayer/ServerData.java":'package net.minecraft.client.multiplayer; public class ServerData {public enum Type {LAN,OTHER} public String name,ip; public ServerData(String name,String ip,Type type){this.name=name;this.ip=ip;}}',
@@ -33,10 +34,17 @@ sources={
    Thread.sleep(1300);
    Object game=client.getMethod("renamedSingleton").invoke(null);
    Class<?> integrated=Class.forName("net.minecraft.client.server.IntegratedServer",true,loader);
-   client.getField("singleplayer").set(game,integrated.getConstructor().newInstance());
+   Object local=integrated.getConstructor().newInstance();
+   java.lang.reflect.Method limit=integrated.getMethod("getMaxPlayers");
+   if(!limit.invoke(local).equals(8))throw new AssertionError("Changed the vanilla LAN limit outside a lobby");
+   client.getField("singleplayer").set(game,local);
    Class<?> level=Class.forName("net.minecraft.client.multiplayer.ClientLevel",true,loader);
    client.getField("level").set(game,level.getConstructor().newInstance());
-   Thread.sleep(1500);
+   Object list=integrated.getField("list").get(local);
+   java.lang.reflect.Method legacyLimit=list.getClass().getMethod("limit");
+   for(int i=0;i<40&&(!limit.invoke(local).equals(150)||!legacyLimit.invoke(list).equals(150));i++)Thread.sleep(100);
+   if(!limit.invoke(local).equals(150))throw new AssertionError("Lobby capacity was not applied to the integrated server");
+   if(!legacyLimit.invoke(list).equals(150))throw new AssertionError("Legacy player list capacity was not updated");
    Class<?> server=Class.forName("net.minecraft.client.multiplayer.ServerData",true,loader);
    Class<?> kind=Class.forName("net.minecraft.client.multiplayer.ServerData$Type",true,loader);
    client.getField("remote").set(game,server.getConstructor(String.class,String.class,kind).newInstance("Castle","play.minecraft.net",kind.getEnumConstants()[1]));
@@ -142,7 +150,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
   if mode:
    activity.append((mode,self.headers.get("X-Sintet-Server-Name")))
   port_command=b"2 25565" if fabric_fixture and acks else b"1 25565"
-  self.send_response(200);self.end_headers();self.wfile.write(port_command)
+  self.send_response(200)
+  if not fabric_fixture and mode=="singleplayer":
+   self.send_header("X-Sintet-Lobby-Capacity","150")
+  self.end_headers();self.wfile.write(port_command)
  def do_POST(self):
   acks.append(self.rfile.read(int(self.headers["Content-Length"])))
   self.send_response(200);self.end_headers();self.wfile.write(b"ok")

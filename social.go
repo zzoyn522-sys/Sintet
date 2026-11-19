@@ -57,6 +57,7 @@ type socialInvite struct {
 	Account *socialAccount `json:"account"`
 }
 type socialRoom struct {
+	Capacity int    `json:"capacity,omitempty"`
 	Code     string `json:"code"`
 	Host     string `json:"host"`
 	Version  string `json:"version"`
@@ -65,14 +66,16 @@ type socialRoom struct {
 }
 
 const manualLobbyProfile = "sintet:manual"
+const maximumLobbyCapacity = 150
 
 func (r *socialRoom) manual() bool { return r != nil && r.Version == manualLobbyProfile }
 
 type socialPeer struct {
-	ID     string                     `json:"id"`
-	Guest  string                     `json:"guest"`
-	Offer  *webrtc.SessionDescription `json:"offer"`
-	Answer *webrtc.SessionDescription `json:"answer"`
+	Rejection string                     `json:"rejection,omitempty"`
+	ID        string                     `json:"id"`
+	Guest     string                     `json:"guest"`
+	Offer     *webrtc.SessionDescription `json:"offer"`
+	Answer    *webrtc.SessionDescription `json:"answer"`
 }
 type socialMember struct {
 	AvatarDigest string `json:"avatarDigest,omitempty"`
@@ -94,17 +97,19 @@ type socialRemote struct {
 	Room         *socialRoom     `json:"room"`
 	Peers        []socialPeer    `json:"peers"`
 }
+
 type socialState struct {
-	TURNActive   bool             `json:"turnActive,omitempty"`
-	TURNUsage    *turnUsageView   `json:"turnUsage,omitempty"`
-	TURNNotice   int64            `json:"turnNotice,omitempty"`
-	PreGameLobby bool             `json:"preGameLobby"`
-	Pack         *packStatus      `json:"pack,omitempty"`
-	Quality      *p2p.LinkQuality `json:"quality,omitempty"`
-	NetworkPeers []socialLink     `json:"networkPeers,omitempty"`
-	Leader       bool             `json:"leader"`
-	Offline      bool             `json:"offline"`
-	Reconnecting bool             `json:"reconnecting"`
+	LobbyTURNUsage *turnUsageView   `json:"lobbyTurnUsage,omitempty"`
+	TURNActive     bool             `json:"turnActive,omitempty"`
+	TURNUsage      *turnUsageView   `json:"turnUsage,omitempty"`
+	TURNNotice     int64            `json:"turnNotice,omitempty"`
+	PreGameLobby   bool             `json:"preGameLobby"`
+	Pack           *packStatus      `json:"pack,omitempty"`
+	Quality        *p2p.LinkQuality `json:"quality,omitempty"`
+	NetworkPeers   []socialLink     `json:"networkPeers,omitempty"`
+	Leader         bool             `json:"leader"`
+	Offline        bool             `json:"offline"`
+	Reconnecting   bool             `json:"reconnecting"`
 	socialRemote
 	Enabled        bool   `json:"enabled"`
 	Busy           bool   `json:"busy"`
@@ -133,55 +138,58 @@ type socialLink struct {
 	p2p.LinkQuality
 }
 type socialManager struct {
-	hostPack          *packsync.Snapshot
-	hostProfile       string
-	guestPort         int
-	guestWorldDigest  string
-	memberPreparation map[string]lobbyPreparation
-	lobbyConnectBusy  bool
-	autoJoinAttempts  int
-	autoJoinRetryAt   time.Time
-	guestPack         *guestPack
-	packCancel        context.CancelFunc
-	packConsent       string
-	lastGuestRecovery time.Time
-	app               *App
-	ctx               context.Context
-	mu                sync.Mutex
-	identityMu        sync.Mutex
-	refreshMu         sync.Mutex
-	packChecking      bool
-	gameMu            sync.Mutex
-	observedPort      int
-	observedWorld     bool
-	loggedRemote      bool
-	loggedServer      string
-	connectingAt      time.Time
-	bridgeWorld       bool
-	bridgeMode        string
-	bridgeServer      string
-	bridgeWorldSeen   time.Time
-	logTail           string
-	actions           sync.Mutex
-	state             socialState
-	client            *identity.Client
-	account           string
-	peers             map[string]*p2p.Peer
-	epoch             uint64
-	guest             string
-	roomCancel        context.CancelFunc
-	address, secret   string
-	bridgeSeen        time.Time
-	gameCommand       uint64
-	gameCommandPort   int
-	gameCommandUntil  time.Time
-	gameCommandEpoch  uint64
-	gameCommandMenu   bool
-	gameJoinUntil     time.Time
-	server            *http.Server
-	syncFailures      int
-	sharedMusicCover  string
-	privacyRevision   uint64
+	roomTURNMu                        sync.Mutex
+	roomTURNCache                     roomTURNCheck
+	hostPack                          *packsync.Snapshot
+	hostProfile                       string
+	guestPort                         int
+	guestWorldDigest                  string
+	memberPreparation                 map[string]lobbyPreparation
+	rosterVersion, guestRosterVersion uint64
+	lobbyConnectBusy                  bool
+	autoJoinAttempts                  int
+	autoJoinRetryAt                   time.Time
+	guestPack                         *guestPack
+	packCancel                        context.CancelFunc
+	packConsent                       string
+	lastGuestRecovery                 time.Time
+	app                               *App
+	ctx                               context.Context
+	mu                                sync.Mutex
+	identityMu                        sync.Mutex
+	refreshMu                         sync.Mutex
+	packChecking                      bool
+	gameMu                            sync.Mutex
+	observedPort                      int
+	observedWorld                     bool
+	loggedRemote                      bool
+	loggedServer                      string
+	connectingAt                      time.Time
+	bridgeWorld                       bool
+	bridgeMode                        string
+	bridgeServer                      string
+	bridgeWorldSeen                   time.Time
+	logTail                           string
+	actions                           sync.Mutex
+	state                             socialState
+	client                            *identity.Client
+	account                           string
+	peers                             map[string]*p2p.Peer
+	epoch                             uint64
+	guest                             string
+	roomCancel                        context.CancelFunc
+	address, secret                   string
+	bridgeSeen                        time.Time
+	gameCommand                       uint64
+	gameCommandPort                   int
+	gameCommandUntil                  time.Time
+	gameCommandEpoch                  uint64
+	gameCommandMenu                   bool
+	gameJoinUntil                     time.Time
+	server                            *http.Server
+	syncFailures                      int
+	sharedMusicCover                  string
+	privacyRevision                   uint64
 }
 
 func newSocialManager(app *App, ctx context.Context) *socialManager {
@@ -196,6 +204,11 @@ func (m *socialManager) snapshot() socialState {
 	state := m.state
 	state.PreGameLobby = true
 	state.Members = append([]socialMember(nil), state.Members...)
+	// UI and overlay snapshots need membership IDs only. SDP stays in signaling.
+	state.Peers = make([]socialPeer, 0, len(m.state.Peers))
+	for _, peer := range m.state.Peers {
+		state.Peers = append(state.Peers, socialPeer{ID: peer.ID, Guest: peer.Guest})
+	}
 	if state.Pack != nil {
 		copy := *state.Pack
 		state.Pack = &copy
@@ -216,21 +229,23 @@ func (m *socialManager) snapshot() socialState {
 		}
 	}
 	state.LobbyConnected = state.Room != nil && (state.Leader || m.guestPort != 0 && m.peers[m.guest] != nil && m.peers[m.guest].Connected())
+	byMember := make(map[string]int, len(state.Members))
+	guests := make(map[string]string, len(state.Peers))
 	for i := range state.Members {
+		byMember[state.Members[i].ID] = i
 		if report, ok := m.memberPreparation[state.Members[i].ID]; ok {
 			state.Members[i].Preparation, state.Members[i].Percent = report.Phase, report.Percent
 		}
 	}
 	if state.Leader {
 		for _, signal := range state.Peers {
+			guests[signal.ID] = signal.Guest
 			peer := m.peers[signal.ID]
 			if peer != nil && peer.Connected() {
 				continue
 			}
-			for i := range state.Members {
-				if state.Members[i].ID == signal.Guest {
-					state.Members[i].Preparation = "connecting"
-				}
+			if i, ok := byMember[signal.Guest]; ok {
+				state.Members[i].Preparation = "connecting"
 			}
 		}
 	}
@@ -252,18 +267,10 @@ func (m *socialManager) snapshot() socialState {
 			name, memberID := state.HostName, state.Room.Host
 			if state.Leader {
 				name = "Гость"
-				for _, signal := range state.Peers {
-					if signal.ID == id {
-						memberID = signal.Guest
-						break
-					}
-				}
+				memberID = guests[id]
 			}
-			for _, member := range state.Members {
-				if member.ID == memberID && (!state.Leader || !member.Leader) {
-					name = member.Username
-					break
-				}
+			if i, ok := byMember[memberID]; ok && (!state.Leader || !state.Members[i].Leader) {
+				name = state.Members[i].Username
 			}
 			if name == "" {
 				name = "Хост"
@@ -686,7 +693,21 @@ func (m *socialManager) refresh() {
 	if remote.Privacy != m.state.Privacy {
 		m.sharedMusicCover = ""
 	}
+	oldMembers := m.state.Members
+	if len(oldMembers) != len(remote.Members) {
+		m.rosterVersion++
+	} else {
+		for i, member := range oldMembers {
+			if member.ID != remote.Members[i].ID {
+				m.rosterVersion++
+				break
+			}
+		}
+	}
 	m.state.socialRemote = remote
+	if remote.Room == nil {
+		m.state.LobbyTURNUsage = nil
+	}
 	memberIDs := make(map[string]bool, len(remote.Members))
 	for _, member := range remote.Members {
 		memberIDs[member.ID] = true
@@ -744,6 +765,19 @@ func (m *socialManager) answer(remote socialPeer, port int, epoch uint64) {
 	trace.Stage("offer_received")
 	var peer *p2p.Peer
 	var err error
+	answerSent := false
+	defer func() {
+		if err == nil || answerSent {
+			return
+		}
+		reason := "connection"
+		if errors.Is(err, errTURNLimit) {
+			reason = "turn-limit"
+		}
+		reject, cancel := context.WithTimeout(m.ctx, 4*time.Second)
+		defer cancel()
+		_ = m.post(reject, map[string]any{"action": "reject-signal", "peer": remote.ID, "reason": reason}, nil)
+	}()
 	if offerUsesRelay(remote.Offer) {
 		trace.Stage("relay")
 		peer, err = m.newRelayPeer(ctx, remote.ID, -1, trace)
@@ -758,7 +792,7 @@ func (m *socialManager) answer(remote socialPeer, port int, epoch uint64) {
 		m.logError(err)
 		return
 	}
-	peer.SetPackHandler(m.hostLobbyHandler(remote.Guest))
+	peer.SetPackHandler(m.hostLobbyHandler(remote.ID, remote.Guest))
 	m.mu.Lock()
 	if _, exists := m.peers[remote.ID]; !exists || m.epoch != epoch {
 		m.mu.Unlock()
@@ -779,6 +813,7 @@ func (m *socialManager) answer(remote socialPeer, port int, epoch uint64) {
 		err = m.post(ctx, map[string]any{"action": "signal", "peer": remote.ID, "description": answer}, nil)
 	}
 	if err == nil {
+		answerSent = true
 		trace.Stage("answer_sent")
 		traceResult = "tunnel_failed"
 		err = peer.Wait(ctx)
@@ -810,6 +845,7 @@ func (m *socialManager) answer(remote socialPeer, port int, epoch uint64) {
 	if m.epoch == epoch && m.peers[remote.ID] == peer {
 		m.peers[remote.ID] = nil
 		delete(m.memberPreparation, remote.Guest)
+		m.rosterVersion++
 	}
 	m.mu.Unlock()
 }
@@ -829,6 +865,7 @@ func (m *socialManager) disconnect() uint64 {
 	m.guestPort = 0
 	m.guestWorldDigest = ""
 	m.memberPreparation = nil
+	m.rosterVersion, m.guestRosterVersion = 0, 0
 	m.state.WorldReady = false
 	m.state.AutoConnect = false
 	m.resetAutoLobbyRetryLocked()
@@ -847,6 +884,7 @@ func (m *socialManager) disconnect() uint64 {
 	m.state.Status = ""
 	m.state.Connected = 0
 	m.state.Room = nil
+	m.state.LobbyTURNUsage = nil
 	m.state.Members = nil
 	m.mu.Unlock()
 	if cancel != nil {
@@ -1032,6 +1070,14 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 		return err
 	}
 	trace.Stage("room_joined")
+	answerPoll := 600 * time.Millisecond
+	if result.Room.Capacity > 8 {
+		cancel()
+		var cancelExpanded context.CancelFunc
+		connect, cancelExpanded = context.WithTimeout(ctx, max(signalBudget, 65*time.Second))
+		defer cancelExpanded()
+		answerPoll = time.Second
+	}
 	// room-join already replaces the guest's previous peer in the same room.
 	if previousGuest != "" && previousGuest != result.Peer.ID && (previousRoom == nil || previousRoom.Code != code) {
 		leave, cancelLeave := context.WithTimeout(connect, 2*time.Second)
@@ -1129,10 +1175,17 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 			trace.Stage("answer_applied")
 			break
 		}
+		switch reply.Peer.Rejection {
+		case "turn-limit":
+			m.notifyTURNLimit()
+			return errTURNLimit
+		case "connection":
+			return fmt.Errorf("%w: лидер не смог открыть туннель", errDirectTunnel)
+		}
 		select {
 		case <-connect.Done():
 			return fmt.Errorf("%w: ожидание ответа хоста: %w", errDirectTunnel, connect.Err())
-		case <-time.After(600 * time.Millisecond):
+		case <-time.After(answerPoll):
 		}
 	}
 	cancel()
@@ -1193,7 +1246,7 @@ func (m *socialManager) finishGuest(epoch uint64, id string, peer *p2p.Peer) (gu
 		return guestLobbyRecovery{}, false
 	}
 	recovery := m.guestRecoveryLocked()
-	limited := peer != nil && peer.Relayed() && m.state.TURNUsage.exhausted()
+	limited := peer != nil && peer.Relayed() && (m.state.LobbyTURNUsage.exhausted() || m.state.TURNUsage.exhausted())
 	reconnect := !limited && m.guestPort != 0 && recovery.guarded && recovery.code != "" &&
 		time.Since(m.lastGuestRecovery) >= 45*time.Second
 	if reconnect {
@@ -1271,6 +1324,8 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 		err = m.refreshLobbyPack(ctx)
 	case "change-lobby-pack":
 		err = m.changeLobbyPack(ctx, target)
+	case "lobby-capacity", "lobby-capacity-confirm":
+		err = m.resizeLobby(ctx, target, action == "lobby-capacity-confirm")
 	case "retry-pack":
 		err = m.retryGuestPack(ctx)
 	case "connect-game":
@@ -1470,6 +1525,11 @@ func (m *socialManager) startIPC() error {
 				return
 			}
 			id, port := m.pollGameCommand(r.Header.Get("X-Sintet-Join-Ready") == "1")
+			m.mu.Lock()
+			if room := m.state.Room; room != nil && room.Host == m.account && room.Capacity > 8 {
+				w.Header().Set("X-Sintet-Lobby-Capacity", strconv.Itoa(room.Capacity))
+			}
+			m.mu.Unlock()
 			w.Header().Set("Content-Type", "text/plain")
 			fmt.Fprintf(w, "%d %d", id, port)
 			return

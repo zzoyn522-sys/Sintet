@@ -555,11 +555,20 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    ImGui::TextDisabled("%s",hint);
   }
  }else if(section==1){
+  constexpr size_t pageSize=12;
+  static std::string pagedRoom;
+  static size_t memberLimit=pageSize;
+  static bool searchOpen=false;
+  static char search[96]={};
+  static float searchReveal=0;
+  if(pagedRoom!=state.room){
+   pagedRoom=state.room;memberLimit=pageSize;searchOpen=false;search[0]=0;searchReveal=0;
+  }
   socialTitle(OverlayText("Играть вместе"));
   if(!state.room.empty()||state.localPort){
    ImGui::SameLine();
    ImGui::PushFont(titleFont);
-   ImGui::Text("%d / 4",state.members.empty()?state.connected+1:(int)state.members.size());
+   ImGui::Text("%d / %d",state.members.empty()?state.connected+1:(int)state.members.size(),state.roomCapacity);
    ImGui::PopFont();
    if(state.localPort&&state.worldReady){
     if(ImGui::Button(OverlayText("Скопировать адрес"))){
@@ -621,7 +630,54 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     }
     ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
    }
+   const bool searchable=state.members.size()>4;
+   bool resetScroll=false;
+   if(searchable){
+    const float available=ImGui::GetContentRegionAvail().x;
+    const float size=ImGui::GetFrameHeight();
+    const bool toggleSearch=ImGui::Button("##lobby-search-toggle",ImVec2(size,size));
+    const auto pos=ImGui::GetItemRectMin();
+    const ImVec2 center(pos.x+size*.46f,pos.y+size*.45f);
+    auto* draw=ImGui::GetWindowDrawList();
+    const auto ink=ImGui::GetColorU32(ImGuiCol_Text);
+    draw->AddCircle(center,px(4),ink,16,px(1.25f));
+    draw->AddLine(ImVec2(center.x+px(3),center.y+px(3)),ImVec2(center.x+px(7),center.y+px(7)),ink,px(1.25f));
+    if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",OverlayText("Поиск участников"));
+    if(toggleSearch){
+     searchOpen=!searchOpen;memberLimit=pageSize;search[0]=0;resetScroll=true;
+    }
+    const float progress=std::min(ImGui::GetIO().DeltaTime/.16f,1.f);
+    searchReveal=std::clamp(searchReveal+(searchOpen?progress:-progress),0.f,1.f);
+    if(searchOpen||searchReveal>0){
+     ImGui::SameLine();
+     if(toggleSearch&&searchOpen)ImGui::SetKeyboardFocusHere();
+     ImGui::SetNextItemWidth(std::max(px(32),(available-size-ImGui::GetStyle().ItemSpacing.x)*easeOut(searchReveal)));
+     ImGui::PushStyleColor(ImGuiCol_FrameBg,ImVec4(.15f,.15f,.15f,1));
+     ImGui::BeginDisabled(!searchOpen);
+     if(ImGui::InputTextWithHint("##lobby-search",OverlayText("Ник или @юзернейм"),search,sizeof(search))){
+      memberLimit=pageSize;resetScroll=true;
+     }
+     ImGui::EndDisabled();
+     ImGui::PopStyleColor();
+    }
+   }else{
+    searchOpen=false;search[0]=0;searchReveal=0;memberLimit=pageSize;
+   }
+   const auto query=SintetSocial::LobbySearchKey(search);
+   std::vector<const SintetSocial::Member*> matches;
+   matches.reserve(state.members.size());
    for(const auto& member:state.members){
+    if(query.empty()||SintetSocial::LobbySearchKey(member.person.name).find(query)!=std::wstring::npos||
+       SintetSocial::LobbySearchKey(member.handle).find(query)!=std::wstring::npos)matches.push_back(&member);
+   }
+   if(matches.empty()&&!query.empty())ImGui::TextDisabled("%s",OverlayText("Участники не найдены"));
+   const bool scrollMembers=searchable&&!matches.empty();
+   if(scrollMembers){
+    if(resetScroll)ImGui::SetNextWindowScroll(ImVec2(0,0));
+    ImGui::BeginChild("lobby-members",ImVec2(0,px(std::min<size_t>(matches.size()*51,190))));
+   }
+   for(size_t index=0;index<matches.size()&&index<memberLimit;++index){
+    const auto& member=*matches[index];
     ImGui::PushID(member.person.id.c_str());
     ImGui::BeginGroup();
     socialAvatar(member.person,scale);
@@ -652,6 +708,8 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     ImGui::Dummy(ImVec2(0,px(8)));
     ImGui::PopID();
    }
+   if(scrollMembers)ImGui::EndChild();
+   if(memberLimit<matches.size()&&ImGui::Button(OverlayText("Показать ещё")))memberLimit+=pageSize;
    ImGui::TextDisabled(OverlayText("Код комнаты"));ImGui::PushFont(titleFont);ImGui::TextUnformatted(state.room.c_str());ImGui::PopFont();
    if(ImGui::Button(OverlayText("Скопировать код"),ImVec2(-1,px(36))))ImGui::SetClipboardText(state.room.c_str());
    if(state.leader){

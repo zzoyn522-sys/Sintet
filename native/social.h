@@ -4,7 +4,7 @@
 namespace SintetSocial {
 struct Person {std::string id,name,avatar;};
 struct Friend {Person person;std::string status,presence,server;bool incoming=false;};
-struct Member {Person person;bool leader=false;std::string preparation;int percent=0;};
+struct Member {Person person;bool leader=false;std::string preparation;int percent=0;std::string handle;};
 struct Invite {std::string id,code;Person sender;std::string game,build,loader;};
 struct LinkQuality {
  bool available=false;
@@ -24,6 +24,7 @@ struct State {
  bool turnActive=false;
  long long turnUsed=0,turnLimit=0,turnNotice=0;
  std::string error,connection,room,host;
+ int roomCapacity=4;
  int lanPort=0,localPort=0,connected=0;
  LinkQuality quality;
  std::vector<NetworkPeer> networkPeers;
@@ -35,5 +36,6 @@ void Start();
 void Stop();
 State Snapshot();
 std::string AvatarPixels(const Person&);
+std::wstring LobbySearchKey(const std::string&);
 void Action(const std::string&,const std::string& target="");
 }

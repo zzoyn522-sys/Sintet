@@ -19,7 +19,7 @@ if (!(Test-Path -LiteralPath $javac) -or !(Test-Path -LiteralPath $jar)) {
 }
 $classes=Join-Path $PSScriptRoot 'classes'
 New-Item -ItemType Directory -Force $classes | Out-Null
-& $javac --release 8 -encoding UTF-8 -d $classes (Join-Path $PSScriptRoot 'SintetBridge.java')
+& $javac --release 8 -encoding UTF-8 -d $classes (Join-Path $PSScriptRoot 'SintetBridge.java') (Join-Path $PSScriptRoot 'GameLobbyLimit.java')
 if($LASTEXITCODE -ne 0){throw 'Java bridge compilation failed'}
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'MANIFEST.MF'),"Manifest-Version: 1.0`nPremain-Class: sintet.bridge.SintetBridge`n`n",[Text.UTF8Encoding]::new($false))
 & $jar cfm (Join-Path $PSScriptRoot 'sintet-bridge.jar') (Join-Path $PSScriptRoot 'MANIFEST.MF') -C $classes .

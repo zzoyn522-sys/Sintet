@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -103,6 +104,12 @@ func (r *profileRoster) makeSlot(record profileRecord) *profileSlot {
 		}
 		slot.sintet = identity.New(r.base, path)
 		slot.sintet.ServiceBase = "https://sintet-identity.zzoyn522.workers.dev"
+		// Isolated desktop previews can test a local identity worker without using public sessions.
+		if previewDataDirectory != "" {
+			if local, err := url.Parse(r.base); err == nil && local.Scheme == "http" && local.Hostname() == "127.0.0.1" {
+				slot.sintet.ServiceBase = r.base
+			}
+		}
 	case "ely":
 		if record.Key == "legacy-ely" {
 			path = filepath.Join(r.root, "ely.dpapi")

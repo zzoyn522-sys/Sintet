@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -27,15 +28,63 @@ type lobbyMemberState struct {
 	lobbyPreparation
 }
 type lobbyExchange struct {
-	WorldReady bool               `json:"worldReady"`
-	NoPack     bool               `json:"noPack,omitempty"`
-	Digest     string             `json:"digest"`
-	Members    []lobbyMemberState `json:"members"`
+	WorldReady    bool               `json:"worldReady"`
+	NoPack        bool               `json:"noPack,omitempty"`
+	Digest        string             `json:"digest"`
+	Members       []lobbyMemberState `json:"members"`
+	RosterVersion uint64             `json:"rosterVersion,omitempty"`
+}
+type lobbyReport struct {
+	lobbyPreparation
+	RosterVersion uint64 `json:"rosterVersion,omitempty"`
 }
 
 type lobbyHostSelection struct {
 	profile, version, loader, name string
 	pack                           *packsync.Snapshot
+}
+
+func (m *socialManager) resizeLobby(ctx context.Context, value string, disconnect bool) error {
+	capacity, err := strconv.Atoi(value)
+	if err != nil || capacity < 4 || capacity > maximumLobbyCapacity {
+		return errors.New("размер лобби должен быть от 4 до 150")
+	}
+	m.refreshMu.Lock()
+	defer m.refreshMu.Unlock()
+	state := m.snapshot()
+	if !state.Leader || state.Room == nil {
+		return errors.New("менять размер лобби может только лидер")
+	}
+	if state.Room.Capacity == 0 {
+		return errors.New("Этот сервер пока поддерживает только 4 места.")
+	}
+	var result struct {
+		Room         *socialRoom  `json:"room"`
+		Disconnected []socialPeer `json:"disconnected"`
+	}
+	if err := m.post(ctx, map[string]any{"action": "room-capacity", "code": state.Room.Code, "capacity": capacity, "disconnect": disconnect}, &result); err != nil {
+		return err
+	}
+	if result.Room == nil || result.Room.Code != state.Room.Code || result.Room.Capacity != capacity {
+		return errors.New("сервис не подтвердил новый размер лобби")
+	}
+	var closed []*p2p.Peer
+	m.mu.Lock()
+	if m.state.Room != nil && m.state.Room.Code == state.Room.Code && m.account == result.Room.Host {
+		m.state.Room = result.Room
+		for _, removed := range result.Disconnected {
+			if peer := m.peers[removed.ID]; peer != nil {
+				closed = append(closed, peer)
+			}
+			delete(m.peers, removed.ID)
+			delete(m.memberPreparation, removed.Guest)
+		}
+	}
+	m.mu.Unlock()
+	for _, peer := range closed {
+		peer.Close()
+	}
+	return nil
 }
 
 func (m *socialManager) prepareLobbyHost(ctx context.Context, profile string) (lobbyHostSelection, error) {
@@ -201,7 +250,7 @@ func allowedLobbyPhase(phase string) bool {
 	return false
 }
 
-func (m *socialManager) hostLobbyHandler(guest string) http.Handler {
+func (m *socialManager) hostLobbyHandler(peerID, guest string) http.Handler {
 	var revisionMu sync.Mutex
 	var revision *packsync.Snapshot
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +258,7 @@ func (m *socialManager) hostLobbyHandler(guest string) http.Handler {
 		snapshot, room, account := m.hostPack, m.state.Room, m.account
 		authorized := false
 		for _, peer := range m.state.Peers {
-			if peer.Guest == guest {
+			if peer.ID == peerID && peer.Guest == guest {
 				authorized = true
 				break
 			}
@@ -241,7 +290,7 @@ func (m *socialManager) hostLobbyHandler(guest string) http.Handler {
 			http.Error(w, "Method not allowed", 405)
 			return
 		}
-		var report lobbyPreparation
+		var report lobbyReport
 		decoder := json.NewDecoder(io.LimitReader(r.Body, 2049))
 		if err := decoder.Decode(&report); err != nil || !allowedLobbyPhase(report.Phase) || report.Percent < 0 || report.Percent > 100 || len(report.Digest) > 64 {
 			http.Error(w, "Invalid lobby state", 400)
@@ -265,18 +314,24 @@ func (m *socialManager) hostLobbyHandler(guest string) http.Handler {
 		if !manual {
 			digest = m.hostPack.Manifest.Digest
 		}
+		preparation := report.lobbyPreparation
 		if manual && report.Phase != "world" {
-			report = lobbyPreparation{Phase: "ready"}
+			preparation = lobbyPreparation{Phase: "ready"}
 		} else if report.Digest != digest && !manual {
-			report = lobbyPreparation{Phase: "checking"}
+			preparation = lobbyPreparation{Phase: "checking"}
 		}
-		m.memberPreparation[guest] = report
-		result := lobbyExchange{WorldReady: m.state.WorldReady, NoPack: manual, Digest: digest}
-		for _, member := range m.state.Members {
-			if member.Leader {
-				continue
+		if m.memberPreparation[guest] != preparation || m.rosterVersion == 0 {
+			m.memberPreparation[guest] = preparation
+			m.rosterVersion++
+		}
+		result := lobbyExchange{WorldReady: m.state.WorldReady, NoPack: manual, Digest: digest, RosterVersion: m.rosterVersion}
+		if report.RosterVersion != result.RosterVersion {
+			for _, member := range m.state.Members {
+				if member.Leader {
+					continue
+				}
+				result.Members = append(result.Members, lobbyMemberState{ID: member.ID, lobbyPreparation: m.memberPreparation[member.ID]})
 			}
-			result.Members = append(result.Members, lobbyMemberState{ID: member.ID, lobbyPreparation: m.memberPreparation[member.ID]})
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(result)
@@ -289,7 +344,7 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 		m.mu.Unlock()
 		return "", context.Canceled
 	}
-	report := lobbyPreparation{Phase: "checking"}
+	report := lobbyReport{lobbyPreparation: lobbyPreparation{Phase: "checking"}, RosterVersion: m.guestRosterVersion}
 	if pack := m.state.Pack; pack != nil {
 		report.Phase, report.Digest = pack.Phase, pack.Digest
 		if pack.Total > 0 {
@@ -313,7 +368,7 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 		result.WorldReady = true
 	} else if response.StatusCode != http.StatusOK {
 		return "", errors.New("не удалось получить состояние лобби")
-	} else if err = json.NewDecoder(io.LimitReader(response.Body, 16<<10)).Decode(&result); err != nil {
+	} else if err = json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&result); err != nil {
 		return "", err
 	}
 	m.mu.Lock()
@@ -322,6 +377,7 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 		return "", context.Canceled
 	}
 	m.state.WorldReady = result.WorldReady
+	m.guestRosterVersion = result.RosterVersion
 	m.state.NoPack = result.NoPack
 	if result.NoPack {
 		if m.packCancel != nil {
@@ -455,6 +511,10 @@ func (m *socialManager) newRelayPeer(ctx context.Context, peerID string, port in
 	}
 	m.mu.Lock()
 	client, account := m.client, m.account
+	roomCode := ""
+	if m.state.Room != nil {
+		roomCode = m.state.Room.Code
+	}
 	m.mu.Unlock()
 	if client == nil || account == "" {
 		return nil, errors.New("войдите через Sintet ID")
@@ -467,7 +527,7 @@ func (m *socialManager) newRelayPeer(ctx context.Context, peerID string, port in
 	}
 	peer, err := p2p.NewMeteredRelayPeer(port, credentials.Servers, trace)
 	if err == nil {
-		go m.watchTURNPeer(client, account, peer)
+		go m.watchTURNPeer(client, account, peer, roomCode)
 	}
 	return peer, err
 }

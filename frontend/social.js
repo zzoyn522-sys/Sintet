@@ -1,5 +1,22 @@
 (()=>{
  Object.assign(window.SintetLanguageCatalog,{
+  'Изменить размер лобби':['Change lobby size','Изменить размер лобби','Змінити розмір лобі','Alterar o tamanho do lobby','Cambiar el tamaño de la sala'],
+  'Размер лобби':['Lobby size','Размер лобби','Розмір лобі','Tamanho do lobby','Tamaño de la sala'],
+  'До 150 участников вместе с лидером':['Up to 150 players including the host','До 150 участников вместе с лидером','До 150 учасників разом із лідером','Até 150 jogadores incluindo o anfitrião','Hasta 150 jugadores incluido el anfitrión'],
+  'Максимум участников':['Player limit','Максимум участников','Ліміт учасників','Limite de jogadores','Límite de jugadores'],
+  'Поиск участников':['Search players','Поиск участников','Пошук учасників','Pesquisar jogadores','Buscar jugadores'],
+  'Ник или @юзернейм':['Nickname or @username','Ник или @юзернейм','Нік або @ім’я','Alcunha ou @utilizador','Apodo o @usuario'],
+  'Показать ещё':['Show more','Показать ещё','Показати ще','Mostrar mais','Mostrar más'],
+  'Участники не найдены':['No players found','Участники не найдены','Учасників не знайдено','Nenhum jogador encontrado','No se encontraron jugadores'],
+  'Больше 4 участников – выше нагрузка':['More than 4 players increases the load','Больше 4 участников – выше нагрузка','Понад 4 учасники збільшують навантаження','Mais de 4 jogadores aumentam a carga','Más de 4 jugadores aumentan la carga'],
+  'Мир работает на компьютере лидера. При большом числе игроков возможны сильные лаги и обрывы. Плавная игра зависит от компьютера и интернета лидера.':['The world runs on the host’s PC. Large lobbies may lag or disconnect. Performance depends on the host’s hardware and internet connection.','Мир работает на компьютере лидера. При большом числе игроков возможны сильные лаги и обрывы. Плавная игра зависит от компьютера и интернета лидера.','Світ працює на комп’ютері лідера. У великих лобі можливі затримки та розриви. Швидкодія залежить від комп’ютера й інтернету лідера.','O mundo é executado no PC do anfitrião. Lobbies grandes podem sofrer atrasos e falhas de ligação. O desempenho depende do hardware e da ligação do anfitrião.','El mundo se ejecuta en el PC del anfitrión. Las salas grandes pueden sufrir retrasos y cortes. El rendimiento depende del equipo y la conexión del anfitrión.'],
+  'С 9 участниками лимит TURN для этого лобби – 1 ГБ на аккаунт за текущий двухмесячный период. Прямое P2P продолжит работать.':['With 9 or more players, TURN is limited to 1 GB per account in the current two-month period. Direct P2P stays available.','С 9 участниками лимит TURN для этого лобби – 1 ГБ на аккаунт за текущий двухмесячный период. Прямое P2P продолжит работать.','Від 9 учасників ліміт TURN – 1 ГБ на акаунт за поточні два місяці. Пряме P2P залишиться доступним.','Com 9 ou mais jogadores, há 1 GB de TURN por conta no período de dois meses. P2P direto continua disponível.','Con 9 o más jugadores, TURN se limita a 1 GB por cuenta en el periodo de dos meses. P2P directo sigue disponible.'],
+  'Укажи число от 4 до 150.':['Choose a number from 4 to 150.','Укажи число от 4 до 150.','Вкажи число від 4 до 150.','Escolhe um número entre 4 e 150.','Elige un número entre 4 y 150.'],
+  'Будут отключены участники, которые вошли последними. Количество – %s.':['Players who joined most recently will be disconnected. Count: %s.','Будут отключены участники, которые вошли последними. Количество – %s.','Учасники, які приєдналися останніми, будуть відключені. Кількість – %s.','Os últimos jogadores a entrar serão desligados. Total: %s.','Se desconectará a los últimos jugadores que entraron. Total: %s.'],
+  'Отключить лишних и применить':['Disconnect excess players and apply','Отключить лишних и применить','Відключити зайвих і застосувати','Desligar jogadores excedentes e aplicar','Desconectar a los jugadores excedentes y aplicar'],
+  'Подтверди отключение лишних участников':['Confirm that excess players can be disconnected','Подтверди отключение лишних участников','Підтвердь відключення зайвих учасників','Confirma que os jogadores excedentes podem ser desligados','Confirma que se puede desconectar a los jugadores excedentes'],
+  'Не удалось изменить размер лобби.':['Could not change the lobby size.','Не удалось изменить размер лобби.','Не вдалося змінити розмір лобі.','Não foi possível alterar o tamanho do lobby.','No se pudo cambiar el tamaño de la sala.'],
+  'Этот сервер пока поддерживает только 4 места.':['This server currently supports only 4 slots.','Этот сервер пока поддерживает только 4 места.','Цей сервер поки підтримує лише 4 місця.','Este servidor ainda suporta apenas 4 lugares.','Este servidor solo admite 4 plazas.'],
   'Лимит TURN':['TURN limit','Лимит TURN','Ліміт TURN','Limite de TURN','Límite de TURN'],
   'Лимит TURN подключения закончился':['TURN connection limit reached','Лимит TURN подключения закончился','Ліміт з’єднання TURN вичерпано','Limite da ligação TURN atingido','Se alcanzó el límite de conexión TURN'],
   'Расход резервного подключения. Прямой P2P трафик в лимит не входит.':['Backup connection usage. Direct P2P traffic does not count.','Расход резервного подключения. Прямой P2P трафик в лимит не входит.','Витрати резервного з’єднання. Прямий P2P трафік не враховується.','Consumo da ligação de reserva. O tráfego P2P direto não conta.','Consumo de la conexión de respaldo. El tráfico P2P directo no cuenta.'],
@@ -181,7 +198,7 @@
  }
  function renderTurn(state){
   turnLobby.hidden=!state?.turnActive;
-  if(state?.turnActive)updateTurnMeter(turnLobby,state.turnUsage,'Считаем расход…');
+  if(state?.turnActive)updateTurnMeter(turnLobby,state.lobbyTurnUsage||state.turnUsage,'Считаем расход…');
   if(state?.turnNotice&&shownTURNNotice!==state.turnNotice){
    shownTURNNotice=state.turnNotice;
    if(Date.now()-shownTURNNotice<12000){
@@ -276,7 +293,8 @@
   }catch(error){
    const message=String(error?.message||error);
    if(action==='invite-accept'&&acceptedInvite?.id===target)inviteError=message;
-   else toast(message);
+   else if(!action.startsWith('lobby-capacity'))toast(message);
+   if(action.startsWith('lobby-capacity'))throw error;
    return false;
   }finally{busy=false;await refresh()}
  }
@@ -692,6 +710,140 @@
  document.querySelector('#friend-search').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();search()}};
  document.querySelector('#friends-join').onsubmit=event=>{event.preventDefault();act('join',document.querySelector('#friends-code').value.trim())};
  const lobbySetup=element('label','lobby-setup');lobbySetup.append(element('span','','Сборка лобби'));
+ const lobbyRoom=document.querySelector('#friends-room');
+ const lobbyCount=lobbyRoom.querySelector('span');
+ const lobbyCountTools=element('div','lobby-count-tools');
+ lobbyCount.before(lobbyCountTools);
+ const capacityToggle=element('button','lobby-capacity-toggle','+');
+ capacityToggle.type='button';capacityToggle.title='Изменить размер лобби';
+ capacityToggle.setAttribute('aria-label','Изменить размер лобби');
+ lobbyCountTools.append(lobbyCount,capacityToggle);
+ lobbyCount.className='lobby-count';
+
+ const capacityDialog=element('dialog','ws-dialog ws-build-dialog ws-build-manage ws-utility-dialog lobby-capacity-dialog');
+ capacityDialog.setAttribute('aria-labelledby','lobby-capacity-title');
+ capacityDialog.innerHTML=`<header class="ws-build-header">
+    <div><h1 id="lobby-capacity-title">Размер лобби</h1><span>До 150 участников вместе с лидером</span></div>
+    <button type="button" class="account-close" aria-label="Закрыть">×</button>
+   </header>
+   <div class="ws-utility-body">
+    <div class="lobby-capacity-warning"><strong>Больше 4 участников – выше нагрузка</strong>
+     <p>Мир работает на компьютере лидера. При большом числе игроков возможны сильные лаги и обрывы. Плавная игра зависит от компьютера и интернета лидера.</p>
+    </div>
+    <label class="lobby-capacity-field">Максимум участников<input type="number" min="4" max="150" step="1" required></label>
+    <p class="lobby-capacity-warning lobby-capacity-overflow" role="status" hidden></p>
+    <p class="lobby-capacity-note">С 9 участниками лимит TURN для этого лобби – 1 ГБ на аккаунт за текущий двухмесячный период. Прямое P2P продолжит работать.</p>
+    <p class="lobby-capacity-note lobby-capacity-error" role="alert" hidden></p>
+   </div>
+   <footer class="ws-build-footer"><button type="button" data-capacity-cancel>Отмена</button><button type="button" class="primary" data-capacity-save>Применить</button></footer>`;
+ document.body.append(capacityDialog);
+ const capacityInput=capacityDialog.querySelector('input'),capacitySave=capacityDialog.querySelector('[data-capacity-save]');
+ const capacityOverflow=capacityDialog.querySelector('.lobby-capacity-overflow');
+ let reopenLobby=false, resizingLobby=false;
+ function renderCapacityWarning(){
+  if(!capacityDialog.open||resizingLobby)return;
+  const occupied=state.members?.length||1;
+  const excess=capacityInput.validity.valid?Math.max(0,occupied-capacityInput.valueAsNumber):0;
+  capacityOverflow.hidden=!excess;
+  if(excess)capacityOverflow.textContent=window.SintetText.format('Будут отключены участники, которые вошли последними. Количество – %s.',String(excess));
+  capacitySave.textContent=excess?'Отключить лишних и применить':'Применить';
+  capacitySave.classList.toggle('danger',!!excess);
+  capacitySave.classList.toggle('primary',!excess);
+  return excess;
+ }
+ capacityToggle.onclick=()=>{
+  reopenLobby=panel.matches(':popover-open');
+  capacityInput.value=state.room.capacity||4;
+  capacityDialog.querySelector('.lobby-capacity-error').hidden=true;
+  capacityDialog.showModal();
+  renderCapacityWarning();
+  capacityInput.focus();
+ };
+ for(const control of capacityDialog.querySelectorAll('.account-close,[data-capacity-cancel]')){
+  control.onclick=()=>{if(!resizingLobby)capacityDialog.close()};
+ }
+ capacityDialog.addEventListener('cancel',event=>{if(resizingLobby)event.preventDefault()});
+ capacityDialog.addEventListener('close',()=>{
+  if(reopenLobby&&state?.room&&!panel.matches(':popover-open')){selectTab('lobby');position();panel.showPopover()}
+  if(panel.matches(':popover-open'))capacityToggle.focus();
+  reopenLobby=false;
+ });
+ capacitySave.onclick=async()=>{
+  const capacity=capacityInput.valueAsNumber;
+  const error=capacityDialog.querySelector('.lobby-capacity-error');
+  if(!capacityInput.checkValidity()){
+   error.textContent='Укажи число от 4 до 150.';
+   error.hidden=false;
+   return;
+  }
+  const disconnect=renderCapacityWarning()>0;
+  error.hidden=true;
+  resizingLobby=true;
+  for(const control of capacityDialog.querySelectorAll('input,button'))control.disabled=true;
+  try{
+   if(await act(disconnect?'lobby-capacity-confirm':'lobby-capacity',String(capacity)))capacityDialog.close();
+  }catch(reason){
+   error.textContent=String(reason?.message||reason);
+   error.hidden=false;
+  }finally{
+   resizingLobby=false;
+   for(const control of capacityDialog.querySelectorAll('input,button'))control.disabled=false;
+   renderCapacityWarning();
+  }
+ };
+ capacityInput.oninput=renderCapacityWarning;
+ capacityInput.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();if(renderCapacityWarning())capacitySave.focus();else capacitySave.click()}};
+
+ const memberPane=element('section','lobby-member-pane');
+ const members=element('div','lobby-members');members.id='lobby-members';
+ const memberSearch=element('div','lobby-member-search'),searchButton=element('button','lobby-search-toggle');
+ searchButton.type='button';
+ searchButton.setAttribute('aria-label','Поиск участников');
+ searchButton.setAttribute('aria-expanded','false');
+ searchButton.innerHTML='<svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>';
+ const searchInput=element('input','');searchInput.type='search';searchInput.placeholder='Ник или @юзернейм';
+ searchInput.setAttribute('aria-label','Поиск участников');
+ const searchSlot=element('div','friends-search lobby-search-slot');searchSlot.append(searchInput);
+ memberSearch.append(searchButton,searchSlot);
+ const showMore=element('button','lobby-show-more','Показать ещё');showMore.type='button';
+ const noMembers=element('p','lobby-member-empty','Участники не найдены');
+ memberPane.append(memberSearch,members,noMembers,showMore);footer.prepend(memberPane);
+ let lobbyKey='',memberLimit=12,membersKey='';
+ function setLobbySearch(open){
+  memberSearch.classList.toggle('is-open',open);
+  searchButton.setAttribute('aria-expanded',String(open));
+  searchInput.inert=!open;
+  if(open)searchInput.focus();
+  else searchInput.value='';
+ }
+ setLobbySearch(false);
+ searchButton.onclick=()=>{setLobbySearch(searchInput.inert);memberLimit=12;renderLobbyMembers()};
+ searchInput.oninput=()=>{memberLimit=12;renderLobbyMembers()};
+ searchInput.onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();searchButton.click();searchButton.focus()}};
+ showMore.onclick=()=>{memberLimit+=12;renderLobbyMembers()};
+ function renderLobbyMembers(){
+  const code=state.room?.code||'';
+  if(code!==lobbyKey){lobbyKey=code;memberLimit=12;membersKey='';setLobbySearch(false)}
+  const people=state.members||[];
+  lobbyCount.textContent=(people.length||state.connected+1)+' / '+(state.room?.capacity||4);
+  memberPane.hidden=!code||!people.length;
+  memberSearch.hidden=people.length<=4;
+  if(memberSearch.hidden&&!searchInput.inert)setLobbySearch(false);
+  const query=searchInput.value.trim().replace(/^@/,'').toLowerCase();
+  const matches=query?people.filter(person=>[person.username,person.handle].some(value=>value?.toLowerCase().includes(query))):people;
+  const shown=matches.slice(0,memberLimit);
+  showMore.hidden=matches.length<=memberLimit;
+  noMembers.hidden=!!matches.length;
+  const key=JSON.stringify([state.leader,state.worldReady,shown]);
+  if(key===membersKey)return;
+  membersKey=key;
+  members.replaceChildren(...shown.map(person=>{
+   const kick=state.leader&&!person.leader?button('×','kick',person.id):null;
+   if(kick){kick.title='Исключить из лобби';kick.setAttribute('aria-label','Исключить '+person.username+' из лобби')}
+   const status=person.leader?(state.worldReady?'Мир открыт':'Лидер лобби'):(preparationLabels[person.preparation]||'В лобби')+(['downloading','installing'].includes(person.preparation)?' · '+(person.percent||0)+'%':'');
+   return row(person,status,kick?[kick]:[]);
+  }));
+ }
  const lobbyProfile=element('select','');lobbyProfile.setAttribute('aria-label','Сборка лобби');lobbySetup.append(lobbyProfile);
  const manualLobbyOption=()=>{const option=element('option','','Ничего не ставить');option.value=manualLobbyProfile;return option};
  lobbyProfile.append(manualLobbyOption());
@@ -814,13 +966,10 @@
   const host=document.querySelector('#friends-host');host.textContent=state.leader?'Закрыть лобби':state.room||state.localPort?'Выйти из лобби':'Создать лобби';host.classList.toggle('lobby-close',!!state.leader);host.disabled=busy||state.busy||!state.enabled;
   document.querySelector('#friends-room').hidden=!state.room;
   lobbyPage.classList.toggle('has-room',!!state.room||!!state.localPort);
-  let members=document.querySelector('#lobby-members');if(!members){members=element('div','lobby-members');members.id='lobby-members';footer.prepend(members)}members.replaceChildren();for(const person of state.members||[]){
-   const kick=state.leader&&!person.leader?button('×','kick',person.id):null;
-   if(kick){kick.title='Исключить из лобби';kick.setAttribute('aria-label','Исключить '+person.username+' из лобби')}
-   const status=person.leader?(state.worldReady?'Мир открыт':'Лидер лобби'):(preparationLabels[person.preparation]||'В лобби')+(['downloading','installing'].includes(person.preparation)?' · '+(person.percent||0)+'%':'');
-   members.append(row(person,status,kick?[kick]:[]));
-  }
-  const title=document.querySelector('#friends-room>span');title.className='lobby-count';if(title)title.textContent=(state.members?.length||state.connected+1)+' / 4';document.querySelector('#friends-copy-room').textContent=state.room?.code||'';
+  renderLobbyMembers();
+  renderCapacityWarning();
+  capacityToggle.hidden=!state.leader;
+  document.querySelector('#friends-copy-room').textContent=state.room?.code||'';
   const connection=state.pack?.phase==='checking'?'Сверяем сборку':state.connection;
   document.querySelector('#friends-connection').textContent=state.joinAttempt?(state.joinAttempt>1?'Повторная попытка · ':'')+(connection||'Входим в лобби…'):connection||(busy||state.busy?'Подождите…':'');
   const endpoint=document.querySelector('#friends-endpoint');

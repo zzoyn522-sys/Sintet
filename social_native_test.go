@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -30,10 +31,19 @@ func TestNativeOverlaySocialIPC(t *testing.T) {
 		switch r.URL.Path {
 		case "/state":
 			connection := ""
+			capacity, turnLimit := 150, int64(1_000_000_000)
 			if received.Load() {
 				connection = "invite-received"
+				capacity, turnLimit = 8, 5_000_000_000
 			}
-			json.NewEncoder(w).Encode(map[string]any{"enabled": true, "connection": connection, "friends": []any{map[string]any{"account": socialAccount{ID: "test-account", Username: "Adolo"}, "status": "accepted", "presence": map[string]string{"status": "menu"}}}})
+			members := make([]socialMember, capacity)
+			for i := range members {
+				members[i] = socialMember{ID: fmt.Sprintf("test-%d", i), Username: fmt.Sprintf("Player%d", i), Handle: fmt.Sprintf("player%d", i), Leader: i == 0}
+			}
+			json.NewEncoder(w).Encode(map[string]any{"enabled": true, "connection": connection,
+				"room": socialRoom{Code: "123456", Capacity: capacity}, "members": members, "turnActive": true,
+				"lobbyTurnUsage": turnUsageView{Used: 5000, Limit: turnLimit},
+				"friends":        []any{map[string]any{"account": socialAccount{ID: "test-account", Username: "Adolo"}, "status": "accepted", "presence": map[string]string{"status": "menu"}}}})
 		case "/action":
 			var body map[string]string
 			json.NewDecoder(r.Body).Decode(&body)

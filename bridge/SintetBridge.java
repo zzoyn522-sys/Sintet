@@ -1,5 +1,6 @@
 package sintet.bridge;
 import java.lang.instrument.Instrumentation;
+import java.lang.instrument.ClassFileTransformer;
 import java.lang.reflect.*;
 import java.net.*;
 import java.io.*;
@@ -8,12 +9,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.security.ProtectionDomain;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Local authenticated command bridge. No transformation or remote code loading. */
+/** Local authenticated command bridge. */
 public final class SintetBridge {
  private static Instrumentation instrumentation;
  private static String endpoint, secret;
@@ -31,11 +33,21 @@ public final class SintetBridge {
  private static final String ADDRESS="net.minecraft.client.multiplayer.resolver.ServerAddress";
  private static final String SERVER="net.minecraft.client.multiplayer.ServerData";
  private static final String INTEGRATED="net.minecraft.client.server.IntegratedServer";
+ private static final String PLAYER_LIST="net.minecraft.server.players.PlayerList";
  private static final Map<String,String> mappings=new HashMap<>();
  private static final Map<String,String> fields=new HashMap<>();
  private static boolean activityFieldsResolved;
  private static final AtomicBoolean worldProbePending = new AtomicBoolean();
  private static volatile boolean worldProbeDisabled, joinReady;
+ private static volatile int lobbyCapacity=8;
+ private static volatile LegacyCapacity legacyCapacity;
+ private static final class LegacyCapacity {
+  final Object server;
+  volatile int lastCapacity=8;
+  Field limitField;
+  int originalLimit;
+  LegacyCapacity(Object server){this.server=server;}
+ }
 
  private static final class Activity {
   final String mode, serverName, serverAddress;
@@ -47,7 +59,7 @@ public final class SintetBridge {
  private static void loadMappings(){
   String path=System.getenv("SINTET_BRIDGE_MAPPINGS");
   if(path==null||path.isEmpty())return;
-  java.util.List<String> names=Arrays.asList(CLIENT,LEVEL,SCREEN,TITLE,PAUSE,CONNECT,ADDRESS,SERVER,SERVER+"$Type",INTEGRATED);
+  java.util.List<String> names=Arrays.asList(CLIENT,LEVEL,SCREEN,TITLE,PAUSE,CONNECT,ADDRESS,SERVER,SERVER+"$Type",INTEGRATED,PLAYER_LIST);
   try(BufferedReader reader=Files.newBufferedReader(Paths.get(path),StandardCharsets.UTF_8)){
    String owner="";
    for(String line;(line=reader.readLine())!=null;){
@@ -56,12 +68,13 @@ public final class SintetBridge {
     if(!Character.isWhitespace(line.charAt(0))&&line.endsWith(":")){
      owner=line.substring(0,separator);
      if(names.contains(owner))mappings.put(owner,line.substring(separator+4,line.length()-1));
-    }else if(owner.equals(SERVER)||owner.equals(SERVER+"$Type")){
+    }else if(owner.equals(SERVER)||owner.equals(SERVER+"$Type")||owner.equals(PLAYER_LIST)||owner.equals(INTEGRATED)){
      String member=line.substring(0,separator).trim();
      int split=member.lastIndexOf(' ');
      if(split<0)continue;
      String name=member.substring(split+1);
-     if(name.equals("name")||name.equals("ip")||name.equals("OTHER"))fields.put(owner+"#"+name,line.substring(separator+4));
+     if(name.equals("name")||name.equals("ip")||name.equals("OTHER")||name.equals("maxPlayers")||name.equals("getMaxPlayers()"))
+      fields.put(owner+"#"+name,line.substring(separator+4));
     }
    }
   }catch(IOException|RuntimeException error){
@@ -106,7 +119,9 @@ public final class SintetBridge {
     }
     return;
    }
-   if(integratedServerField!=null&&integratedServerField.get(game)!=null){activity=new Activity("singleplayer",null,null);return;}
+   Object localServer=integratedServerField==null?null:integratedServerField.get(game);
+   updateLegacyCapacity(localServer);
+   if(localServer!=null){activity=new Activity("singleplayer",null,null);return;}
    try {
     Object server=currentServer(game);
     if(server!=null){
@@ -124,6 +139,49 @@ public final class SintetBridge {
    worldProbeDisabled = true;
    System.err.println("[Sintet Bridge] World probe unavailable: "+error);
   }
+ }
+ private static void updateLegacyCapacity(Object server){
+  int capacity=lobbyCapacity;
+  if(!(server instanceof Executor)){legacyCapacity=null;return;}
+  if(legacyCapacity==null||legacyCapacity.server!=server)legacyCapacity=new LegacyCapacity(server);
+  LegacyCapacity current=legacyCapacity;
+  if(current.lastCapacity==capacity)return;
+  current.lastCapacity=capacity;
+  ((Executor)server).execute(()->{
+   if(legacyCapacity!=current)return;
+   try{
+    for(Class<?> owner=server.getClass();owner!=null;owner=owner.getSuperclass()){
+     for(Field candidate:owner.getDeclaredFields()){
+      Class<?> type=candidate.getType();
+      if(!matches(type.getName(),PLAYER_LIST,"net.minecraft.class_3324")&&
+       !type.getName().equals("net.minecraft.server.PlayerManager")&&
+       !type.getName().equals("net.minecraft.server.management.PlayerList"))continue;
+      candidate.setAccessible(true);
+      Object players=candidate.get(server);
+      if(players==null){current.lastCapacity=8;return;}
+      if(current.limitField==null){
+       for(Field field:type.getDeclaredFields()){
+        String name=field.getName();
+        if(field.getType()==int.class&&!Modifier.isStatic(field.getModifiers())&&
+         (name.equals("maxPlayers")||name.equals("field_14347")||name.equals("field_72405_c")||
+          name.equals(fields.get(PLAYER_LIST+"#maxPlayers")))){
+         field.setAccessible(true);
+         current.limitField=field;
+         current.originalLimit=field.getInt(players);
+         break;
+        }
+       }
+      }
+      if(current.limitField!=null){
+       current.limitField.setInt(players,capacity==8?current.originalLimit:Math.max(current.originalLimit,capacity));
+      }
+      return;
+     }
+    }
+   }catch(ReflectiveOperationException|RuntimeException ignored){
+    System.err.println("[Sintet Bridge] Integrated server player limit unavailable");
+   }
+  });
  }
  private static Object currentServer(Object game)throws ReflectiveOperationException {
   if(serverEntry==null){
@@ -155,6 +213,15 @@ public final class SintetBridge {
   instrumentation=inst;
   endpoint=System.getenv("SINTET_OVERLAY_IPC"); secret=System.getenv("SINTET_OVERLAY_IPC_SECRET");
   if(endpoint==null||!endpoint.matches("127\\.0\\.0\\.1:[0-9]{1,5}")||secret==null||!secret.matches("[a-f0-9]{64}"))return;
+  loadMappings();
+  inst.addTransformer(new ClassFileTransformer(){
+   @Override public byte[] transform(ClassLoader loader,String name,Class<?> original,ProtectionDomain domain,byte[] code){
+    if(name==null||!matches(name.replace('/','.'),INTEGRATED,"net.minecraft.class_1132")&&
+       !name.equals("net/minecraft/server/integrated/IntegratedServer"))return null;
+    try{return GameLobbyLimit.patch(code,fields.get(INTEGRATED+"#getMaxPlayers()"));}
+    catch(IOException|RuntimeException ignored){return null;}
+   }
+  });
   Thread thread=new Thread(SintetBridge::poll,"Sintet game bridge"); thread.setDaemon(true);thread.start();
  }
  private static String request(String path,String body) throws Exception {
@@ -171,6 +238,14 @@ public final class SintetBridge {
   try {
    if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);try(OutputStream out=c.getOutputStream()){out.write(body.getBytes(StandardCharsets.UTF_8));}}
    if(c.getResponseCode()!=200)throw new IOException("IPC status "+c.getResponseCode());
+   if(path.equals("/game/command")){
+    int capacity=Math.max(8,Math.min(150,c.getHeaderFieldInt("X-Sintet-Lobby-Capacity",8)));
+    if(lobbyCapacity!=capacity){
+     lobbyCapacity=capacity;
+     if(capacity==8)System.clearProperty(GameLobbyLimit.PROPERTY);
+     else System.setProperty(GameLobbyLimit.PROPERTY,Integer.toString(capacity));
+    }
+   }
    ByteArrayOutputStream out=new ByteArrayOutputStream();try(InputStream in=c.getInputStream()){byte[] b=new byte[256];int n;while((n=in.read(b))!=-1){out.write(b,0,n);if(out.size()>4096)throw new IOException("IPC response too large");}}
    return new String(out.toByteArray(),StandardCharsets.UTF_8);
   }finally{c.disconnect();}
@@ -256,7 +331,6 @@ public final class SintetBridge {
   }
  }
  private static void poll(){
-  loadMappings();
   while(true){try{
    String ack=acknowledgement.get();
    if(ack!=null){request("/game/result",ack);acknowledgement.compareAndSet(ack,null);}

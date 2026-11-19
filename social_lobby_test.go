@@ -76,17 +76,30 @@ func TestHostPackCanBePreparedWithoutMinecraftAndRoomSurvivesWorldClose(t *testi
 	if m.state.Room == nil || m.hostPack == nil || m.state.WorldReady {
 		t.Fatal("closing the world removed the lobby")
 	}
-	handler := m.hostLobbyHandler("guest")
+	handler := m.hostLobbyHandler("peer", "guest")
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lobby", strings.NewReader(`{"phase":"downloading","percent":42,"digest":"`+snapshot.Manifest.Digest+`"}`)))
 	var state lobbyExchange
 	if err := json.Unmarshal(w.Body.Bytes(), &state); err != nil || w.Code != 200 || state.WorldReady || len(state.Members) != 1 || state.Members[0].Percent != 42 {
 		t.Fatal("lobby state did not retain preparation", w.Code, w.Body.String(), err)
 	}
+	report := lobbyReport{lobbyPreparation: lobbyPreparation{Phase: "downloading", Percent: 42, Digest: snapshot.Manifest.Digest}, RosterVersion: state.RosterVersion}
+	payload, _ := json.Marshal(report)
 	w = httptest.NewRecorder()
-	m.hostLobbyHandler("outsider").ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lobby", strings.NewReader(`{"phase":"ready"}`)))
+	handler.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lobby", strings.NewReader(string(payload))))
+	var unchanged lobbyExchange
+	if err := json.Unmarshal(w.Body.Bytes(), &unchanged); err != nil || w.Code != 200 || unchanged.RosterVersion == 0 || unchanged.RosterVersion != state.RosterVersion || len(unchanged.Members) != 0 {
+		t.Fatal("lobby sent an unchanged roster", w.Code, w.Body.String(), err)
+	}
+	w = httptest.NewRecorder()
+	m.hostLobbyHandler("peer", "outsider").ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lobby", strings.NewReader(`{"phase":"ready"}`)))
 	if w.Code != 403 {
 		t.Fatal("outsider can access lobby metadata")
+	}
+	w = httptest.NewRecorder()
+	m.hostLobbyHandler("old-peer", "guest").ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lobby", strings.NewReader(`{"phase":"ready"}`)))
+	if w.Code != 403 {
+		t.Fatal("an obsolete peer can access lobby metadata")
 	}
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/lobby", strings.NewReader(`{"phase":"ready","percent":101}`)))
@@ -116,7 +129,7 @@ func TestPreparedGuestWaitsForHostInsteadOfLaunchingGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer host.Close()
-	host.SetPackHandler(hostManager.hostLobbyHandler("guest"))
+	host.SetPackHandler(hostManager.hostLobbyHandler("peer", "guest"))
 	peer, err := p2p.NewPeer(0, false)
 	if err != nil {
 		t.Fatal(err)

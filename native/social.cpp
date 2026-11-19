@@ -71,7 +71,7 @@ DWORD WINAPI poll(void*) {
    state.lobbyConnected=value.value("lobbyConnected",false);
    state.turnActive=value.value("turnActive",false);
    state.turnNotice=value.value("turnNotice",0LL);
-   const auto usage=value.value("turnUsage",Json());
+   const auto usage=value.value("lobbyTurnUsage",value.value("turnUsage",Json()));
    state.turnUsed=usage.is_object()?usage.value("used",0LL):0;
    state.turnLimit=usage.is_object()?usage.value("limit",0LL):0;
    state.quality=linkQuality(value.value("quality",Json()));
@@ -86,13 +86,14 @@ DWORD WINAPI poll(void*) {
     autoConnectPendingUntil=0;
    }
    state.room=room;
+   state.roomCapacity=room.empty()?4:value["room"].value("capacity",4);
    const auto pack=value.value("pack",Json());
    state.packPhase.clear();state.packDigest.clear();state.packError.clear();
    if(pack.is_object()){
     state.packPhase=pack.value("phase","");state.packName=pack.value("name","");state.packGame=pack.value("game","");state.packLoader=pack.value("loader","");state.packDigest=pack.value("digest","");state.packCurrent=pack.value("current","");state.packError=pack.value("error","");state.packMissing=pack.value("missing",0);state.packBytes=pack.value("bytes",0LL);state.packDone=pack.value("done",0LL);state.packTotal=pack.value("total",0LL);state.packRestart=pack.value("restart",false);state.packNeedsGame=pack.value("needsGame",false);
    }
    state.friends.clear();state.invites.clear();state.members.clear();
-   if(value.contains("members")&&value["members"].is_array())for(auto& row:value["members"])state.members.push_back({person(row),row.value("leader",false),row.value("preparation",""),row.value("percent",0)});
+   if(value.contains("members")&&value["members"].is_array())for(auto& row:value["members"])state.members.push_back({person(row),row.value("leader",false),row.value("preparation",""),row.value("percent",0),row.value("handle","")});
    if(value.contains("friends")&&value["friends"].is_array())for(auto& row:value["friends"]){
     Friend f;f.person=person(row.value("account",Json()));f.status=row.value("status","");f.incoming=row.value("incoming",false);
     const auto& presence=row.value("presence",Json());
@@ -152,6 +153,13 @@ std::string AvatarPixels(const Person& person){
  return entry.pixels;
 }
 State Snapshot(){std::lock_guard<std::mutex> lock(mutex);return state;}
+std::wstring LobbySearchKey(const std::string& text){
+ const auto first=text.find_first_not_of(" \t\r\n@");
+ if(first==std::string::npos)return {};
+ auto key=wide(text.substr(first,text.find_last_not_of(" \t\r\n")-first+1));
+ if(!key.empty())CharLowerBuffW(key.data(),static_cast<DWORD>(key.size()));
+ return key;
+}
 void Action(const std::string& action,const std::string& target){
  std::lock_guard<std::mutex> lock(mutex);
  if(commands.size()>=8)return;

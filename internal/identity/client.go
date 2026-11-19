@@ -179,7 +179,7 @@ func (c *Client) requestOnce(ctx context.Context, method, path, token string, bo
 			limit = 64 << 10
 		}
 		if strings.HasPrefix(path, "/api/social") {
-			limit = 256 << 10
+			limit = 1 << 20
 		}
 		if path == "/api/shared-builds" {
 			limit = 3 << 20
@@ -216,7 +216,7 @@ func (c *Client) UpdateOffer(ctx context.Context) (json.RawMessage, error) {
 func (c *Client) SocialRequest(ctx context.Context, method, path string, body, out any) error {
 	coverRequest := method == http.MethodGet && strings.HasPrefix(path, "/api/social/music-cover?")
 	traceRequest := method == http.MethodPost && path == "/api/social/ice-trace"
-	usageRequest := method == http.MethodGet && path == "/api/social/turn-usage"
+	usageRequest := method == http.MethodGet && (path == "/api/social/turn-usage" || strings.HasPrefix(path, "/api/social/turn-usage?room="))
 	if path != "/api/social" && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest && !usageRequest {
 		return errors.New("invalid social route")
 	}
