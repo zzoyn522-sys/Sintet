@@ -74,7 +74,12 @@ func prelaunchLanguage(root string) string {
 }
 
 func startPrelaunchUpdaterProcess(updater, executable string) error {
-	command := exec.Command(updater, "--update", executable, launcherVersion, strconv.Itoa(os.Getpid()), "", releaseVersionLabel(launcherVersion, launcherChannel), prelaunchLanguage(filepath.Dir(filepath.Dir(updater))))
+	args := []string{"--update", executable, launcherVersion, strconv.Itoa(os.Getpid()), "", releaseVersionLabel(launcherVersion, launcherChannel), prelaunchLanguage(filepath.Dir(filepath.Dir(updater)))}
+	roster := updateRoster()
+	if slot := roster.find(roster.active); slot != nil && slot.Provider == "sintet" && prefersOfficialUpdates(roster.root, slot.Key) {
+		args = append(args, "--official-updates")
+	}
+	command := exec.Command(updater, args...)
 	command.Dir = filepath.Dir(executable)
 	return command.Start()
 }

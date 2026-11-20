@@ -198,18 +198,26 @@ func (c *Client) requestOnce(ctx context.Context, method, path, token string, bo
 
 // UpdateOffer authenticates account-scoped releases without exposing credentials.
 func (c *Client) UpdateOffer(ctx context.Context) (json.RawMessage, error) {
+	result, err := c.UpdateOfferDetails(ctx)
+	return result.Release, err
+}
+
+type LauncherUpdateOffer struct {
+	Release json.RawMessage `json:"release"`
+	Tester  bool            `json:"tester"`
+}
+
+func (c *Client) UpdateOfferDetails(ctx context.Context) (LauncherUpdateOffer, error) {
 	c.mu.Lock()
 	if c.credential == nil {
 		c.mu.Unlock()
-		return nil, errors.New("войдите через Sintet ID")
+		return LauncherUpdateOffer{}, errors.New("войдите через Sintet ID")
 	}
 	token := c.credential.Token
 	c.mu.Unlock()
-	var result struct {
-		Release json.RawMessage `json:"release"`
-	}
+	var result LauncherUpdateOffer
 	err := c.request(ctx, http.MethodGet, "/api/launcher/update", token, nil, &result)
-	return result.Release, err
+	return result, err
 }
 
 // SocialRequest uses the encrypted desktop credential without exposing it to UI or DLL.

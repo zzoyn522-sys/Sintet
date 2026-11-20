@@ -10,6 +10,23 @@ import (
 	"testing"
 )
 
+func TestTesterChannelSelection(t *testing.T) {
+	official := updatePayload{Version: "1.10.1.0"}
+	test := updatePayload{Version: "1.10.1.1", Channel: "test"}
+	if result := selectUpdate(official, test, official.Version, "", false); result.Version != test.Version {
+		t.Fatal("eligible stable installation must receive TEST")
+	}
+	if result := selectUpdate(official, test, official.Version, "", true); result.Version != official.Version || result.Channel != "" {
+		t.Fatal("official-only preference must exclude TEST")
+	}
+	if result := selectUpdate(official, test, "1.10.1.2", "test", false); result.Version != "1.10.1.2" {
+		t.Fatal("TEST must not automatically downgrade")
+	}
+	if result := selectUpdate(official, test, test.Version, "test", true); result.Version != official.Version {
+		t.Fatal("official-only preference must expose the signed official rollback target")
+	}
+}
+
 func TestScopedReleasesStillRequireSignatureAndDoNotTreatCurrentStableAsAnError(t *testing.T) {
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

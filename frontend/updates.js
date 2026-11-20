@@ -1,8 +1,20 @@
 (() => {
+ Object.assign(window.SintetLanguageCatalog,{
+  'Канал обновлений Sintet':['Sintet update channel','Канал обновлений Sintet','Канал оновлень Sintet','Canal de atualizações do Sintet','Canal de actualizaciones de Sintet'],
+  'Тестовые сборки доступны аккаунтам с бейджем «Тестировщик».':['Test builds are available to accounts with the Tester badge.','Тестовые сборки доступны аккаунтам с бейджем «Тестировщик».','Тестові збірки доступні акаунтам зі значком «Тестувальник».','As versões de teste estão disponíveis para contas com o selo de Testador.','Las versiones de prueba están disponibles para cuentas con la insignia de Tester.'],
+  'Получать обновления':['Receive updates','Получать обновления','Отримувати оновлення','Receber atualizações','Recibir actualizaciones'],
+  'Официальные и TEST':['Official and TEST','Официальные и TEST','Офіційні та TEST','Oficiais e TEST','Oficiales y TEST'],
+  'Только официальные':['Official only','Только официальные','Лише офіційні','Apenas oficiais','Solo oficiales'],
+  'Вернуться на официальную версию':['Return to the official version','Вернуться на официальную версию','Повернутися до офіційної версії','Voltar à versão oficial','Volver a la versión oficial'],
+  'Канал обновлений доступен только тестировщикам':['Only testers can change the update channel','Канал обновлений доступен только тестировщикам','Канал оновлень доступний лише тестувальникам','Apenas testadores podem alterar o canal','Solo los testers pueden cambiar el canal'],
+  'Официальная версия временно недоступна':['The official version is temporarily unavailable','Официальная версия временно недоступна','Офіційна версія тимчасово недоступна','A versão oficial está temporariamente indisponível','La versión oficial no está disponible temporalmente'],
+ });
  const button=document.querySelector('#update-button');
  if(!button)return;
  const q=selector=>document.querySelector(selector),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  let api=null,checking=false,pollTimer=0,lastState=null;
+ const testerSettings=q('#tester-update-settings'),channel=q('#tester-update-channel'),returnOfficial=q('#tester-return-official');
+ let testerBusy=false,checkAgain=false;
  const wave=q('#update-bubble-shape');
  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
  let waveAnimation;
@@ -43,6 +55,14 @@
  function render(state){
   if(!state)return;
   lastState=state;
+  if(testerSettings){
+   testerSettings.hidden=!state.tester;
+   channel.value=state.officialOnly?'official':'test';
+   channel.disabled=testerBusy||!!state.downloading;
+   window.SintetUI?.select.refresh(channel);
+   returnOfficial.hidden=!state.canReturn;
+   returnOfficial.disabled=testerBusy||!!state.downloading;
+  }
   const active=!!state.available||!!state.downloading;
   button.hidden=!active;
   syncWaveMotion();
@@ -69,10 +89,11 @@
   }catch{}
  }
  async function check(){
-  if(!api||checking||lastState?.downloading)return;
+  if(!api||lastState?.downloading)return;
+  if(checking){checkAgain=true;return}
   checking=true;
   try{render(await api.CheckForUpdates())}catch(error){console.info('Sintet update check failed:',String(error))}
-  finally{checking=false}
+  finally{checking=false;if(checkAgain){checkAgain=false;void check()}}
  }
  button.addEventListener('click',async()=>{
   if(!api||!lastState?.available||lastState.downloading)return;
@@ -80,6 +101,24 @@
   try{await api.InstallUpdate();await sync()}catch(error){button.disabled=false;button.title=String(error?.message||error);setTimeout(()=>{if(lastState)render(lastState)},2500)}
  });
  window.addEventListener('sintet:settings',()=>{if(lastState)render(lastState)});
+ channel?.addEventListener('change',async()=>{
+  if(!api?.SetOfficialUpdates||!lastState?.tester||testerBusy)return;
+  testerBusy=true;
+  const requested=channel.value;
+  channel.disabled=true;returnOfficial.disabled=true;
+  try{await api.SetOfficialUpdates(requested==='official');lastState={...lastState,officialOnly:requested==='official',available:false};render(lastState)}
+  catch(error){window.toast?.(window.SintetText.translate(String(error?.message||error)))}
+  finally{testerBusy=false;if(lastState)render(lastState);void check()}
+ });
+ returnOfficial?.addEventListener('click',async()=>{
+  if(!api?.ReturnToOfficialVersion||!lastState?.canReturn||testerBusy)return;
+  testerBusy=true;render(lastState);
+  try{await api.ReturnToOfficialVersion();await sync()}
+  catch(error){window.toast?.(window.SintetText.translate(String(error?.message||error)))}
+  finally{testerBusy=false;if(lastState)render(lastState)}
+ });
+ window.addEventListener('sintet:lobby-profile',()=>{if(lastState?.tester&&!lastState.downloading)render({...lastState,tester:false,canReturn:false,available:false});void check()});
+ window.addEventListener('sintet:profile-badges',()=>void check());
  void ready().then(value=>{
   api=value;if(!api)return;
   (api.LauncherDisplayVersion?api.LauncherDisplayVersion():api.LauncherVersion()).then(version=>{const node=q('#app-version');if(node)node.textContent=`Sintet ${version}`}).catch(()=>{});

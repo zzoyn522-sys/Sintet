@@ -19,10 +19,10 @@ namespace SintetUpdater {
  public static class Entry {
   [STAThread] public static int Main(string[] args) {
    try {
-    if((args.Length<4||args.Length>7)||args[0]!="--update")return 2;
+    if((args.Length<4||args.Length>8)||args[0]!="--update")return 2;
     SetupLanguage.Preference=args.Length>=7?args[6]:null;
     var application=new Application();
-    application.Run(new UpdateWindow(args[1],args[2],args[3],args.Length>=5?args[4]:null,args.Length>=6?args[5]:null).Window);
+    application.Run(new UpdateWindow(args[1],args[2],args[3],args.Length>=5?args[4]:null,args.Length>=6?args[5]:null,args.Length==8&&args[7]=="--official-updates").Window);
     return 0;
    } catch(Exception error) {
     MessageBox.Show(error.Message,"Sintet",MessageBoxButton.OK,MessageBoxImage.Information);
@@ -33,15 +33,21 @@ namespace SintetUpdater {
 
  public sealed class UpdateWindow {
   const string ManifestUrl="https://sintet-updates.zzoyn522.workers.dev/stable/latest.json";
+  const string OfficialManifestUrl="https://sintet-updates.zzoyn522.workers.dev/stable/official.json";
   readonly string target,currentVersion,privateManifest;
+  readonly bool officialOnly,testBuild;
   readonly int parentPid;
   public readonly Window Window;
   readonly TextBlock status,detail,version,bytes;
   readonly Border track,fill;
   bool finished,busy;
 
-  public UpdateWindow(string executable,string versionText,string pidText,string scopedManifest=null,string displayVersion=null) {
+  public UpdateWindow(string executable,string versionText,string pidText,string scopedManifest=null,string displayVersion=null)
+   :this(executable,versionText,pidText,scopedManifest,displayVersion,false){}
+
+  public UpdateWindow(string executable,string versionText,string pidText,string scopedManifest,string displayVersion,bool official) {
    privateManifest=scopedManifest;
+   officialOnly=official;testBuild=displayVersion!=null&&displayVersion.EndsWith(" TEST",StringComparison.Ordinal);
    target=Path.GetFullPath(executable);currentVersion=versionText;int parsedPid;int.TryParse(pidText,out parsedPid);parentPid=parsedPid;
    using(var input=Resource("view"))Window=(Window)XamlReader.Load(input);
    SetupLanguage.Apply(Window);
@@ -98,21 +104,31 @@ namespace SintetUpdater {
     }
    }catch{return null;}finally{try{if(File.Exists(path))File.Delete(path);}catch{}}
   }
+  string FetchManifest(string address){
+   var request=(HttpWebRequest)WebRequest.Create(address);request.Method="GET";request.Timeout=12000;request.ReadWriteTimeout=20000;request.UserAgent="Sintet-Updater/"+currentVersion;
+   using(var response=(HttpWebResponse)request.GetResponse()){
+    if(response.ContentLength>65536)throw new IOException(SetupLanguage.T("Манифест обновлений слишком большой."));
+    using(var input=response.GetResponseStream())using(var reader=new StreamReader(input))return reader.ReadToEnd();
+   }
+  }
   Release FetchUpdate(){
-   var request=(HttpWebRequest)WebRequest.Create(ManifestUrl);request.Method="GET";request.Timeout=12000;request.ReadWriteTimeout=20000;request.UserAgent="Sintet-Updater/"+currentVersion;
    string manifest;if(!String.IsNullOrEmpty(privateManifest)){
     var file=new FileInfo(privateManifest);if(!file.Exists||file.Length>65536)throw new IOException(SetupLanguage.T("Персональный манифест недоступен."));
     manifest=File.ReadAllText(privateManifest,Encoding.UTF8);
-   }else using(var response=(HttpWebResponse)request.GetResponse()){
-    if(response.ContentLength>65536)throw new IOException(SetupLanguage.T("Манифест обновлений слишком большой."));
-    using(var input=response.GetResponseStream())using(var reader=new StreamReader(input))manifest=reader.ReadToEnd();
-   }
-   if(String.IsNullOrEmpty(privateManifest)){
+   }else if(officialOnly){
+    try{manifest=FetchManifest(OfficialManifestUrl);}catch(WebException){manifest=FetchManifest(ManifestUrl);}
+   }else if(testBuild){
+    manifest=AccountManifest();if(String.IsNullOrEmpty(manifest))return null;
+   }else{
+    manifest=FetchManifest(ManifestUrl);
     string scoped=AccountManifest();
     if(!String.IsNullOrEmpty(scoped)){try{if(ManifestVersion(scoped)>ManifestVersion(manifest))manifest=scoped;}catch{}}
    }
    var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();var envelope=serializer.Deserialize<Dictionary<string,object>>(manifest);
    byte[] raw=Convert.FromBase64String(Convert.ToString(envelope["payload"]));var payload=serializer.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(raw));
+   bool test=payload.ContainsKey("channel")&&Convert.ToString(payload["channel"])=="test";
+   bool beta=payload.ContainsKey("beta")&&payload["beta"] is bool&&(bool)payload["beta"];
+   if(officialOnly&&(test||beta)||testBuild&&!officialOnly&&!test&&String.IsNullOrEmpty(privateManifest))return null;
    string candidate=Convert.ToString(payload["version"]),url=Convert.ToString(payload["url"]),sha=Convert.ToString(payload["sha256"]);long size=Convert.ToInt64(payload["size"]);Version candidateVersion,current;
    if(!Version.TryParse(candidate,out candidateVersion)||!Version.TryParse(currentVersion,out current))throw new IOException(SetupLanguage.T("Версия Sintet некорректна."));
    if(candidateVersion<=current)return null;

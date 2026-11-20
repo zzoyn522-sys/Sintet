@@ -41,6 +41,7 @@ func init() {
 }
 
 const updateManifestURL = "https://sintet-updates.zzoyn522.workers.dev/stable/latest.json"
+const officialManifestURL = "https://sintet-updates.zzoyn522.workers.dev/stable/official.json"
 
 type signedUpdateEnvelope struct {
 	Payload   string `json:"payload"`
@@ -71,6 +72,9 @@ type updateView struct {
 	Total          int64    `json:"total"`
 	Stage          string   `json:"stage,omitempty"`
 	Error          string   `json:"error,omitempty"`
+	Tester         bool     `json:"tester"`
+	OfficialOnly   bool     `json:"officialOnly"`
+	CanReturn      bool     `json:"canReturn"`
 }
 
 type updateManager struct {
@@ -89,20 +93,19 @@ func (a *App) CheckForUpdates() updateView {
 	if a.updates == nil {
 		return updateView{CurrentVersion: launcherVersion, Error: "Проверка обновлений недоступна"}
 	}
-	return a.updates.check(contextWithoutCancel(), a.activeUpdateClient())
+	client, root, key := a.updateAccount()
+	official := prefersOfficialUpdates(root, key)
+	result := a.updates.check(contextWithoutCancel(), client, official)
+	active, _, _ := a.updateAccount()
+	if active != client || prefersOfficialUpdates(root, key) != official {
+		result.Tester, result.CanReturn, result.Available = false, false, false
+	}
+	return result
 }
 
 func (a *App) activeUpdateClient() *identity.Client {
-	a.authMu.Lock()
-	defer a.authMu.Unlock()
-	if a.profiles == nil {
-		return nil
-	}
-	slot := a.profiles.find(a.profiles.active)
-	if slot == nil || slot.Provider != "sintet" {
-		return nil
-	}
-	return slot.sintet
+	client, _, _ := a.updateAccount()
+	return client
 }
 
 func (a *App) LauncherVersion() string { return launcherVersion }
@@ -138,8 +141,8 @@ func (a *App) InstallUpdate() error {
 	payload := a.updates.payload
 	a.updates.mu.RUnlock()
 	if payload.Channel == "test" {
-		client := a.activeUpdateClient()
-		if client == nil {
+		client, root, key := a.updateAccount()
+		if client == nil || prefersOfficialUpdates(root, key) {
 			return errors.New("тестовое обновление доступно только выбранному Sintet ID")
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
@@ -149,14 +152,31 @@ func (a *App) InstallUpdate() error {
 			return err
 		}
 		current, err := parseSignedUpdate(offer)
-		if err != nil || current.Version != payload.Version || current.SHA256 != payload.SHA256 {
+		active, _, _ := a.updateAccount()
+		if err != nil || active != client || prefersOfficialUpdates(root, key) || current.Channel != "test" || current.Version != payload.Version || current.SHA256 != payload.SHA256 {
 			a.updates.mu.Lock()
 			a.updates.state.Available = false
 			a.updates.mu.Unlock()
 			return errors.New("это тестовое обновление не назначено текущему аккаунту")
 		}
 	}
-	return a.updates.install(a)
+	return a.updates.install(a, payload, false)
+}
+
+func (a *App) ReturnToOfficialVersion() error {
+	if a.updates == nil || launcherChannel != "test" {
+		return errors.New("Нет доступного обновления")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	payload, err := fetchOfficialUpdate(ctx)
+	if err != nil {
+		return err
+	}
+	if err := a.SetOfficialUpdates(true); err != nil {
+		return err
+	}
+	return a.updates.install(a, payload, true)
 }
 
 func (u *updateManager) view() updateView {
@@ -167,7 +187,7 @@ func (u *updateManager) view() updateView {
 	return v
 }
 
-func (u *updateManager) check(ctx context.Context, accounts ...*identity.Client) updateView {
+func (u *updateManager) check(ctx context.Context, account *identity.Client, official bool) updateView {
 	u.mu.Lock()
 	if u.state.Checking || u.state.Downloading {
 		v := u.state
@@ -179,59 +199,85 @@ func (u *updateManager) check(ctx context.Context, accounts ...*identity.Client)
 
 	checkCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(checkCtx, http.MethodGet, updateManifestURL, nil)
+	var offer identity.LauncherUpdateOffer
+	if account != nil {
+		offerCtx, stop := context.WithTimeout(checkCtx, 7*time.Second)
+		offer, _ = account.UpdateOfferDetails(offerCtx)
+		stop()
+	}
+	var public updatePayload
+	var err error
+	if official {
+		public, err = fetchOfficialUpdate(checkCtx)
+	} else if launcherChannel != "test" {
+		public, err = fetchUpdateManifest(checkCtx, updateManifestURL)
+	}
 	if err != nil {
-		return u.checkFailed(err)
+		u.mu.Lock()
+		u.payload = updatePayload{}
+		u.state = updateView{CurrentVersion: launcherVersion, Error: err.Error(), Tester: offer.Tester, OfficialOnly: official, CanReturn: offer.Tester && launcherChannel == "test"}
+		v := u.state
+		u.mu.Unlock()
+		return v
 	}
-	checkClient := &http.Client{Timeout: 18 * time.Second}
-	resp, err := checkClient.Do(req)
-	if err != nil {
-		return u.checkFailed(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return u.checkFailed(fmt.Errorf("сервер обновлений ответил %s", resp.Status))
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024+1))
-	if err != nil || len(data) > 64*1024 {
-		return u.checkFailed(errors.New("не удалось прочитать манифест обновлений"))
-	}
-	payload, err := parseSignedUpdate(data)
-	if err != nil {
-		return u.checkFailed(err)
-	}
-	if launcherChannel == "test" {
-		// A TEST build follows only its account-scoped TEST offer. It must not
-		// silently switch to the public stable or BETA channel.
-		payload = updatePayload{Version: launcherVersion, Channel: "test"}
-		if len(accounts) > 0 && accounts[0] != nil {
-			private, offerErr := accounts[0].UpdateOffer(checkCtx)
-			if offerErr == nil && len(private) > 0 && string(private) != "null" {
-				candidate, validationErr := parseSignedUpdate(private)
-				if validationErr == nil && candidate.Channel == "test" && versionIsNewer(candidate.Version, launcherVersion) {
-					payload = candidate
-				}
-			}
-		}
-	} else if len(accounts) > 0 && accounts[0] != nil {
-		private, offerErr := accounts[0].UpdateOffer(checkCtx)
-		if offerErr == nil && len(private) > 0 && string(private) != "null" {
-			candidate, validationErr := parseSignedUpdate(private)
-			if validationErr == nil && candidate.Channel == "test" && versionIsNewer(candidate.Version, payload.Version) {
-				payload = candidate
-			}
-		}
-	}
+	private, _ := parseSignedUpdate(offer.Release)
+	payload := selectUpdate(public, private, launcherVersion, launcherChannel, official)
 	u.mu.Lock()
 	u.payload = payload
 	channel := payload.Channel
 	if payload.Beta {
 		channel = "beta"
 	}
-	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: releaseVersionLabel(payload.Version, channel), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion)}
+	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: releaseVersionLabel(payload.Version, channel), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion),
+		Tester: offer.Tester, OfficialOnly: official, CanReturn: offer.Tester && launcherChannel == "test"}
 	v := u.state
 	u.mu.Unlock()
 	return v
+}
+
+func selectUpdate(public, private updatePayload, current, channel string, official bool) updatePayload {
+	if official {
+		return public
+	}
+	if channel == "test" {
+		public = updatePayload{Version: current, Channel: "test"}
+	}
+	if private.Channel == "test" && versionIsNewer(private.Version, public.Version) {
+		return private
+	}
+	return public
+}
+
+func fetchOfficialUpdate(ctx context.Context) (updatePayload, error) {
+	public, err := fetchUpdateManifest(ctx, officialManifestURL)
+	if err != nil {
+		public, err = fetchUpdateManifest(ctx, updateManifestURL)
+	}
+	if err == nil && (public.Channel != "" || public.Beta) {
+		err = errors.New("Официальная версия временно недоступна")
+	}
+	return public, err
+}
+
+func fetchUpdateManifest(ctx context.Context, address string) (updatePayload, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return updatePayload{}, err
+	}
+	checkClient := &http.Client{Timeout: 18 * time.Second}
+	resp, err := checkClient.Do(req)
+	if err != nil {
+		return updatePayload{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return updatePayload{}, fmt.Errorf("сервер обновлений ответил %s", resp.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024+1))
+	if err != nil || len(data) > 64*1024 {
+		return updatePayload{}, errors.New("не удалось прочитать манифест обновлений")
+	}
+	return parseSignedUpdate(data)
 }
 
 func parseSignedUpdate(data []byte) (updatePayload, error) {
@@ -262,14 +308,6 @@ func parseSignedUpdate(data []byte) (updatePayload, error) {
 }
 
 func contextWithoutCancel() context.Context { return context.Background() }
-
-func (u *updateManager) checkFailed(err error) updateView {
-	u.mu.Lock()
-	u.state = updateView{CurrentVersion: launcherVersion, Error: err.Error()}
-	view := u.state
-	u.mu.Unlock()
-	return view
-}
 
 func validUpdatePayload(p updatePayload) bool {
 	if p.Channel != "" && (p.Channel != "test" || p.Beta) {
@@ -314,13 +352,17 @@ func versionIsNewer(candidate, current string) bool {
 	return false
 }
 
-func (u *updateManager) install(app *App) error {
+func (u *updateManager) install(app *App, payload updatePayload, returning bool) error {
 	u.mu.Lock()
-	if !u.state.Available || u.state.Downloading {
+	if u.state.Checking || u.state.Downloading || (!returning && (!u.state.Available || u.payload.Version != payload.Version || u.payload.SHA256 != payload.SHA256)) {
 		u.mu.Unlock()
 		return errors.New("Нет доступного обновления")
 	}
-	payload := u.payload
+	u.state.LatestVersion = payload.Version
+	u.state.LatestLabel = releaseVersionLabel(payload.Version, payload.Channel)
+	if payload.Beta {
+		u.state.LatestLabel = releaseVersionLabel(payload.Version, "beta")
+	}
 	u.state.Downloading = true
 	u.state.Stage = "Подготовка обновления"
 	u.state.Percent = 0

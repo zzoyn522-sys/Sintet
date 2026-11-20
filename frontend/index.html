@@ -84,6 +84,14 @@
 <div class="settings-grid">
   <section id="launcher-settings-general" class="settings-section" aria-label="Основное" tabindex="-1">
 <article class="preference-card wide"><label id="interface-language-label" for="interface-language">Interface language</label><select id="interface-language"><option value="">System language</option></select></article>
+<article id="tester-update-settings" class="preference-card behavior-card wide" hidden>
+ <h2>Канал обновлений Sintet</h2>
+ <p class="preference-hint">Тестовые сборки доступны аккаунтам с бейджем «Тестировщик».</p>
+ <div class="behavior-grid">
+  <div><label for="tester-update-channel">Получать обновления</label><select id="tester-update-channel"><option value="test">Официальные и TEST</option><option value="official">Только официальные</option></select></div>
+  <div><button id="tester-return-official" type="button" class="soft-button" hidden>Вернуться на официальную версию</button></div>
+ </div>
+</article>
 <article class="preference-card behavior-card wide"><h2>Окно и процессы</h2><div class="behavior-grid"><div><label for="game-start-action">При запуске Minecraft</label><select id="game-start-action"><option value="tray">Сворачивать в трей</option><option value="keep">Оставлять открытым</option><option value="quit">Полностью закрывать</option></select></div><div><label for="close-action">При нажатии на крестик</label><select id="close-action"><option value="tray">Сворачивать в трей</option><option value="quit">Завершать работу лаунчера</option></select></div></div><p id="window-behavior-note" class="preference-hint">Из трея можно открыть Sintet или завершить работу.</p><div class="autostart-options"><label class="check-label"><input type="checkbox" id="minimize-to-tray">Сворачивать в трей при сворачивании окна</label><label class="check-label"><input type="checkbox" id="start-with-windows">Запускать вместе с Windows</label><label class="check-label" id="start-in-tray-label"><input type="checkbox" id="start-in-tray">Тихий запуск в трей</label></div></article>
   </section>
   <section id="launcher-settings-runtime" class="settings-section" aria-label="Java и память" tabindex="-1">
