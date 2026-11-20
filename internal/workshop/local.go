@@ -14,22 +14,29 @@ import (
 )
 
 type LocalItem struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Filename    string `json:"filename"`
-	Description string `json:"description"`
-	Provider    string `json:"provider"`
-	Project     string `json:"project"`
-	Enabled     bool   `json:"enabled"`
-	Size        int64  `json:"size"`
-	Icon        string `json:"icon"`
-	Loader      string `json:"loader"`
-	ModID       string `json:"modID,omitempty"`
-	Authors     string `json:"authors,omitempty"`
-	PackFormat  string `json:"packFormat,omitempty"`
-	Shared      bool   `json:"shared,omitempty"`
-	Approved    bool   `json:"approved"`
-	ReadOnly    string `json:"readOnly,omitempty"`
+	Name        string         `json:"name"`
+	Version     string         `json:"version"`
+	Filename    string         `json:"filename"`
+	Description string         `json:"description"`
+	Provider    string         `json:"provider"`
+	Project     string         `json:"project"`
+	Enabled     bool           `json:"enabled"`
+	Size        int64          `json:"size"`
+	Icon        string         `json:"icon"`
+	Loader      string         `json:"loader"`
+	ModID       string         `json:"modID,omitempty"`
+	Authors     string         `json:"authors,omitempty"`
+	PackFormat  string         `json:"packFormat,omitempty"`
+	Shared      bool           `json:"shared,omitempty"`
+	Approved    bool           `json:"approved"`
+	ReadOnly    string         `json:"readOnly,omitempty"`
+	Warnings    []LocalWarning `json:"warnings,omitempty"`
+}
+
+type LocalWarning struct {
+	Code   string `json:"code"`
+	Detail string `json:"detail,omitempty"`
+	Extra  string `json:"extra,omitempty"`
 }
 
 func zipBytes(file *zip.Reader, name string, limit uint64) ([]byte, error) {
@@ -105,6 +112,7 @@ type packMetadata struct {
 	Format      json.RawMessage `json:"pack_format"`
 	Minimum     json.RawMessage `json:"min_format"`
 	Maximum     json.RawMessage `json:"max_format"`
+	Supported   json.RawMessage `json:"supported_formats"`
 }
 
 func readPackMetadata(archive *zip.Reader) (packMetadata, error) {

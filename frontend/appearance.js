@@ -162,9 +162,139 @@
   });
  }
 
+ const overlayFields={
+  position:'overlayPosition',material:'overlayMaterial',surface:'overlaySurface',text:'overlayText',accent:'overlayAccent',
+  opacity:'overlayOpacity',blur:'overlayBlur',dim:'overlayDim',scale:'overlayScale',width:'overlayWidth',
+  rounding:'overlayRounding',useLauncherAccent:'overlayUseLauncherAccent'
+ };
+ const overlayNumericDefaults={scale:100,width:414,rounding:16};
+ const overlayField=key=>fields[overlayFields[key]];
+ const previewCanvas=form.querySelector('#overlay-preview-canvas');
+ const previewContext=previewCanvas.getContext('2d',{alpha:false});
+ const previewStatus=form.querySelector('#overlay-preview-status');
+ let previewVisible=false,previewRunning=false,previewTimer,previewSignature,previewFrame='0',previewReader=false;
+ const previewEvents=[];
+ let sendingPreviewEvents=false;
+
+ async function readPreviewFrames() {
+  if(previewReader||!previewRunning)return;
+  previewReader=true;
+  try {
+   while(previewRunning) {
+    const response=await fetch('/overlay-preview/frame?after='+previewFrame,{cache:'no-store'});
+    if(response.status===200) {
+     const pixels=new Uint8ClampedArray(await response.arrayBuffer());
+     if(previewRunning&&pixels.length===previewCanvas.width*previewCanvas.height*4){
+      previewContext.putImageData(new ImageData(pixels,previewCanvas.width,previewCanvas.height),0,0);
+      previewFrame=response.headers.get('X-Preview-Frame')||'0';
+     }
+    }else if(response.status!==204)break;
+    await new Promise(resolve=>setTimeout(resolve,response.status===204?120:52));
+   }
+  }catch{
+   if(previewRunning)previewStatus.textContent='Не удалось загрузить предпросмотр оверлея';
+  }finally{
+   previewReader=false;
+  }
+ }
+
+ async function showOverlayPreview(mode) {
+  if(!api||!saved)return;
+  clearTimeout(previewTimer);
+  const {overlay,accent}=read();
+  previewSignature=JSON.stringify([overlay,accent]);
+  try {
+   await api.PreviewOverlay(overlay,accent,mode);
+   if(mode===1||mode===2){
+    previewStatus.textContent='';
+    void readPreviewFrames();
+   }
+  } catch(error) {
+   if(mode===1||mode===2)previewStatus.textContent=error?.message||String(error);
+  }
+ }
+ function syncPreviewVisibility() {
+  if(!saved)return;
+  const active=previewVisible&&!document.hidden;
+  if(active===previewRunning)return;
+  previewRunning=active;
+  void showOverlayPreview(active?1:3);
+ }
+ new IntersectionObserver(([entry])=>{
+  previewVisible=entry.isIntersecting;
+  syncPreviewVisibility();
+ }).observe(previewCanvas);
+ document.addEventListener('visibilitychange',syncPreviewVisibility);
+ form.querySelector('#overlay-preview-open').onclick=()=>void showOverlayPreview(1);
+ form.querySelector('#overlay-preview-expand').onclick=()=>void showOverlayPreview(2);
+ function sendPreviewEvent(kind,event,value=0) {
+  if(!api||!previewRunning)return;
+  const bounds=previewCanvas.getBoundingClientRect();
+  const x=Math.round((event.clientX-bounds.left)*previewCanvas.width/bounds.width)||0;
+  const y=Math.round((event.clientY-bounds.top)*previewCanvas.height/bounds.height)||0;
+  const input=[kind,x,y,value];
+  if(kind===0&&previewEvents.at(-1)?.[0]===0)previewEvents[previewEvents.length-1]=input;
+  else previewEvents.push(input);
+  if(!sendingPreviewEvents)void flushPreviewEvents();
+ }
+ async function flushPreviewEvents() {
+  sendingPreviewEvents=true;
+  try{
+   while(previewEvents.length&&previewRunning)await api.OverlayPreviewInput(previewEvents.splice(0,32));
+  }catch{previewEvents.length=0}
+  finally{sendingPreviewEvents=false}
+ }
+ previewCanvas.onpointermove=event=>sendPreviewEvent(0,event);
+ previewCanvas.onpointerdown=event=>{
+  if(event.button!==0)return;
+  previewCanvas.focus({preventScroll:true});
+  previewCanvas.setPointerCapture(event.pointerId);
+  sendPreviewEvent(1,event);
+ };
+ previewCanvas.onpointerup=event=>sendPreviewEvent(2,event);
+ previewCanvas.onpointerleave=event=>sendPreviewEvent(4,event);
+ previewCanvas.onpointercancel=event=>sendPreviewEvent(4,event);
+ previewCanvas.onblur=event=>sendPreviewEvent(4,event);
+ previewCanvas.addEventListener('wheel',event=>{
+  event.preventDefault();
+  const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?120:1);
+  sendPreviewEvent(3,event,Math.trunc(Math.max(-480,Math.min(480,-delta))));
+ },{passive:false});
+ const previewKeys=['Backspace','Delete','ArrowLeft','ArrowRight','Home','End'];
+ previewCanvas.addEventListener('keydown',event=>{
+  if(event.key==='F11'){event.preventDefault();void showOverlayPreview(2);return}
+  if(event.key==='Escape'){previewCanvas.blur();return}
+  const key=previewKeys.indexOf(event.key);
+  if(key!==-1){event.preventDefault();sendPreviewEvent(6,event,key)}
+  else if(/^\d$/.test(event.key))sendPreviewEvent(5,event,event.key.charCodeAt(0));
+ });
+ previewCanvas.addEventListener('keyup',event=>{
+  const key=previewKeys.indexOf(event.key);
+  if(key!==-1){event.preventDefault();sendPreviewEvent(7,event,key)}
+ });
+ function applyOverlay(overlay) {
+  for(const [key,unit] of [['opacity','%'],['blur',' px'],['dim','%'],['scale','%'],['width',' px'],['rounding',' px']]){
+   overlayField(key).previousElementSibling.value=(overlay[key]||overlayNumericDefaults[key]||0)+unit;
+  }
+  overlayField('opacity').disabled=overlay.material==='solid';
+  overlayField('blur').disabled=overlay.material!=='acrylic';
+  overlayField('accent').disabled=overlay.useLauncherAccent;
+  syncPreviewVisibility();
+  if(previewRunning&&JSON.stringify([overlay,fields.accent.value])!==previewSignature){
+   clearTimeout(previewTimer);
+   previewTimer=setTimeout(()=>void showOverlayPreview(0),100);
+  }
+ }
+
  function read() {
   return {
    ...saved,
+   overlay:Object.fromEntries(Object.keys(overlayFields).map(key=>{
+    const field=overlayField(key);
+    if(field.type==='checkbox')return [key,field.checked];
+    if(field.type==='range')return [key,field.valueAsNumber===overlayNumericDefaults[key]?0:field.valueAsNumber];
+    return [key,field.value];
+   })),
    theme: fields.theme.value, font: fields.font.value, accent: fields.accent.value,
    opacity: fields.opacity.valueAsNumber, blur: fields.blur.valueAsNumber,
    radius: fields.radius.valueAsNumber, dim: fields.dim.valueAsNumber,
@@ -185,6 +315,13 @@
  }
 
  function fill(settings) {
+  const overlay=settings.overlay||defaults.overlay;
+  for(const key of Object.keys(overlayFields)){
+   const field=overlayField(key);
+   if(field.type==='checkbox')field.checked=!!overlay[key];
+   else field.value=overlay[key]||overlayNumericDefaults[key]||overlay[key];
+   if(field instanceof HTMLSelectElement)window.SintetUI?.select.refresh(field);
+  }
   draftBackground = settings.background;
   draftFont = settings.fontFile;
   fields.font.querySelector('[value=custom]').disabled = !draftFont;
@@ -307,6 +444,7 @@
  }
 
  function apply(settings) {
+  applyOverlay(settings.overlay||defaults.overlay);
   const data = root.dataset;
   const style = root.style;
   root.toggleAttribute('data-text-scale',settings.textScale!==defaults.textScale);

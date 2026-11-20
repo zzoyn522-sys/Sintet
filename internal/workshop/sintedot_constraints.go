@@ -34,6 +34,7 @@ type rangeMod struct {
 	ids     map[string][]string
 	primary map[string]string
 	deps    map[string][]modRequirement
+	game    []modRequirement
 }
 type rangeGraph struct {
 	mods     map[string]rangeMod
@@ -223,7 +224,7 @@ func (m *Manager) rangeCatalogueVersion(ctx context.Context, stage string, targe
 }
 
 func rangeMetadata(path, loader string) (rangeMod, error) {
-	mod := rangeMod{map[string][]string{}, map[string]string{}, map[string][]modRequirement{}}
+	mod := rangeMod{map[string][]string{}, map[string]string{}, map[string][]modRequirement{}, nil}
 	jar, err := zip.OpenReader(path)
 	if err != nil {
 		return mod, err
@@ -266,6 +267,17 @@ func rangeArchive(jar *zip.Reader, file, loader string, mod *rangeMod, budget *u
 			mod.ids[alias] = append(mod.ids[alias], f.Version)
 		}
 		for id, spec := range f.Depends {
+			if id == "minecraft" {
+				match, err := parseFabricRange(spec)
+				if err == nil {
+					var raw string
+					if json.Unmarshal(spec, &raw) != nil {
+						raw = string(spec)
+					}
+					mod.game = append(mod.game, modRequirement{SintedotRequirement{f.ID, file, raw}, match})
+				}
+				continue
+			}
 			if runtimeRequirement(id) {
 				continue
 			}
@@ -371,12 +383,19 @@ func forgeRangeMetadata(jar *zip.Reader, file, loader string, mod *rangeMod, dep
 		}
 		for owner, deps := range f.Dependencies {
 			for _, dep := range deps {
-				if runtimeRequirement(dep.ID) || strings.EqualFold(dep.Side, "server") || dep.Type != "" && dep.Type != "required" || dep.Mandatory != nil && !*dep.Mandatory {
+				if strings.EqualFold(dep.Side, "server") || dep.Type != "" && dep.Type != "required" || dep.Mandatory != nil && !*dep.Mandatory {
 					continue
 				}
 				match, err := parseMavenRange(dep.Range)
 				if err != nil {
 					return fmt.Errorf("%s: %w", dep.ID, err)
+				}
+				if dep.ID == "minecraft" {
+					mod.game = append(mod.game, modRequirement{SintedotRequirement{owner, file, dep.Range}, match})
+					continue
+				}
+				if runtimeRequirement(dep.ID) {
+					continue
 				}
 				mod.deps[dep.ID] = append(mod.deps[dep.ID], modRequirement{SintedotRequirement{owner, file, dep.Range}, match})
 			}

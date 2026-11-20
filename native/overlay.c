@@ -92,10 +92,10 @@ static DWORD WINAPI ui_thread(LPVOID arg){(void)arg;toggle_id=GlobalAddAtomW(L"S
  if(registered)UnregisterHotKey(NULL,TOGGLE_ID);registered=FALSE;if(overlay)DestroyWindow(overlay);overlay=NULL;shown=FALSE;UnregisterClassW(cls.lpszClassName,module);if(toggle_id)GlobalDeleteAtom(toggle_id);toggle_id=0;return 0;}
 unsigned int WINAPI SintetOverlayABI(void){return 1;}
 unsigned int WINAPI SintetOverlayStart(void){if(thread_handle)return 1;ready_event=CreateEventW(NULL,TRUE,FALSE,NULL);if(!ready_event)return 0;thread_handle=CreateThread(NULL,0,ui_thread,NULL,0,&thread_id);if(!thread_handle){CloseHandle(ready_event);ready_event=NULL;return 0;}if(WaitForSingleObject(ready_event,5000)!=WAIT_OBJECT_0){PostThreadMessageW(thread_id,WM_QUIT,0,0);return 0;}CloseHandle(ready_event);ready_event=NULL;return overlay!=NULL;}
-unsigned int WINAPI SintetOverlayStop(void){if(!thread_handle)return 1;PostThreadMessageW(thread_id,WM_QUIT,0,0);if(WaitForSingleObject(thread_handle,5000)!=WAIT_OBJECT_0)return 0;CloseHandle(thread_handle);thread_handle=NULL;if(ready_event){CloseHandle(ready_event);ready_event=NULL;}return 1;}
+unsigned int SintetRenderStopPreview(void);
+unsigned int WINAPI SintetOverlayStop(void){if(!SintetRenderStopPreview())return 0;if(!thread_handle)return 1;PostThreadMessageW(thread_id,WM_QUIT,0,0);if(WaitForSingleObject(thread_handle,5000)!=WAIT_OBJECT_0)return 0;CloseHandle(thread_handle);thread_handle=NULL;if(ready_event){CloseHandle(ready_event);ready_event=NULL;}return 1;}
 void WINAPI SintetOverlaySetGame(unsigned int pid,const WCHAR *name,const WCHAR *build){AcquireSRWLockExclusive(&profile_lock);if(name&&*name)wcsncpy_s(player,64,name,_TRUNCATE);if(build&&*build)wcsncpy_s(version,96,build,_TRUNCATE);ReleaseSRWLockExclusive(&profile_lock);InterlockedExchange(&game_pid,(LONG)pid);if(overlay)InvalidateRect(overlay,NULL,FALSE);}
 void WINAPI SintetOverlayEnable(unsigned int value){InterlockedExchange(&enabled,value?1:0);if(!value&&thread_id)PostThreadMessageW(thread_id,HIDE_OVERLAY,0,0);}
-void WINAPI SintetOverlayPreview(void){if(thread_id)PostThreadMessageW(thread_id,SHOW_PREVIEW,0,0);}
 /* The JVM calls these native agent entry points outside DllMain. */
 typedef const struct JNIInvokeInterface_ *JavaVM;
 void SintetRenderStart(void);

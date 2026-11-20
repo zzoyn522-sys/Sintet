@@ -132,10 +132,29 @@ bulkDialog.addEventListener('close',()=>{pendingBulk=null});
 q('#ws-bulk-delete-confirm').onclick=()=>{if(pendingBulk)void runBulk(pendingBulk)};
 q('#ws-bulk-disable').onclick=()=>void runBulk(bulkOperation(true));
 
+q('#ws-my-mod-update').onclick=async()=>{
+ const context=localContext();
+ if(context?.kind!=='mods'||context.readOnly||localBusy||bulkBusy)return;
+ localBusy=true;
+ updateLocalControls();
+ try{
+  const shared=context.shared?await api.SharedBuildDetail(context.shared):null;
+  if(sameContext(context))window.Sintedot.open(shared?'shared:'+context.shared:context.target,context.label,'update',shared);
+ }catch(e){window.toast?.(error(e))}
+ finally{localBusy=false;updateLocalControls()}
+};
+q('#ws-my-mod-disable').onclick=()=>{
+ const context=localContext();
+ if(context?.kind!=='mods'||context.readOnly)return;
+ const entries=state.items.map(item=>({key:item.filename,item})).filter(canDisable);
+ void runBulk({kind:context.kind,target:context.target,context:bulkContext(),entries,disable:true});
+};
+
 async function runBulk({kind,target,context,entries,disable}){
  if(!entries.length||bulkBusy||localBusy||themeBusy)return;
  bulkBusy=true;
  paintBulkSelection();
+ updateLocalControls();
  const dialogButtons=[...bulkDialog.querySelectorAll('button')];
  dialogButtons.forEach(button=>button.disabled=true);
  const failed=[];
@@ -169,6 +188,7 @@ async function runBulk({kind,target,context,entries,disable}){
   if(bulkDialog.open)bulkDialog.close();
   dialogButtons.forEach(button=>button.disabled=false);
   paintBulkSelection();
+  updateLocalControls();
  }
  if(changed)window.toast?.(window.SintetText.format(disable?'Отключено: %d':allGuestBuilds(entries)?'Убрано из списка: %d':'Удалено: %d',changed));
  if(failed.length){
@@ -676,9 +696,14 @@ function openCard(row,item,open,label='Открыть '+item.name){
 }
 function updateLocalControls(){
  const context=localContext();
+ const myMods=state.scope==='local'&&state.category==='mods';
+ q('#ws-my-mod-actions').hidden=!myMods;
+ const modsBusy=!context||!!context.readOnly||localBusy||bulkBusy;
+ q('#ws-my-mod-update').disabled=modsBusy||!state.items.length;
+ q('#ws-my-mod-disable').disabled=modsBusy||!state.items.some(item=>item.enabled&&!item.readOnly);
  localDropzone.hidden=!context||!!context.readOnly;
- q('#ws-local-add').disabled=localBusy;
- for(const button of list.querySelectorAll('[data-local-change]'))button.disabled=localBusy||!!context?.readOnly||button.hasAttribute('data-read-only');
+ q('#ws-local-add').disabled=localBusy||bulkBusy;
+ for(const button of list.querySelectorAll('[data-local-change]'))button.disabled=localBusy||bulkBusy||!!context?.readOnly||button.hasAttribute('data-read-only');
  if(!context)return;
  const pack=isZipPack(context.kind),shader=context.kind==='shaders';
  q('#ws-local-drop-title').textContent=shader?'Перетащи шейдеры ZIP':pack?'Перетащи ресурс-паки ZIP':'Перетащи моды JAR';
@@ -686,7 +711,7 @@ function updateLocalControls(){
  q('#ws-local-add').textContent=shader?'Добавить шейдеры':pack?'Добавить ресурс-паки':'Добавить моды';
 }
 async function changeLocalFiles(context,change){
- if(localBusy)return false;
+ if(localBusy||bulkBusy)return false;
  localBusy=true;updateLocalControls();
  try{
   const result=await change();
@@ -703,6 +728,27 @@ async function importLocalFiles(context,paths){
 function localDescription(item){
  return (item.description||'').replace(/§x(?:§[0-9a-f]){6}|§[0-9a-fk-or]/gi,'').trim();
 }
+function compatibilityWarningText(warning){
+ const detail=warning.detail||'';
+ switch(warning.code){
+  case 'mod-game':return window.SintetText.format('Мод может не подходить для Minecraft %s',detail);
+  case 'mod-loader':return window.SintetText.format('Мод рассчитан на %s, сборка использует %s',names[detail.toLowerCase()]||detail,names[warning.extra]||warning.extra);
+  case 'dependency-missing':return window.SintetText.format('Нужно установить зависимость: %s',detail);
+  case 'dependency-version':return window.SintetText.format('Нужна другая версия зависимости: %s',detail);
+  case 'shader-loader':return window.SintetText.format('Для шейдеров нужен Iris (Fabric/Quilt) или Oculus (Forge/NeoForge)');
+  case 'resource-version':{const [game,format]=String(warning.extra||'').split('|');return window.SintetText.format('Формат пака %s может не подойти: для Minecraft %s нужен формат %s',detail,game,format)}
+  case 'invalid-shader':return window.SintetText.format('В ZIP не найдены файлы шейдеров');
+  case 'invalid-resource':return window.SintetText.format('Не удалось прочитать совместимость ресурс-пака');
+  default:return window.SintetText.format('Не удалось проверить совместимость архива');
+ }
+}
+function compatibilityWarning(warning){
+ const row=node('div','ws-compat-warning');
+ row.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 22 20.5H2L12 3.5Z"/><path d="M12 9v5m0 3h.01"/></svg>';
+ row.append(node('span','',compatibilityWarningText(warning)));
+ return row;
+}
+function compatibilityWarnings(item){return (item.warnings||[]).map(compatibilityWarning)}
 q('#ws-local-add').onclick=()=>{const context=localContext();if(api&&context)void importLocalFiles(context)};
 function showLocalDetails(context,item){
  const pack=isZipPack(context.kind),shader=context.kind==='shaders';
@@ -713,6 +759,9 @@ function showLocalDetails(context,item){
  const description=localDescription(item);
  q('#ws-local-about').hidden=!description;
  q('#ws-local-description').textContent=description;
+ const warnings=q('#ws-local-warnings'),warningRows=compatibilityWarnings(item);
+ warnings.replaceChildren();
+ if(warningRows.length){warnings.append(node('h2','',window.SintetText.format('Совместимость')), ...warningRows);warnings.hidden=false}else warnings.hidden=true;
  const stateBadge=q('#ws-local-state');
  stateBadge.textContent=item.shared&&!item.approved?'Ждёт решения лидера':pack?(item.enabled?'Доступен в Minecraft':'Скрыт в Minecraft'):(item.enabled?'Включён':'Выключен');
  stateBadge.dataset.enabled=String(item.enabled);
@@ -764,7 +813,7 @@ function localCard(item){
  const avatar=node('div','mod-avatar');
  image(avatar,item.name,item.icon);
  const body=node('div','mod-info');
- body.append(node('h2','',item.name),node('p','',localDescription(item)||item.filename));
+ body.append(node('h2','',item.name),node('p','',localDescription(item)||item.filename),...compatibilityWarnings(item));
  const meta=node('div','ws-mod-meta');
  const source=node('strong','ws-source',names[item.provider]||item.provider||(item.shared?'Общая сборка':'Локальный файл'));
  source.dataset.provider=item.provider||'';
@@ -837,7 +886,6 @@ async function refreshTargets(kind=state.category){
 async function load(more=false){
  if(!api)return;
  const request=++state.request;
- configure();
  const moreButton=q('#ws-more');
  moreButton.hidden=true;
  moreButton.textContent='Показать ещё';
@@ -848,6 +896,7 @@ async function load(more=false){
   q('#workshop-count').textContent='';
   q('.ws-main').scrollTop=0;
  }
+ configure();
  const kind=list.classList.contains('ws-resource-grid')?'tile':
   state.category==='themes'?'theme':state.category==='modpacks'?'build':'mod';
  message('');

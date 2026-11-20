@@ -460,6 +460,11 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 .ws-build-settings-actions button:not(.primary,.shared-build-primary):hover { background: #303030; }
 .ws-build-manage:is([data-active-build-tab=mods],[data-active-build-tab=access]) #ws-build-save { display: none; }
 .ws-local-pending { color: #d9c394; }
+.ws-compat-warning { display: flex; align-items: flex-start; gap: 7px; margin-top: 8px; color: #edc46b; font-size: 11px; line-height: 1.45; }
+.ws-compat-warning svg { width: 15px; height: 15px; flex: none; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ws-local-details .ws-compat-warnings { padding: 13px 15px; border: 1px solid rgb(237 196 107 / 20%); border-radius: 11px; background: rgb(237 196 107 / 6%); }
+.ws-local-details .ws-compat-warnings h2 { color: #edc46b; }
+.ws-local-details .ws-compat-warnings .ws-compat-warning { margin-top: 7px; }
 @media(max-width: 720px) {
  .ws-build-workspace { grid-template-columns: 135px minmax(0,1fr); gap: 12px; padding-inline: 15px; }
  .ws-build-panel.ws-build-grid { grid-template-columns: minmax(0,1fr); }
@@ -558,7 +563,7 @@ html[data-launcher-panels] .ws-theme-gallery>footer,html[data-launcher-panels] .
 .ws-theme-badge.active{color:#b1d9ba;background:#233128}
 
 /* Workshop selection and cross-catalog sources */
-#workshop .ws-toolbar[data-bulk] > :is(#ws-build-file-actions,#ws-theme-toolbar,.mods-search) { display:none; }
+#workshop .ws-toolbar[data-bulk] > :is(#ws-my-mod-actions,#ws-build-file-actions,#ws-theme-toolbar,.mods-search) { display:none; }
 .ws-bulk-toolbar:not([hidden]) { display:flex; align-items:center; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
 #ws-bulk-hint { margin-top:3px; color:#9b9b9b; font-size:10px; line-height:1.3; }
 #ws-bulk-count { padding-inline:6px; color:#a9c7ff; font-size:12px; font-weight:650; white-space:nowrap; }
@@ -1286,6 +1291,7 @@ html[data-compact-layout] #workshop :is(.ws-skeleton--mod,.ws-skeleton--theme){m
 
 .ws-build-file-actions {display:flex; align-items:center; flex-wrap:wrap; gap:7px}
 .ws-build-file-actions[hidden],#ws-pack-import-warnings[hidden] {display:none}
+#ws-my-mod-actions .ws-action {white-space:nowrap}
 #ws-import-pack {display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
 #ws-import-pack svg {width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round}
 .ws-pack-import-details {

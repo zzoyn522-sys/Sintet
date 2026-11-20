@@ -34,7 +34,9 @@ const (
 	draftMagicV7    = "SLD7"
 	draftMagicV8    = "SLD8"
 	draftMagicV9    = "SLD9"
-	Version         = 9
+	draftMagicV10   = "SLDA"
+	draftMagicV11   = "SLDB"
+	Version         = 11
 	Extension       = ".sldcfg"
 	headerSize      = 74
 	signatureOffset = 6
@@ -89,6 +91,10 @@ func MarshalDraft(p Package) ([]byte, error) {
 		magic = draftMagicV8
 	case 9:
 		magic = draftMagicV9
+	case 10:
+		magic = draftMagicV10
+	case 11:
+		magic = draftMagicV11
 	}
 	return append([]byte(magic), plain...), nil
 }
@@ -116,6 +122,10 @@ func OpenDraft(data []byte) (Package, error) {
 		return decode(data[4:], 8)
 	case draftMagicV9:
 		return decode(data[4:], 9)
+	case draftMagicV10:
+		return decode(data[4:], 10)
+	case draftMagicV11:
+		return decode(data[4:], 11)
 	default:
 		return Package{}, errors.New("Некорректный черновик оформления")
 	}
@@ -239,6 +249,13 @@ func ValidCreatorVersion(value string) bool { return creatorVersionPattern.Match
 
 func packageVersion(p Package) int {
 	settings, defaults := p.Settings, Default()
+	o := settings.Overlay
+	if o.Position == "bottom" || o.Scale != 0 || o.Width != 0 || o.Rounding != 0 || o.UseLauncherAccent {
+		return 11
+	}
+	if settings.Overlay != defaults.Overlay {
+		return 10
+	}
 	if settings.WaveOffset != defaults.WaveOffset {
 		return 9
 	}
@@ -332,6 +349,22 @@ func encode(p Package, version int) ([]byte, error) {
 	}
 	if version >= 9 {
 		out = binary.BigEndian.AppendUint16(out, uint16(p.Settings.WaveOffset))
+	}
+	if version >= 10 {
+		o := p.Settings.Overlay
+		for _, field := range []string{o.Position, o.Material, o.Surface, o.Text, o.Accent} {
+			write(field)
+		}
+		out = append(out, byte(o.Opacity), byte(o.Blur), byte(o.Dim))
+	}
+	if version >= 11 {
+		o := p.Settings.Overlay
+		var inherit byte
+		if o.UseLauncherAccent {
+			inherit = 1
+		}
+		out = append(out, byte(o.Scale), byte(o.Rounding), inherit)
+		out = binary.BigEndian.AppendUint16(out, uint16(o.Width))
 	}
 	return out, nil
 }
@@ -438,6 +471,24 @@ func decode(data []byte, version int) (Package, error) {
 	if version >= 9 {
 		if raw := d.take(2); raw != nil {
 			p.Settings.WaveOffset = int(binary.BigEndian.Uint16(raw))
+		}
+	}
+	if version >= 10 {
+		o := &p.Settings.Overlay
+		o.Position, o.Material, o.Surface, o.Text, o.Accent = d.text(), d.text(), d.text(), d.text(), d.text()
+		if raw := d.take(3); raw != nil {
+			o.Opacity, o.Blur, o.Dim = int(raw[0]), int(raw[1]), int(raw[2])
+		}
+	}
+	if version >= 11 {
+		if raw := d.take(5); raw != nil {
+			o := &p.Settings.Overlay
+			o.Scale, o.Rounding = int(raw[0]), int(raw[1])
+			o.UseLauncherAccent = raw[2] == 1
+			o.Width = int(binary.BigEndian.Uint16(raw[3:]))
+			if raw[2] > 1 {
+				return Package{}, errFormat
+			}
 		}
 	}
 	if d.bad || len(d.data) != 0 || version < 7 && p.Settings.BackgroundSaturation > 180 {

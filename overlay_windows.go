@@ -11,14 +11,18 @@ import (
 	"fmt"
 	"golang.org/x/sys/windows"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
 
 	"sintet/internal/accountfiles"
+	"sintet/internal/launcher"
+	"sintet/internal/sldcfg"
 )
 
 //go:embed native/bin/sintet-overlay.dll
@@ -32,6 +36,7 @@ type overlayBridge struct {
 	handle                                windows.Handle
 	locked                                *os.File
 	start, stop, setGame, enable, preview uintptr
+	previewFrame, previewInput            uintptr
 	mediaEnable, mediaRead                uintptr
 	mediaEnabled                          bool
 	mediaCover                            []byte
@@ -129,6 +134,12 @@ func openOverlay(root string) (*overlayBridge, error) {
 			err = fmt.Errorf("неподдерживаемая версия Sintet Overlay")
 		}
 	}
+	if err == nil {
+		b.previewFrame, err = windows.GetProcAddress(b.handle, "SintetOverlayPreviewFrame")
+	}
+	if err == nil {
+		b.previewInput, err = windows.GetProcAddress(b.handle, "SintetOverlayPreviewInput")
+	}
 	if err != nil {
 		windows.FreeLibrary(b.handle)
 		b.locked.Close()
@@ -194,7 +205,27 @@ func (a *App) watchOverlay(ctx context.Context) {
 	bridge.close()
 }
 
-func (a *App) PreviewOverlay() error {
+func (a *App) PreviewOverlay(style sldcfg.OverlayAppearance, accent string, mode int) error {
+	if !style.Valid() || mode < 0 || mode > 3 {
+		return fmt.Errorf("проверь параметры оформления оверлея")
+	}
+	a.mu.RLock()
+	settings := a.settings
+	a.mu.RUnlock()
+	language := launcher.InterfaceLanguage(settings.InterfaceLanguage, launcher.SystemLanguage())
+	data, err := syscall.BytePtrFromString(style.RendererSettings(accent))
+	if err != nil {
+		return err
+	}
+	locale, _ := syscall.BytePtrFromString(language)
+	var fontPath string
+	if mode == 1 || mode == 2 {
+		fontPath = a.overlayFontPath(settings.ApplyOverlayFont)
+	}
+	font, err := windows.UTF16PtrFromString(fontPath)
+	if err != nil {
+		return err
+	}
 	a.overlayMu.Lock()
 	defer a.overlayMu.Unlock()
 	if a.overlayError != nil {
@@ -203,29 +234,74 @@ func (a *App) PreviewOverlay() error {
 	if a.overlay == nil {
 		return fmt.Errorf("оверлей ещё загружается")
 	}
-	a.mu.RLock()
-	enabled := a.settings.OverlayEnabled
-	a.mu.RUnlock()
-	if !enabled {
-		return fmt.Errorf("включите оверлей в настройках")
-	}
 	b := a.overlay
-	a.mu.RLock()
-	state := a.service.State()
-	a.mu.RUnlock()
-	if !state.Running {
-		profile := a.IdentityState("Player")
-		if profile.State.Account != nil {
-			b.update(0, profile.State.Account.Username, "Minecraft Java Edition", enabled)
-		}
-	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.handle == 0 {
 		return fmt.Errorf("оверлей недоступен")
 	}
-	syscall.SyscallN(b.preview)
+	shown, _, _ := syscall.SyscallN(b.preview, uintptr(unsafe.Pointer(data)), uintptr(unsafe.Pointer(locale)), uintptr(unsafe.Pointer(font)), uintptr(mode))
+	if shown == 0 {
+		return fmt.Errorf("не удалось открыть предпросмотр оверлея")
+	}
 	return nil
+}
+
+const overlayPreviewFrameBytes = 704 * 396 * 4
+
+var overlayPreviewFrames = sync.Pool{New: func() any {
+	return new([overlayPreviewFrameBytes]byte)
+}}
+
+func (a *App) serveOverlayPreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	previous, _ := strconv.ParseUint(r.URL.Query().Get("after"), 10, 32)
+	a.overlayMu.Lock()
+	b := a.overlay
+	a.overlayMu.Unlock()
+	if b == nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	frame := overlayPreviewFrames.Get().(*[overlayPreviewFrameBytes]byte)
+	defer overlayPreviewFrames.Put(frame)
+	b.mu.Lock()
+	var sequence uintptr
+	if b.handle != 0 {
+		sequence, _, _ = syscall.SyscallN(b.previewFrame, uintptr(unsafe.Pointer(frame)), overlayPreviewFrameBytes, uintptr(previous))
+	}
+	b.mu.Unlock()
+	if sequence == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("X-Preview-Frame", strconv.FormatUint(uint64(sequence), 10))
+	w.Write(frame[:])
+}
+
+func (a *App) OverlayPreviewInput(events [][4]int) {
+	if len(events) > 32 {
+		return
+	}
+	a.overlayMu.Lock()
+	b := a.overlay
+	a.overlayMu.Unlock()
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.handle == 0 {
+		return
+	}
+	for _, event := range events {
+		syscall.SyscallN(b.previewInput, uintptr(event[0]), uintptr(event[1]), uintptr(event[2]), uintptr(event[3]))
+	}
 }
 
 func (a *App) prepareJavaBridge() (string, error) {

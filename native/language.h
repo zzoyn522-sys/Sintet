@@ -9,7 +9,9 @@
 #include <unordered_map>
 #include <array>
 
+inline int OverlayPreviewLanguage=-1;
 inline int OverlayLanguage() {
+ if(OverlayPreviewLanguage>=0)return OverlayPreviewLanguage;
  static const int language=[] {
   char code[8]={};
   const DWORD count=GetEnvironmentVariableA("SINTET_OVERLAY_LANGUAGE",code,sizeof(code));
@@ -25,6 +27,7 @@ inline const char* OverlayText(const char* russian) {
  const int language=OverlayLanguage();
  if(language==1)return russian;
  static const std::unordered_map<std::string,std::array<const char*,5>> text={
+  {"Закрыть предпросмотр", {"Close preview", "Закрыть предпросмотр", "Закрити попередній перегляд", "Fechar pré-visualização", "Cerrar vista previa"}},
   {"Лобби без Sintet ID", {"Lobby without Sintet ID", "Лобби без Sintet ID", "Лобі без Sintet ID", "Lobby sem Sintet ID", "Sala sin Sintet ID"}},
   {"Для игры с друзьями рекомендуем Sintet ID. Без него доступен 1 ГБ TURN на два месяца. Прямое P2P не тратит этот лимит.", {"We recommend Sintet ID for playing with friends. Without it, you get 1 GB of TURN every two months. Direct P2P does not use this allowance.", "Для игры с друзьями рекомендуем Sintet ID. Без него доступен 1 ГБ TURN на два месяца. Прямое P2P не тратит этот лимит.", "Радимо Sintet ID для гри з друзями. Без нього доступний 1 ГБ TURN на два місяці. Пряме P2P не витрачає цей ліміт.", "Recomendamos o Sintet ID para jogar com amigos. Sem ele, tens 1 GB de TURN a cada dois meses. O P2P direto não gasta este limite.", "Recomendamos Sintet ID para jugar con amigos. Sin él tienes 1 GB de TURN cada dos meses. El P2P directo no consume este límite."}},
   {"В лобби можно войти по коду", {"Join a lobby with a code", "В лобби можно войти по коду", "До лобі можна приєднатися за кодом", "Podes entrar num lobby com um código", "Puedes entrar en una sala con un código"}},

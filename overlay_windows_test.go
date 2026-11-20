@@ -3,11 +3,18 @@
 package main
 
 import (
+	"bytes"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
+	"sintet/internal/sldcfg"
 )
 
 func TestOverlayComponent(t *testing.T) {
@@ -19,8 +26,27 @@ func TestOverlayComponent(t *testing.T) {
 	defer bridge.close()
 	bridge.update(0, "Sintet", "Minecraft Java Edition", true)
 	if os.Getenv("SINTET_TEST_OVERLAY_PREVIEW") == "1" {
-		syscall.SyscallN(bridge.preview)
-		time.Sleep(45 * time.Second)
+		app := &App{overlay: bridge}
+		settings := sldcfg.DefaultOverlay()
+		settings.Accent = "#ff0077"
+		theme, _ := syscall.BytePtrFromString(settings.RendererSettings(""))
+		language, _ := syscall.BytePtrFromString("ru")
+		font, _ := windows.UTF16PtrFromString("")
+		ready, _, _ := syscall.SyscallN(bridge.preview, uintptr(unsafe.Pointer(theme)), uintptr(unsafe.Pointer(language)), uintptr(unsafe.Pointer(font)), 1)
+		if ready == 0 {
+			t.Fatal("inline renderer failed to start")
+		}
+		for deadline := time.Now().Add(3 * time.Second); ; {
+			response := httptest.NewRecorder()
+			app.serveLauncherAssets(http.NotFoundHandler()).ServeHTTP(response, httptest.NewRequest("GET", "/overlay-preview/frame?after=0", nil))
+			if response.Code == http.StatusOK && response.Body.Len() == overlayPreviewFrameBytes && bytes.Contains(response.Body.Bytes(), []byte{84, 13, 48}) {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("inline preview produced no themed pixels, status %d, bytes %d", response.Code, response.Body.Len())
+			}
+			time.Sleep(60 * time.Millisecond)
+		}
 	}
 	bridge.close()
 	bridge, err = openOverlay(root)

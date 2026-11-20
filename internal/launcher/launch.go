@@ -397,6 +397,12 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	if err := s.applyGamePreferences(r, options.GamePreferences); err != nil {
 		fmt.Fprintf(log, "Настройки Minecraft: %v\n", err)
 	}
+	s.backupWorlds(ctx, spec.Directory, options.WorldBackupInterval, log)
+	if e = ctx.Err(); e != nil {
+		fail(e)
+		return
+	}
+
 	if e = cmd.Start(); e != nil {
 		fail(e)
 		return
@@ -425,6 +431,15 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	e = cmd.Wait()
 	redacted.Flush()
 	ipcRedactor.Flush()
+	if e == nil && options.WorldBackupInterval > 0 {
+		s.mu.Lock()
+		s.state.Busy = true
+		s.state.Running = false
+		s.state.PID = 0
+		s.state.Stage = "Проверяю резервные копии миров"
+		s.mu.Unlock()
+		s.backupWorlds(ctx, spec.Directory, options.WorldBackupInterval, log)
+	}
 	if e != nil {
 		fmt.Fprintf(log, "\nMinecraft завершился с ошибкой: %v\n", e)
 	}
@@ -434,6 +449,7 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	s.mu.Lock()
 	s.state.PID = 0
 	s.state.Running = false
+	s.state.Busy = false
 	if e != nil {
 		s.state.Stage = "Minecraft завершился с ошибкой"
 		s.state.Error = e.Error()
@@ -460,6 +476,7 @@ func overlayEnvironment(r Receipt, name string, options LaunchOptions) []string 
 	}
 	return []string{
 		"SINTET_OVERLAY_OPEN_LOBBY=" + strconv.FormatBool(options.OpenOverlayLobby),
+		"SINTET_OVERLAY_APPEARANCE=" + options.OverlayAppearance,
 		"SINTET_OVERLAY_LANGUAGE=" + options.InterfaceLanguage,
 		"SINTET_OVERLAY_HOTKEY=" + label,
 		"SINTET_OVERLAY_HOTKEY_KEY=" + strconv.Itoa(key),

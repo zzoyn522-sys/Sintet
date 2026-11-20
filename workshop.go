@@ -333,7 +333,16 @@ func (a *App) LocalWorkshop(targetID, kind string) ([]workshop.LocalItem, error)
 			if err != nil {
 				return nil, err
 			}
-			return a.sharedWorkshopItems(build), nil
+			items := a.sharedWorkshopItems(build)
+			if build.LocalProfile != nil && build.LocalProfile.ID != "" {
+				a.mu.RLock()
+				target, targetErr := a.workshopTarget(build.LocalProfile.ID)
+				a.mu.RUnlock()
+				if targetErr == nil {
+					items = workshop.AnalyzeLocalCompatibility(target.Directory, kind, target.Game, target.Loader, items)
+				}
+			}
+			return items, nil
 		}
 	}
 	a.mu.RLock()
@@ -346,6 +355,7 @@ func (a *App) LocalWorkshop(targetID, kind string) ([]workshop.LocalItem, error)
 	if err != nil {
 		return nil, err
 	}
+	items = workshop.AnalyzeLocalCompatibility(target.Directory, kind, target.Game, target.Loader, items)
 	for i := range items {
 		if data, e := workshop.Icon(target.Directory, kind, items[i].Filename); e == nil {
 			digest := sha256.Sum256(data)

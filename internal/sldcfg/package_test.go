@@ -307,3 +307,70 @@ func TestRoundTripAndValidateResources(t *testing.T) {
 		t.Fatal("accepted a filename")
 	}
 }
+func TestOverlayAppearanceRoundTrip(t *testing.T) {
+	t.Parallel()
+	pub, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := Default()
+	settings.Overlay = OverlayAppearance{Position: "right", Material: "solid", Surface: "#313844", Text: "#ffe8d2", Accent: "#fc9d70", Opacity: 39, Blur: 0, Dim: 18}
+	pack := Package{Name: "Overlay theme", Settings: settings}
+	draft, err := MarshalDraft(pack)
+	if err != nil || string(draft[:4]) != "SLDA" {
+		t.Fatalf("draft: %v", err)
+	}
+	decoded, err := OpenDraft(draft)
+	if err != nil || decoded.Settings != settings || decoded.FormatVersion != 10 {
+		t.Fatalf("draft lost settings: %+v, %v", decoded.Settings.Overlay, err)
+	}
+	data, err := Seal(decoded, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := Open(data, pub)
+	if err != nil || restored.Settings != settings || restored.FormatVersion != 10 {
+		t.Fatalf("signed package lost settings: %+v, %v", restored.Settings.Overlay, err)
+	}
+	old, err := Seal(Package{Name: "Old theme", Settings: Default()}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err = Open(old, pub)
+	if err != nil || restored.Settings.Overlay != DefaultOverlay() || restored.FormatVersion >= 10 {
+		t.Fatalf("legacy settings did not use default overlay: %+v, %v", restored.Settings.Overlay, err)
+	}
+}
+
+func TestOverlayLayoutOptionsRoundTrip(t *testing.T) {
+	settings := Default()
+	settings.Overlay.Position = "bottom"
+	settings.Overlay.Scale = 115
+	settings.Overlay.Width = 475
+	settings.Overlay.Rounding = 21
+	settings.Overlay.UseLauncherAccent = true
+	pack := Package{Name: "Overlay layout", Settings: settings}
+	draft, err := MarshalDraft(pack)
+	if err != nil || string(draft[:4]) != "SLDB" {
+		t.Fatalf("draft format: %v", err)
+	}
+	decoded, err := OpenDraft(draft)
+	if err != nil || decoded.Settings != settings || decoded.FormatVersion != 11 {
+		t.Fatalf("layout settings lost: %+v, %v", decoded.Settings.Overlay, err)
+	}
+	pub, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signed, err := Seal(decoded, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := Open(signed, pub)
+	if err != nil || verified.Settings != settings || verified.FormatVersion != 11 {
+		t.Fatalf("signed layout settings lost: %+v, %v", verified.Settings.Overlay, err)
+	}
+	if got := settings.Overlay.RendererSettings("#ff77aa"); got != "bottom,acrylic,#121214,#ededed,#ff77aa,75,8,40,115,475,21" {
+		t.Fatalf("unexpected renderer settings: %q", got)
+	}
+}

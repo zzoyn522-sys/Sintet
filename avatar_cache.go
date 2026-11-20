@@ -81,6 +81,10 @@ func (a *App) ResolveAvatar(address string) (string, error) {
 func (a *App) serveLauncherAssets(next http.Handler) http.Handler {
 	appearance := a.serveAppearanceBackground(next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/overlay-preview/frame" {
+			a.serveOverlayPreview(w, r)
+			return
+		}
 		if preview, ok := strings.CutPrefix(r.URL.Path, "/catalog-theme-preview/"); ok {
 			serveCatalogThemePreview(w, r, preview)
 			return

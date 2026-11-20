@@ -12,6 +12,8 @@
 #include <cfloat>
 #include <cstring>
 #include <cstdlib>
+#include <cwchar>
+#include <deque>
 #include <initializer_list>
 #include <mutex>
 #include <string>
@@ -23,6 +25,7 @@
 #include "audio.h"
 #include "screenshot.h"
 #include "widgets.h"
+#include "overlay_style.h"
 #include "layout.h"
 #include "brand.h"
 #include "provider_mark.h"
@@ -58,7 +61,17 @@ HGLRC overlayGL;
 float interfaceScale=1.0f;
 ImFont* titleFont;
 ImFont* headingFont;
-GLuint avatarTexture=0,buildIconTexture=0,backdropTexture=0;
+GLuint avatarTexture=0,buildIconTexture=0,backdropTexture=0,brandTexture=0;
+SintetSocial::State previewSocial;
+constexpr int previewWidth=704,previewHeight=396;
+bool previewEmbedded=false;
+struct PreviewEvent {int kind,x,y,value;};
+std::mutex previewInputMutex;
+std::deque<PreviewEvent> previewEvents;
+std::mutex previewFrameMutex;
+std::vector<unsigned char> previewPixels;
+unsigned int previewFrameID=0;
+std::atomic<bool> previewFrameAvailable{false};
 std::shared_ptr<const SintetSocial::BadgeCatalog> badgeCatalog;
 std::unordered_map<std::string,GLuint> badgeTextures;
 std::string buildName,buildPreset,gameVersionLine,gpuRenderer;
@@ -79,6 +92,7 @@ float panelAnimation=0.0f;
 int oldCursor=0x34001,section=0;
 constexpr int CursorMode=0x33001,CursorNormal=0x34001;
 void closePanel(){
+ if(SintetOverlayStyle::preview){visible=false;return;}
  acceptWheel=false;pendingWheelX=0;pendingWheelY=0;
  visible=false;
  if(usingGLFWCursor)inputMode(game,CursorMode,oldCursor);
@@ -147,7 +161,8 @@ void drawWelcome() {
  ImDrawList* draw=ImGui::GetForegroundDrawList();
  draw->AddRectFilled(ImVec2(top.x,top.y+5*scale),ImVec2(bottom.x+5*scale,bottom.y+5*scale),IM_COL32(0,0,0,(int)(65*fade)),6*scale);
  draw->AddRectFilled(top,bottom,IM_COL32(22,23,23,(int)(250*fade)),6*scale,ImDrawFlags_RoundCornersRight);
- draw->AddRectFilled(top,ImVec2(top.x+3*scale*animScale,bottom.y),IM_COL32(119,196,139,(int)(255*fade)));
+ auto stripe=SintetOverlayStyle::style.accent;stripe.w=fade;
+ draw->AddRectFilled(top,ImVec2(top.x+3*scale*animScale,bottom.y),ImGui::ColorConvertFloat4ToU32(stripe));
  logo(draw,ImVec2(top.x+20*scale*animScale,top.y+26*scale*animScale),scale*animScale,IM_COL32(255,255,255,(int)(255*fade)));
  drawFittedText(draw,headingFont,titleSize*animScale,ImVec2(top.x+left*animScale,top.y+17*scale*animScale),(fullWidth-left-right)*animScale,
                 IM_COL32(237,239,238,(int)(255*fade)),title);
@@ -157,9 +172,9 @@ void drawWelcome() {
 
 // Capture the drawable in our isolated context. The scene is never read back to CPU.
 void captureBackdrop() {
- if(!visible&&panelAnimation<=0)return;
+ if(!SintetOverlayStyle::style.acrylic||(!visible&&panelAnimation<=0))return;
  RECT rect;GetClientRect(window,&rect);
- const int width=std::min<int>(rect.right,(int)std::ceil(430*interfaceScale)),height=rect.bottom;
+ const int width=std::min<int>(rect.right,(int)std::ceil((SintetOverlayStyle::style.width+24)*interfaceScale)),height=rect.bottom;
  if(width<=0||height<=0)return;
  static ULONGLONG capturedAt=0;
  const ULONGLONG now=GetTickCount64();
@@ -181,16 +196,18 @@ void captureBackdrop() {
  glBindTexture(GL_TEXTURE_2D,0);
 }
 void drawGlass(ImVec2 position,ImVec2 size) {
- if(!backdropTexture||!backdropWidth||!backdropHeight)return;
+ const auto& material=SintetOverlayStyle::style;
+ if(!material.acrylic||!backdropTexture||!backdropWidth||!backdropHeight)return;
  ImDrawList* draw=ImGui::GetBackgroundDrawList();
  int sample=0;
+ const int radius=material.blur>0?1:0;
  // Sample only the visible drawer instead of blurring the full framebuffer.
- for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
+ for(int y=-radius;y<=radius;y++)for(int x=-radius;x<=radius;x++){
   ++sample;
-  float dx=x*8.0f*interfaceScale,dy=y*8.0f*interfaceScale;
+  float dx=x*material.blur*interfaceScale,dy=y*material.blur*interfaceScale;
   ImVec2 uv0((position.x+dx)/backdropWidth,1-(position.y+dy)/backdropHeight);
   ImVec2 uv1((position.x+size.x+dx)/backdropWidth,1-(position.y+size.y+dy)/backdropHeight);
-  draw->AddImageRounded((ImTextureID)(intptr_t)backdropTexture,position,ImVec2(position.x+size.x,position.y+size.y),uv0,uv1,IM_COL32(255,255,255,(int)(255.0f/sample)),16*interfaceScale,ImDrawFlags_RoundCornersRight);
+  draw->AddImageRounded((ImTextureID)(intptr_t)backdropTexture,position,ImVec2(position.x+size.x,position.y+size.y),uv0,uv1,IM_COL32(255,255,255,(int)(255.0f/sample)),material.rounding*interfaceScale,ImDrawFlags_RoundCornersRight);
  }
 }
 template<int size> GLuint uploadIcon(const std::string& hex) {
@@ -480,15 +497,32 @@ GLuint uploadBrandMark() {
  return texture;
 }
 void logo(ImDrawList* d, ImVec2 p, float s, ImU32 color) {
- static const GLuint texture=uploadBrandMark();
- if(!texture)return;
+ if(!brandTexture)brandTexture=uploadBrandMark();
+ if(!brandTexture)return;
  const float unit=35*s/SintetMarkWidth;
- d->AddImage((ImTextureID)(intptr_t)texture,p,
+ d->AddImage((ImTextureID)(intptr_t)brandTexture,p,
   ImVec2(p.x+SintetMarkWidth*unit,p.y+SintetMarkHeight*unit),ImVec2(0,0),ImVec2(1,1),color);
 }
 void socialTitle(const char* title){ImGui::PushFont(headingFont);ImGui::TextUnformatted(title);ImGui::PopFont();}
+void dispatchSocial(const std::string& action,const std::string& target=""){
+ if(!SintetOverlayStyle::preview){SintetSocial::Action(action,target);return;}
+ auto& state=previewSocial;
+ if(action=="host"||(action=="join"&&target.size()==6)){
+  state.room=action=="host"?"241608":target;
+  state.leader=action=="host";
+  state.host=state.leader?state.self.name:"Alex";
+  state.members={{state.self,state.leader,"",0,"preview"},{SintetSocial::Person{"alex","Alex"},!state.leader,"",0,"alex"}};
+ }else if(action=="close"){
+  state.room.clear();state.members.clear();state.leader=false;
+ }else if(action=="friend-remove"){
+  state.friends.erase(std::remove_if(state.friends.begin(),state.friends.end(),
+      [&](const SintetSocial::Friend& entry){return entry.person.id==target;}),state.friends.end());
+ }else if(action=="lobby-capacity"||action=="lobby-capacity-confirm"){
+  state.roomCapacity=std::atoi(target.c_str());
+ }
+}
 void socialButton(const char* label,const char* action,const std::string& target=""){
- if(ImGui::Button(label))SintetSocial::Action(action,target);
+ if(ImGui::Button(label))dispatchSocial(action,target);
 }
 std::string invitationDetails(const SintetSocial::Invite& invite){
  std::string text=invite.game.empty()?"":"Minecraft "+invite.game;
@@ -528,7 +562,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(px(12),px(11)));
    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(px(9),px(6)));
    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,px(11));
-   ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.115f,.115f,.12f,.95f));
+   ImGui::PushStyleColor(ImGuiCol_ChildBg,SintetOverlayStyle::Surface(.045f));
    const auto cardFlags=ImGuiChildFlags_AlwaysUseWindowPadding|ImGuiChildFlags_AutoResizeY|ImGuiChildFlags_AlwaysAutoResize;
    if(ImGui::BeginChild("Friend",ImVec2(0,0),cardFlags,SintetLayout::FixedCard)){
     socialAvatar(f.person,scale);
@@ -572,8 +606,8 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
   if(state.friends.empty()&&state.invites.empty()){
    float y=std::max(px(10),(height-px(210))*.5f);ImGui::Dummy(ImVec2(0,y));
    float width=ImGui::GetWindowWidth();ImVec2 center(ImGui::GetWindowPos().x+width*.5f,ImGui::GetCursorScreenPos().y+px(25));
-   auto* draw=ImGui::GetWindowDrawList();draw->AddCircleFilled(center,px(29),ImGui::GetColorU32(ImVec4(.28f,.44f,.32f,.12f)));draw->AddCircle(center,px(24),ImGui::GetColorU32(ImVec4(.5f,.73f,.56f,.3f)),48,px(1));
-   icon(draw,ImVec2(center.x-px(12),center.y-px(12)),0,scale,ImGui::GetColorU32(ImVec4(.72f,.81f,.74f,1)));
+   auto* draw=ImGui::GetWindowDrawList();draw->AddCircleFilled(center,px(29),ImGui::GetColorU32(SintetOverlayStyle::Accent(.16f)));draw->AddCircle(center,px(24),ImGui::GetColorU32(SintetOverlayStyle::Accent(.42f)),48,px(1));
+   icon(draw,ImVec2(center.x-px(12),center.y-px(12)),0,scale,ImGui::GetColorU32(SintetOverlayStyle::style.accent));
    ImGui::Dummy(ImVec2(0,px(60)));
    ImGui::PushFont(headingFont);ImGui::SetCursorPosX((width-ImGui::CalcTextSize(OverlayText("Пока нет друзей")).x)*.5f);ImGui::TextUnformatted(OverlayText("Пока нет друзей"));ImGui::PopFont();
    ImGui::SetCursorPosX((width-ImGui::CalcTextSize(OverlayText("Друзья появятся здесь")).x)*.5f);ImGui::TextDisabled(OverlayText("Друзья появятся здесь"));
@@ -655,7 +689,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    ImGui::SameLine();
    ImGui::BeginDisabled(!canResize||capacityRoom!=state.room||!valid||capacityInput==state.roomCapacity);
    if(ImGui::Button(OverlayText(excess?"Отключить лишних и применить":"Применить"))){
-    SintetSocial::Action(excess?"lobby-capacity-confirm":"lobby-capacity",std::to_string(capacityInput));
+    dispatchSocial(excess?"lobby-capacity-confirm":"lobby-capacity",std::to_string(capacityInput));
     ImGui::CloseCurrentPopup();
    }
    ImGui::EndDisabled();
@@ -669,10 +703,10 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    if(!state.inWorld&&!state.gameJoining){
     ImGui::SameLine();
    ImGui::BeginDisabled(!state.gameReady||(!state.packPhase.empty()&&state.packPhase!="ready"));
-   ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(.15f,.33f,.23f,1));
-   ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.19f,.42f,.29f,1));
-   ImGui::PushStyleColor(ImGuiCol_ButtonActive,ImVec4(.22f,.47f,.33f,1));
-    if(ImGui::Button("##auto-join",ImVec2(px(35),ImGui::GetFrameHeight())))SintetSocial::Action("connect-game");
+   ImGui::PushStyleColor(ImGuiCol_Button,SintetOverlayStyle::Accent(.34f));
+   ImGui::PushStyleColor(ImGuiCol_ButtonHovered,SintetOverlayStyle::Accent(.45f));
+   ImGui::PushStyleColor(ImGuiCol_ButtonActive,SintetOverlayStyle::Accent(.55f));
+    if(ImGui::Button("##auto-join",ImVec2(px(35),ImGui::GetFrameHeight())))dispatchSocial("connect-game");
    ImGui::PopStyleColor(3);
     ImGui::EndDisabled();
     const auto corner=ImGui::GetItemRectMin();
@@ -684,7 +718,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    }
    if(state.preGameLobby&&!state.leader&&!state.inWorld){
     bool automatic=state.autoConnect;
-    if(ImGui::Checkbox(OverlayText("Подключиться, когда мир готов"),&automatic))SintetSocial::Action("auto-connect",automatic?"true":"false");
+    if(ImGui::Checkbox(OverlayText("Подключиться, когда мир готов"),&automatic))dispatchSocial("auto-connect",automatic?"true":"false");
     if(ImGui::IsItemHovered())ImGui::SetTooltip(OverlayText(state.noPack?"Запустите Minecraft из Sintet для автовхода":"Если запущена другая сборка, Minecraft перезапустится"));
    }
    if(!state.leader&&!state.lobbyConnected&&!state.busy)socialButton(OverlayText("Восстановить соединение"),"reconnect-lobby");
@@ -717,7 +751,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
      ImGui::Spacing();ImGui::TextWrapped("%s",state.preGameLobby?OverlayText("Файлы сохранятся отдельной сборкой. Текущая игра продолжит работать. Подключиться можно будет после открытия мира лидером."):OverlayText("Файлы сохранятся отдельной сборкой. После загрузки Minecraft корректно закроется и запустится у друга. Сохрани текущий мир."));
      ImGui::Spacing();ImGui::TextDisabled(OverlayText("Продолжай, если доверяешь модам хоста."));ImGui::PopTextWrapPos();
      if(ImGui::Button(OverlayText("Отмена")))ImGui::CloseCurrentPopup();ImGui::SameLine();
-     if(ImGui::Button(state.preGameLobby?OverlayText("Подготовить сборку"):OverlayText("Скачать и перезапустить"))){SintetSocial::Action("sync-pack",state.packDigest);ImGui::CloseCurrentPopup();}
+     if(ImGui::Button(state.preGameLobby?OverlayText("Подготовить сборку"):OverlayText("Скачать и перезапустить"))){dispatchSocial("sync-pack",state.packDigest);ImGui::CloseCurrentPopup();}
      ImGui::EndPopup();
     }
     ImGui::Spacing();ImGui::Separator();ImGui::Spacing();
@@ -793,7 +827,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     ImGui::EndGroup();
     if(state.leader&&!member.leader){
      ImGui::SameLine(ImGui::GetWindowWidth()-px(49));
-     if(ImGui::Button("×",ImVec2(px(34),px(35))))SintetSocial::Action("kick",member.person.id);
+     if(ImGui::Button("×",ImVec2(px(34),px(35))))dispatchSocial("kick",member.person.id);
      if(ImGui::IsItemHovered())ImGui::SetTooltip(OverlayText("Исключить из лобби"));
     }
     ImGui::EndGroup();
@@ -813,13 +847,17 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    }else socialButton(OverlayText("Выйти из лобби"),"close");
   }else{
    ImGui::TextWrapped("%s",state.preGameLobby?OverlayText("Соберитесь в лобби и подготовьте сборку. Мир можно открыть для сети позже."):OverlayText("Откройте одиночный мир для сети в Minecraft"));
-   if(ImGui::Button(OverlayText("Создать комнату"),ImVec2(-1,px(38))))SintetSocial::Action("host");
+   ImGui::PushStyleColor(ImGuiCol_Button,SintetOverlayStyle::Accent(.26f));
+   ImGui::PushStyleColor(ImGuiCol_ButtonHovered,SintetOverlayStyle::Accent(.40f));
+   ImGui::PushStyleColor(ImGuiCol_ButtonActive,SintetOverlayStyle::Accent(.52f));
+   if(ImGui::Button(OverlayText("Создать комнату"),ImVec2(-1,px(38))))dispatchSocial("host");
+   ImGui::PopStyleColor(3);
   }
   if(state.room.empty()&&!state.localPort){
   ImGui::Dummy(ImVec2(0,px(16)));ImGui::Separator();ImGui::Dummy(ImVec2(0,px(10)));
   static char code[7]={0};ImGui::TextUnformatted(OverlayText("Войти по коду"));ImGui::SetNextItemWidth(-1);
   ImGui::InputTextWithHint("##room-code",OverlayText("6 цифр"),code,sizeof(code),ImGuiInputTextFlags_CharsDecimal);
-  if(ImGui::Button(OverlayText("Подключиться"),ImVec2(-1,px(38))))SintetSocial::Action("join",code);
+  if(ImGui::Button(OverlayText("Подключиться"),ImVec2(-1,px(38))))dispatchSocial("join",code);
   }
  }
  if(!state.connection.empty()){ImGui::Spacing();ImGui::TextWrapped("%s",OverlayText(state.connection.c_str()));}
@@ -1046,23 +1084,25 @@ void drawPanel(const SintetSocial::State& state) {
  if(panelAnimation<=0)return;
  const float progress=easeOut(panelAnimation),scale=interfaceScale;
  auto px=[scale](float value){return value*scale;};
- const ImVec2 size(std::min(px(414),io.DisplaySize.x),io.DisplaySize.y);
+ const auto& material=SintetOverlayStyle::style;
+ const ImVec2 size(std::min(px(material.width),io.DisplaySize.x),io.DisplaySize.y);
  const ImVec2 position(-(1-progress)*size.x,0);
- drawGlass(position,size);
  ImDrawList* behind=ImGui::GetBackgroundDrawList();
- behind->AddRectFilled(ImVec2(0,0),io.DisplaySize,IM_COL32(0,0,0,(int)(102*progress)));
- behind->AddRectFilled(position,ImVec2(position.x+size.x,size.y),IM_COL32(18,18,20,(int)(191*progress)),px(16),ImDrawFlags_RoundCornersRight);
+ drawGlass(position,size);
+ behind->AddRectFilled(ImVec2(0,0),io.DisplaySize,IM_COL32(0,0,0,(int)(255*material.dim*progress)));
+ auto tint=material.surface;tint.w=material.opacity*progress;
+ behind->AddRectFilled(position,ImVec2(position.x+size.x,size.y),ImGui::ColorConvertFloat4ToU32(tint),px(material.rounding),ImDrawFlags_RoundCornersRight);
  behind->AddLine(ImVec2(position.x+size.x-1,px(16)),ImVec2(position.x+size.x-1,size.y-px(16)),IM_COL32(255,255,255,(int)(20*progress)),px(1));
  ImGui::SetNextWindowPos(position,ImGuiCond_Always);
  ImGui::SetNextWindowSize(size,ImGuiCond_Always);
  ImGui::PushStyleVar(ImGuiStyleVar_Alpha,progress);
  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,0);
- ImGui::PushStyleColor(ImGuiCol_Border,ImVec4(.35f,.58f,.41f,.32f));
+ ImGui::PushStyleColor(ImGuiCol_Border,SintetOverlayStyle::Accent(.32f));
  ImGui::Begin("Sintet Overlay",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
  ImDrawList* draw=ImGui::GetWindowDrawList();
  const ImVec2 start=ImGui::GetCursorScreenPos();
- const ImU32 white=ImGui::GetColorU32(ImVec4(.93f,.93f,.93f,1));
- logo(draw,start,scale,ImGui::GetColorU32(IM_COL32_WHITE));
+ const ImU32 white=ImGui::GetColorU32(ImGuiCol_Text);
+ logo(draw,start,scale,white);
  ImGui::SetCursorPosX(px(63));
  ImGui::PushFont(titleFont);ImGui::TextUnformatted("Sintet");ImGui::PopFont();
  const float timeSize = px(14);
@@ -1079,10 +1119,10 @@ void drawPanel(const SintetSocial::State& state) {
  draw->AddLine(ImVec2(cross.x+px(10),cross.y+px(10)),ImVec2(cross.x+px(18),cross.y+px(18)),muted,px(1.6f));
  draw->AddLine(ImVec2(cross.x+px(18),cross.y+px(10)),ImVec2(cross.x+px(10),cross.y+px(18)),muted,px(1.6f));
  ImGui::Dummy(ImVec2(0,px(18)));
- drawMedia(scale);
+ if(!SintetOverlayStyle::preview)drawMedia(scale);
  if(state.turnActive){
   ImGui::Spacing();
-  ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.105f,.105f,.105f,.95f));
+  ImGui::PushStyleColor(ImGuiCol_ChildBg,SintetOverlayStyle::Surface(.05f));
   ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,px(7));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(px(9),px(5)));
   ImGui::BeginChild("turn-usage",ImVec2(0,px(43)),ImGuiChildFlags_AlwaysUseWindowPadding,SintetLayout::FixedCard);
@@ -1132,7 +1172,7 @@ void drawPanel(const SintetSocial::State& state) {
   return *nick&&state.self.name==nick;
  }();
  static const std::vector<std::string> noBadges;
- drawSocialName(headingFont,px(20),ImGui::GetWindowWidth()-px(116),*nick?nick:"Player",gameProvider,
+ drawSocialName(headingFont,px(20),ImGui::GetWindowWidth()-px(116),SintetOverlayStyle::preview?state.self.name:(*nick?nick:"Player"),gameProvider,
                 currentProfile?state.self.badges:noBadges);
  ImGui::SetCursorPosX(px(66));ImGui::TextDisabled(OverlayText("В игре"));
  ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth()-px(40),px(20)));
@@ -1155,15 +1195,15 @@ void drawPanel(const SintetSocial::State& state) {
   bool selected=section==i;
   if(ImGui::InvisibleButton(tabs[i],ImVec2(-1,px(46))))section=i;
   draw=ImGui::GetWindowDrawList();
-  if(selected||ImGui::IsItemHovered())draw->AddRectFilled(top,ImVec2(top.x+ImGui::GetItemRectSize().x,top.y+px(46)),ImGui::GetColorU32(selected?ImVec4(.16f,.25f,.20f,1):ImVec4(.15f,.16f,.16f,1)),px(12));
-  ImU32 color=ImGui::GetColorU32(selected?ImVec4(.93f,.93f,.93f,1):ImVec4(.73f,.75f,.74f,1));
+  if(selected||ImGui::IsItemHovered())draw->AddRectFilled(top,ImVec2(top.x+ImGui::GetItemRectSize().x,top.y+px(46)),ImGui::GetColorU32(selected?SintetOverlayStyle::Accent(.28f):SintetOverlayStyle::Surface(.12f)),px(12));
+  ImU32 color=ImGui::GetColorU32(selected?material.text:SintetOverlayStyle::Surface(.75f));
   icon(draw,ImVec2(top.x+px(14),top.y+px(12)),i,scale*.85f,color);
   drawFittedText(draw,headingFont,px(20),ImVec2(top.x+px(49),top.y+px(13)),ImGui::GetItemRectSize().x-px(63),color,tabs[i]);
  }
  ImGui::Dummy(ImVec2(0,px(10)));
  float contentHeight=std::max(px(85),ImGui::GetContentRegionAvail().y-px(34));
  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(px(14),px(14)));
- ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.07f,.07f,.07f,.45f));
+ ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(0,0,0,.12f));
  ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize,px(5));
  ImGui::PushStyleColor(ImGuiCol_ScrollbarBg,ImVec4(0,0,0,0));
  ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab,ImVec4(.52f,.52f,.52f,.44f));
@@ -1173,8 +1213,9 @@ void drawPanel(const SintetSocial::State& state) {
  drawSocialContent(state,contentHeight);
  ImGui::EndChild();ImGui::PopStyleColor(5);ImGui::PopStyleVar(2);
  ImGui::Dummy(ImVec2(0,px(6)));
- drawFittedText(ImGui::GetWindowDrawList(),ImGui::GetFont(),px(16),ImGui::GetCursorScreenPos(),
-                ImGui::GetContentRegionAvail().x,ImGui::GetColorU32(ImGuiCol_TextDisabled),overlayHotkey+"  ·  "+OverlayText("Вернуться в игру"));
+ if(!SintetOverlayStyle::preview||!previewEmbedded)drawFittedText(ImGui::GetWindowDrawList(),ImGui::GetFont(),px(16),ImGui::GetCursorScreenPos(),
+                ImGui::GetContentRegionAvail().x,ImGui::GetColorU32(ImGuiCol_TextDisabled),
+                SintetOverlayStyle::preview?"Esc  ·  "+std::string(OverlayText("Закрыть предпросмотр")):overlayHotkey+"  ·  "+OverlayText("Вернуться в игру"));
  ImGui::Dummy(ImVec2(0,px(16)));
  ImGui::End();
  ImGui::PopStyleColor();ImGui::PopStyleVar(2);
@@ -1193,6 +1234,145 @@ public:
  ~OverlayContextScope(){if(active)wglMakeCurrent(previousDC,previousContext);}
  bool ready() const{return active;}
 };
+
+void applyStyle(){
+  auto& style=ImGui::GetStyle();
+  style=ImGuiStyle();
+  ImGui::StyleColorsDark(&style);
+  const auto& theme=SintetOverlayStyle::style;
+  auto surface=[&](float mix){return SintetOverlayStyle::Blend(theme.surface,theme.text,mix);};
+  style.WindowRounding=theme.rounding;style.ChildRounding=theme.rounding*.78f;style.FrameRounding=theme.rounding*.72f;
+  style.WindowBorderSize=0;style.ChildBorderSize=0;
+  style.WindowPadding=ImVec2(22,22);style.FramePadding=ImVec2(14,9);style.ItemSpacing=ImVec2(10,10);
+  style.AntiAliasedLines=true;style.AntiAliasedFill=true;
+  style.Colors[ImGuiCol_WindowBg]=theme.surface;
+  style.Colors[ImGuiCol_ChildBg]=surface(0.04f);
+  style.Colors[ImGuiCol_Button]=surface(0.1f);
+  style.Colors[ImGuiCol_ButtonHovered]=surface(0.17f);
+  style.Colors[ImGuiCol_ButtonActive]=surface(0.23f);
+  style.Colors[ImGuiCol_FrameBg]=surface(0.08f);
+  style.Colors[ImGuiCol_FrameBgHovered]=surface(0.14f);
+  style.Colors[ImGuiCol_FrameBgActive]=surface(0.2f);
+  style.Colors[ImGuiCol_Header]=surface(0.11f);
+  style.Colors[ImGuiCol_HeaderHovered]=surface(0.18f);
+  style.Colors[ImGuiCol_HeaderActive]=surface(0.22f);
+  style.Colors[ImGuiCol_TextSelectedBg]=SintetOverlayStyle::Accent(.45f);
+  style.Colors[ImGuiCol_NavCursor]=theme.accent;
+  style.Colors[ImGuiCol_Text]=theme.text;
+  style.Colors[ImGuiCol_TextDisabled]=surface(.72f);
+  style.Colors[ImGuiCol_CheckMark]=theme.accent;
+  style.Colors[ImGuiCol_SliderGrab]=theme.accent;
+  style.ScaleAllSizes(interfaceScale);
+}
+
+bool initializeRenderer(const wchar_t* fontPath,bool preview){
+ context=ImGui::CreateContext();
+  ImGuiIO& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
+  const UINT dpi=GetDpiForWindow(window);
+  interfaceScale=(dpi?(float)dpi/96.0f:1.0f)*SintetOverlayStyle::style.scale;
+  WCHAR fonts[MAX_PATH];
+  GetWindowsDirectoryW(fonts,MAX_PATH);
+  WCHAR semibold[MAX_PATH],bold[MAX_PATH],selected[32768];
+  swprintf_s(semibold,L"%s\\Fonts\\seguisb.ttf",fonts);
+  swprintf_s(bold,L"%s\\Fonts\\segoeuib.ttf",fonts);
+  if(!fontPath)fontPath=selected;
+  if(fontPath==selected){
+   const DWORD length=GetEnvironmentVariableW(L"SINTET_OVERLAY_FONT",selected,32768);
+   if(!length||length>=32768)selected[0]=0;
+  }
+  const bool hasSelected=*fontPath!=0;
+  auto loadFont=[&](const wchar_t* path,float size,ImFontConfig config,const ImWchar* ranges){
+   const int count=WideCharToMultiByte(CP_UTF8,0,path,-1,nullptr,0,nullptr,nullptr);
+   if(count<=0)return static_cast<ImFont*>(nullptr);
+   std::vector<char> utf8(count);
+   WideCharToMultiByte(CP_UTF8,0,path,-1,utf8.data(),count,nullptr,nullptr);
+   if(GetFileAttributesW(path)==INVALID_FILE_ATTRIBUTES)return static_cast<ImFont*>(nullptr);
+   return io.Fonts->AddFontFromFileTTF(utf8.data(),size*interfaceScale,&config,ranges);
+  };
+  auto overlayFont=[&](const wchar_t* fallback,float size){
+   ImFontConfig config;
+   config.OversampleH=2;
+   config.OversampleV=2;
+   const ImWchar* ranges=io.Fonts->GetGlyphRangesCyrillic();
+   if(hasSelected){
+    ImFont* chosen=loadFont(fontPath,size,config,ranges);
+    if(chosen){
+     config.MergeMode=true;
+     loadFont(fallback,size,config,ranges);
+     return chosen;
+    }
+   }
+   return loadFont(fallback,size,config,ranges);
+  };
+  ImFont* body=overlayFont(semibold,18);
+  if(!body)body=io.Fonts->AddFontDefault();
+  io.FontDefault=body;
+  headingFont=overlayFont(bold,22);
+  titleFont=overlayFont(bold,29);
+  if(!headingFont)headingFont=body;
+  if(!titleFont)titleFont=body;
+  applyStyle();
+  if(!ImGui_ImplWin32_InitForOpenGL(window))return false;
+  if(!ImGui_ImplOpenGL3_Init(preview?"#version 110":"#version 150")){
+   ImGui_ImplWin32_Shutdown();
+   return false;
+  }
+  return true;
+}
+
+void drawOverlayFrame(){
+ ImGui::SetCurrentContext(context);
+ ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+ captureBackdrop();
+ ImGui_ImplOpenGL3_NewFrame();
+ if(SintetOverlayStyle::preview&&previewEmbedded){
+  auto& io=ImGui::GetIO();
+  io.DisplaySize=ImVec2(previewWidth,previewHeight);
+  io.DeltaTime=1.f/18;
+  std::deque<PreviewEvent> events;
+  {std::lock_guard<std::mutex> lock(previewInputMutex);events.swap(previewEvents);}
+  for(const auto& event:events){
+   if(event.kind==0)io.AddMousePosEvent(static_cast<float>(event.x),static_cast<float>(event.y));
+   if(event.kind==1||event.kind==2){
+    io.AddMousePosEvent(static_cast<float>(event.x),static_cast<float>(event.y));
+    io.AddMouseButtonEvent(0,event.kind==1);
+   }
+   if(event.kind==3)io.AddMouseWheelEvent(0,static_cast<float>(event.value)/120.f);
+   if(event.kind==4){io.AddMousePosEvent(-FLT_MAX,-FLT_MAX);io.AddMouseButtonEvent(0,false);}
+   if(event.kind==5)io.AddInputCharacter(static_cast<unsigned int>(event.value));
+   if(event.kind==6||event.kind==7){
+    const ImGuiKey keys[]={ImGuiKey_Backspace,ImGuiKey_Delete,ImGuiKey_LeftArrow,ImGuiKey_RightArrow,ImGuiKey_Home,ImGuiKey_End};
+    if(event.value>=0&&event.value<6)io.AddKeyEvent(keys[event.value],event.kind==6);
+   }
+  }
+ }else ImGui_ImplWin32_NewFrame();
+ const float wheelX=(float)pendingWheelX.exchange(0)/WHEEL_DELTA,wheelY=(float)pendingWheelY.exchange(0)/WHEEL_DELTA;
+ if(visible&&(wheelX!=0||wheelY!=0))ImGui::GetIO().AddMouseWheelEvent(wheelX,wheelY);
+ ImGui::NewFrame();
+ const auto state=SintetOverlayStyle::preview?previewSocial:SintetSocial::Snapshot();
+ if(state.badgeCatalog!=badgeCatalog){
+  for(const auto& item:badgeTextures)if(item.second)glDeleteTextures(1,&item.second);
+  badgeTextures.clear();
+  badgeCatalog=state.badgeCatalog;
+ }
+ if(openLobbyOnStart&&state.localPort>0&&!state.room.empty()){
+  openLobbyOnStart=false;
+  section=1;
+  if(!visible)openPanel();
+ }
+ const bool showPassive=!SintetWidgets::GhostMode();
+ if(showPassive&&!SintetOverlayStyle::preview)drawWelcome();
+ drawPanel(state);
+ const bool networkHUD=!visible&&showPassive&&SintetWidgets::NetworkPinned()&&drawNetworkHUD(state);
+ SintetWidgets::Draw(visible,interfaceScale,headingFont,state,gpuRenderer.c_str());
+ if(visible||showPassive){
+  if(!drawTURNNotice(state))drawInvitation(state,networkHUD);
+ }
+ // ImGui has only recorded vertices so far. The back buffer still contains just Minecraft.
+ if(!SintetOverlayStyle::preview){SintetScreenshot::Capture(window);drawScreenshotNotice();}
+ ImGui::Render();
+ ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
 
 void renderFrame(GLFWwindow* current) {
  if(stopping||!wglGetCurrentContext()||(game&&current!=game))return;
@@ -1220,69 +1400,8 @@ void renderFrame(GLFWwindow* current) {
  OverlayContextScope graphics(wglGetCurrentDC());
  if(!graphics.ready())return;
  if(!context){
-  window=currentWindow;game=current;context=ImGui::CreateContext();
-  ImGuiIO& io=ImGui::GetIO();io.IniFilename=nullptr;io.LogFilename=nullptr;
-  const UINT dpi=GetDpiForWindow(window);
-  interfaceScale=dpi?(float)dpi/96.0f:1.0f;
-  WCHAR fonts[MAX_PATH];
-  GetWindowsDirectoryW(fonts,MAX_PATH);
-  WCHAR semibold[MAX_PATH],bold[MAX_PATH],selected[32768];
-  swprintf_s(semibold,L"%s\\Fonts\\seguisb.ttf",fonts);
-  swprintf_s(bold,L"%s\\Fonts\\segoeuib.ttf",fonts);
-  const DWORD selectedLength=GetEnvironmentVariableW(L"SINTET_OVERLAY_FONT",selected,32768);
-  const bool hasSelected=selectedLength>0&&selectedLength<32768;
-  auto loadFont=[&](const wchar_t* path,float size,ImFontConfig config,const ImWchar* ranges){
-   const int count=WideCharToMultiByte(CP_UTF8,0,path,-1,nullptr,0,nullptr,nullptr);
-   if(count<=0)return static_cast<ImFont*>(nullptr);
-   std::vector<char> utf8(count);
-   WideCharToMultiByte(CP_UTF8,0,path,-1,utf8.data(),count,nullptr,nullptr);
-   if(GetFileAttributesW(path)==INVALID_FILE_ATTRIBUTES)return static_cast<ImFont*>(nullptr);
-   return io.Fonts->AddFontFromFileTTF(utf8.data(),size*interfaceScale,&config,ranges);
-  };
-  auto overlayFont=[&](const wchar_t* fallback,float size){
-   ImFontConfig config;
-   config.OversampleH=2;
-   config.OversampleV=2;
-   const ImWchar* ranges=io.Fonts->GetGlyphRangesCyrillic();
-   if(hasSelected){
-    ImFont* chosen=loadFont(selected,size,config,ranges);
-    if(chosen){
-     config.MergeMode=true;
-     loadFont(fallback,size,config,ranges);
-     return chosen;
-    }
-   }
-   return loadFont(fallback,size,config,ranges);
-  };
-  ImFont* body=overlayFont(semibold,18);
-  if(!body)body=io.Fonts->AddFontDefault();
-  io.FontDefault=body;
-  headingFont=overlayFont(bold,22);
-  titleFont=overlayFont(bold,29);
-  if(!headingFont)headingFont=body;
-  if(!titleFont)titleFont=body;
-  ImGui::StyleColorsDark();auto& style=ImGui::GetStyle();
-  style.WindowRounding=22;style.ChildRounding=15;style.FrameRounding=12;
-  style.WindowBorderSize=0;style.ChildBorderSize=0;
-  style.WindowPadding=ImVec2(22,22);style.FramePadding=ImVec2(14,9);style.ItemSpacing=ImVec2(10,10);
-  style.AntiAliasedLines=true;style.AntiAliasedFill=true;
-  style.Colors[ImGuiCol_WindowBg]=ImVec4(.078f,.078f,.078f,1);
-  style.Colors[ImGuiCol_ChildBg]=ImVec4(.115f,.115f,.115f,1);
-  style.Colors[ImGuiCol_Button]=ImVec4(.17f,.17f,.18f,1);
-  style.Colors[ImGuiCol_ButtonHovered]=ImVec4(.23f,.23f,.24f,1);
-  style.Colors[ImGuiCol_ButtonActive]=ImVec4(.27f,.27f,.28f,1);
-  style.Colors[ImGuiCol_FrameBg]=ImVec4(.14f,.14f,.14f,1);
-  style.Colors[ImGuiCol_FrameBgHovered]=ImVec4(.20f,.20f,.20f,1);
-  style.Colors[ImGuiCol_FrameBgActive]=ImVec4(.25f,.25f,.25f,1);
-  style.Colors[ImGuiCol_Header]=ImVec4(.18f,.18f,.18f,1);
-  style.Colors[ImGuiCol_HeaderHovered]=ImVec4(.24f,.24f,.24f,1);
-  style.Colors[ImGuiCol_HeaderActive]=ImVec4(.29f,.29f,.29f,1);
-  style.Colors[ImGuiCol_TextSelectedBg]=ImVec4(.40f,.40f,.40f,.55f);
-  style.Colors[ImGuiCol_NavCursor]=ImVec4(.70f,.70f,.70f,1);
-  style.Colors[ImGuiCol_Text]=ImVec4(.93f,.93f,.93f,1);
-  style.Colors[ImGuiCol_TextDisabled]=ImVec4(.72f,.74f,.73f,1);
-  style.ScaleAllSizes(interfaceScale);
-  if(!ImGui_ImplWin32_InitForOpenGL(window)||!ImGui_ImplOpenGL3_Init("#version 150")){stopping=true;return;}
+  window=currentWindow;game=current;SintetOverlayStyle::Load();
+  if(!initializeRenderer(nullptr,false)){stopping=true;return;}
   originalProc=(WNDPROC)SetWindowLongPtrW(window,GWLP_WNDPROC,(LONG_PTR)input);
   oldCursor=game&&getMode?getMode(game,CursorMode):CursorNormal;
   loadGameProfile();
@@ -1292,38 +1411,174 @@ void renderFrame(GLFWwindow* current) {
   fputs("Sintet Overlay: isolated OpenGL renderer initialized\n",stderr);
  }
  if(visible){if(usingGLFWCursor)inputMode(game,CursorMode,CursorNormal);else{ClipCursor(nullptr);SetCursor(LoadCursorW(nullptr,IDC_ARROW));}}
- ImGui::SetCurrentContext(context);
- ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
- captureBackdrop();
- ImGui_ImplOpenGL3_NewFrame();ImGui_ImplWin32_NewFrame();
- const float wheelX=(float)pendingWheelX.exchange(0)/WHEEL_DELTA,wheelY=(float)pendingWheelY.exchange(0)/WHEEL_DELTA;
- if(visible&&(wheelX!=0||wheelY!=0))ImGui::GetIO().AddMouseWheelEvent(wheelX,wheelY);
- ImGui::NewFrame();
- const auto state=SintetSocial::Snapshot();
- if(state.badgeCatalog!=badgeCatalog){
-  for(const auto& item:badgeTextures)if(item.second)glDeleteTextures(1,&item.second);
-  badgeTextures.clear();
-  badgeCatalog=state.badgeCatalog;
- }
- if(openLobbyOnStart&&state.localPort>0&&!state.room.empty()){
-  openLobbyOnStart=false;
-  section=1;
-  if(!visible)openPanel();
- }
- const bool showPassive=!SintetWidgets::GhostMode();
- if(showPassive)drawWelcome();
- drawPanel(state);
- const bool networkHUD=!visible&&showPassive&&SintetWidgets::NetworkPinned()&&drawNetworkHUD(state);
- SintetWidgets::Draw(visible,interfaceScale,headingFont,state,gpuRenderer.c_str());
- if(visible||showPassive){
-  if(!drawTURNNotice(state))drawInvitation(state,networkHUD);
- }
- // ImGui has only recorded vertices so far. The back buffer still contains just Minecraft.
- SintetScreenshot::Capture(window);
- drawScreenshotNotice();
- ImGui::Render();
- ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+ drawOverlayFrame();
 }
+
+struct PreviewConfig {
+ SintetOverlayStyle::Appearance appearance;
+ std::wstring font;
+ int language=0;
+};
+std::mutex previewControl,previewConfigLock;
+PreviewConfig previewConfig;
+std::atomic<HWND> previewWindow{nullptr};
+HANDLE previewThread=nullptr,previewReady=nullptr;
+constexpr UINT previewResize=WM_APP+40;
+bool previewFullscreen=false;
+bool previewInlineActive=false;
+
+void setPreviewFullscreen(HWND hwnd,bool fullscreen){
+ if(previewFullscreen==fullscreen&&(!previewInlineActive||previewEmbedded))return;
+ previewFrameAvailable=false;
+ {std::lock_guard<std::mutex> lock(previewInputMutex);previewEvents.clear();}
+ if(fullscreen){
+  POINT pointer{};GetCursorPos(&pointer);
+  MONITORINFO monitor{sizeof(monitor)};
+  if(!GetMonitorInfoW(MonitorFromPoint(pointer,MONITOR_DEFAULTTONEAREST),&monitor))return;
+  const auto& r=monitor.rcMonitor;
+  SetWindowPos(hwnd,HWND_TOP,r.left,r.top,r.right-r.left,r.bottom-r.top,SWP_SHOWWINDOW);
+  SetForegroundWindow(hwnd);
+ }else{
+  ShowWindow(hwnd,SW_HIDE);
+  SetWindowPos(hwnd,nullptr,0,0,previewWidth,previewHeight,SWP_NOZORDER|SWP_NOACTIVATE);
+ }
+ previewFullscreen=fullscreen;
+ previewEmbedded=!fullscreen;
+ auto& io=ImGui::GetIO();
+ io.AddMouseButtonEvent(0,false);io.AddMousePosEvent(-FLT_MAX,-FLT_MAX);
+ io.AddFocusEvent(true);
+}
+
+LRESULT CALLBACK previewInput(HWND hwnd,UINT message,WPARAM wp,LPARAM lp){
+ if(message==WM_CLOSE){PostQuitMessage(0);return 0;}
+ if(message==WM_KEYDOWN&&wp==VK_ESCAPE){setPreviewFullscreen(hwnd,false);return 0;}
+ if(message==WM_KEYDOWN&&wp==VK_F11){
+  setPreviewFullscreen(hwnd,!previewFullscreen);
+  return 0;
+ }
+ if(message==previewResize){
+  if(wp==3){
+   previewInlineActive=false;previewFrameAvailable=false;
+  }else if(wp==1){
+   previewInlineActive=true;
+   if(!previewFullscreen)visible=true;
+  }else if(wp==2){
+   visible=true;setPreviewFullscreen(hwnd,true);
+  }
+  return 0;
+ }
+ if(message==WM_DESTROY){previewWindow=nullptr;PostQuitMessage(0);return 0;}
+ if(context&&!previewEmbedded&&ImGui_ImplWin32_WndProcHandler(hwnd,message,wp,lp))return 1;
+ return DefWindowProcW(hwnd,message,wp,lp);
+}
+
+void previewBackdrop(int width,int height){
+ glViewport(0,0,width,height);
+ glClearColor(.15f,.21f,.26f,1);
+ glClear(GL_COLOR_BUFFER_BIT);
+ glBegin(GL_QUADS);
+ glColor3f(.11f,.19f,.28f);glVertex2f(-1,1);glVertex2f(1,1);
+ glColor3f(.49f,.30f,.23f);glVertex2f(1,-.15f);glVertex2f(-1,-.15f);
+ glColor3f(.20f,.30f,.23f);glVertex2f(-1,-.15f);glVertex2f(1,-.15f);
+ glColor3f(.08f,.14f,.12f);glVertex2f(1,-1);glVertex2f(-1,-1);
+ glEnd();
+ glBegin(GL_LINES);
+ glColor3f(.24f,.33f,.28f);
+ for(float x=-3;x<=3;x+=.17f){glVertex2f(x*.24f,-.15f);glVertex2f(x,-1);}
+ for(float y=-.20f;y>-1;y=y*1.23f){glVertex2f(-1,y);glVertex2f(1,y);}
+ glEnd();
+}
+
+DWORD WINAPI previewRenderer(void* mode){
+ PreviewConfig config;
+ {std::lock_guard<std::mutex> lock(previewConfigLock);config=previewConfig;}
+ const HINSTANCE module=GetModuleHandleW(nullptr);
+ const wchar_t* className=L"Sintet.Overlay.LivePreview";
+ WNDCLASSW cls{};
+ cls.style=CS_OWNDC;cls.lpfnWndProc=previewInput;cls.hInstance=module;
+ cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);cls.lpszClassName=className;
+ if(!RegisterClassW(&cls)){SetEvent(previewReady);return 1;}
+ const HWND host=CreateWindowW(className,config.language==1?L"Sintet Overlay – предпросмотр (F11)":L"Sintet Overlay – preview (F11)",
+  WS_POPUP,0,0,previewWidth,previewHeight,nullptr,nullptr,module,nullptr);
+ HDC dc=host?GetDC(host):nullptr;
+ PIXELFORMATDESCRIPTOR format{};
+ format.nSize=sizeof(format);format.nVersion=1;
+ format.dwFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;format.iPixelType=PFD_TYPE_RGBA;format.cColorBits=24;format.cAlphaBits=8;
+ const int pixel=dc?ChoosePixelFormat(dc,&format):0;
+ HGLRC gl=pixel&&SetPixelFormat(dc,pixel,&format)?wglCreateContext(dc):nullptr;
+ bool initialized=false;
+ if(gl&&wglMakeCurrent(dc,gl)){
+  window=host;SintetOverlayStyle::style=config.appearance;SintetOverlayStyle::preview=true;
+  OverlayPreviewLanguage=config.language;
+  initialized=initializeRenderer(config.font.c_str(),true);
+ }
+ if(initialized){
+  visible=true;panelAnimation=0;section=0;sessionStarted=GetTickCount64();
+  previewSocial={};previewSocial.enabled=true;previewSocial.gameReady=true;previewSocial.preGameLobby=true;
+  previewSocial.self={"preview","Player"};
+  previewSocial.friends={{{"alex","Alex"},"online"},{{"steve","Steve"},"offline"},{{"sam","Sam"},"offline"}};
+  buildName.clear();gameVersionLine="Minecraft Java Edition";
+  SintetWidgets::ResetPreview();
+  const float initialScale=interfaceScale/config.appearance.scale;
+  const float fontScale=config.appearance.scale;
+  const auto* renderer=glGetString(GL_RENDERER);
+  gpuRenderer=renderer?reinterpret_cast<const char*>(renderer):"";
+  previewFullscreen=false;
+  previewEmbedded=true;
+  previewInlineActive=reinterpret_cast<uintptr_t>(mode)==1;
+  if(reinterpret_cast<uintptr_t>(mode)==2)setPreviewFullscreen(host,true);
+  std::vector<unsigned char> pixels(previewWidth*previewHeight*4);
+  previewWindow=host;
+  SetEvent(previewReady);
+  bool running=true;
+  while(running){
+   MSG msg;
+   while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)){
+    if(msg.message==WM_QUIT){running=false;break;}
+    TranslateMessage(&msg);DispatchMessageW(&msg);
+   }
+   if(!running)break;
+   {std::lock_guard<std::mutex> lock(previewConfigLock);config.appearance=previewConfig.appearance;}
+   SintetOverlayStyle::style=config.appearance;
+   const float renderScale=config.appearance.scale*(previewEmbedded?.64f:initialScale);
+   interfaceScale=renderScale;
+   ImGui::GetIO().FontGlobalScale=renderScale/(initialScale*fontScale);
+   applyStyle();
+   RECT client{};
+   if((previewFullscreen||previewInlineActive)&&!IsIconic(host)&&GetClientRect(host,&client)&&client.right>0&&client.bottom>0){
+    previewBackdrop(client.right,client.bottom);
+    drawOverlayFrame();
+    if(previewEmbedded){
+     glReadBuffer(GL_BACK);
+     glReadPixels(0,0,previewWidth,previewHeight,GL_RGBA,GL_UNSIGNED_BYTE,pixels.data());
+     std::lock_guard<std::mutex> lock(previewFrameMutex);
+     previewPixels.swap(pixels);
+     pixels.resize(previewWidth*previewHeight*4);
+     if(++previewFrameID==0)++previewFrameID;
+     previewFrameAvailable=true;
+    }else SwapBuffers(dc);
+   }
+   MsgWaitForMultipleObjects(0,nullptr,FALSE,previewFullscreen?16:previewInlineActive?55:250,QS_ALLINPUT);
+  }
+  previewWindow=nullptr;
+  previewFrameAvailable=false;
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplWin32_Shutdown();
+ }else SetEvent(previewReady);
+ if(context){ImGui::DestroyContext(context);context=nullptr;}
+ if(gl){
+  wglMakeCurrent(nullptr,nullptr);
+  wglDeleteContext(gl);
+ }
+ brandTexture=backdropTexture=0;backdropWidth=backdropHeight=0;
+ badgeTextures.clear();badgeCatalog.reset();
+ visible=false;window=nullptr;SintetOverlayStyle::preview=false;OverlayPreviewLanguage=-1;
+ if(dc)ReleaseDC(host,dc);
+ if(IsWindow(host))DestroyWindow(host);
+ UnregisterClassW(className,module);
+ return initialized?0:1;
+}
+
 BOOL WINAPI nativeSwapFrame(HDC dc) {
  {
   // Multiple windows can swap buffers at the same time. ImGui has one context.
@@ -1409,6 +1664,57 @@ float SintetBadgeMark::DrawName(ImDrawList* draw,ImFont* font,float fontSize,ImV
   offset+=slot;
  }
  return offset;
+}
+
+extern "C" __declspec(dllexport) unsigned int WINAPI SintetOverlayPreview(const char* appearance,const char* language,const wchar_t* font,unsigned int mode){
+ if(!appearance||!language||!font||mode>3)return 0;
+ PreviewConfig next;
+ if(!SintetOverlayStyle::Parse(appearance,next.appearance))return 0;
+ next.font=font;
+ const char* codes[]={"en","ru","uk","pt","es"};
+ for(int i=0;i<5;++i)if(std::strcmp(language,codes[i])==0)next.language=i;
+ std::lock_guard<std::mutex> lock(previewControl);
+ {std::lock_guard<std::mutex> configLock(previewConfigLock);previewConfig=std::move(next);}
+ if(HWND host=previewWindow.load()){
+  if(mode)PostMessageW(host,previewResize,mode,0);
+  return 1;
+ }
+ if(!mode||mode==3)return 1;
+ if(previewThread){
+  if(WaitForSingleObject(previewThread,1000)!=WAIT_OBJECT_0)return 0;
+  CloseHandle(previewThread);CloseHandle(previewReady);previewThread=nullptr;previewReady=nullptr;
+ }
+ previewReady=CreateEventW(nullptr,TRUE,FALSE,nullptr);
+ if(!previewReady)return 0;
+ previewThread=CreateThread(nullptr,0,previewRenderer,reinterpret_cast<void*>(static_cast<uintptr_t>(mode)),0,nullptr);
+ if(!previewThread){CloseHandle(previewReady);previewReady=nullptr;return 0;}
+ return WaitForSingleObject(previewReady,3000)==WAIT_OBJECT_0&&previewWindow.load()!=nullptr;
+}
+
+extern "C" __declspec(dllexport) unsigned int WINAPI SintetOverlayPreviewFrame(unsigned char* output,unsigned int size,unsigned int previous){
+ if(!output||size!=previewWidth*previewHeight*4||!previewFrameAvailable)return 0;
+ std::lock_guard<std::mutex> lock(previewFrameMutex);
+ if(!previewFrameAvailable||previewFrameID==previous||previewPixels.size()!=size)return 0;
+ std::memcpy(output,previewPixels.data(),size);
+ return previewFrameID;
+}
+
+extern "C" __declspec(dllexport) void WINAPI SintetOverlayPreviewInput(int kind,int x,int y,int value){
+ if(!previewFrameAvailable||kind<0||kind>7)return;
+ std::lock_guard<std::mutex> lock(previewInputMutex);
+ if(previewEvents.size()>=64)return;
+ if(kind==0&&!previewEvents.empty()&&previewEvents.back().kind==0)previewEvents.back()={kind,x,y,value};
+ else previewEvents.push_back({kind,x,y,value});
+}
+
+extern "C" unsigned int SintetRenderStopPreview(){
+ std::lock_guard<std::mutex> lock(previewControl);
+ if(!previewThread)return 1;
+ if(HWND host=previewWindow.load())PostMessageW(host,WM_CLOSE,0,0);
+ else PostThreadMessageW(GetThreadId(previewThread),WM_QUIT,0,0);
+ if(WaitForSingleObject(previewThread,5000)!=WAIT_OBJECT_0)return 0;
+ CloseHandle(previewThread);CloseHandle(previewReady);previewThread=nullptr;previewReady=nullptr;
+ return 1;
 }
 
 extern "C" void SintetRenderStart(){sessionStarted=GetTickCount64();SintetSocial::Start();SintetMedia::Start();SintetAudio::Start();SintetScreenshot::Start();stopping=false;loaderThread=CreateThread(nullptr,0,loadRenderer,nullptr,0,nullptr);}

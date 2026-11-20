@@ -14,6 +14,7 @@
 #include "screenshot.h"
 #include "social.h"
 #include "widgets.h"
+#include "overlay_style.h"
 #include "badge_marks.h"
 
 namespace SintetWidgets {
@@ -28,6 +29,19 @@ std::wstring networkPinFile;
 float barMotion=0,soundMotion=0,networkMotion=0,performanceMotion=0;
 bool performanceMoved=false;
 ImVec2 performancePosition;
+std::array<SintetAudio::Volume,3> previewVolumes;
+
+std::array<SintetAudio::Volume,3> volumes(){
+ return SintetOverlayStyle::preview?previewVolumes:SintetAudio::Snapshot();
+}
+void setMuted(SintetAudio::Target target,bool muted){
+ if(SintetOverlayStyle::preview)previewVolumes[static_cast<size_t>(target)].muted=muted;
+ else SintetAudio::SetMuted(target,muted);
+}
+void setVolume(SintetAudio::Target target,float level){
+ if(SintetOverlayStyle::preview)previewVolumes[static_cast<size_t>(target)].level=level;
+ else SintetAudio::SetLevel(target,level);
+}
 
 float animate(float& progress,bool show,float delta){
  progress=std::clamp(progress+(show?delta:-delta)/.23f,0.f,1.f);
@@ -38,10 +52,12 @@ bool beginCard(const char* name,ImVec2 position,ImVec2 size,float alpha,float sc
  ImGui::SetNextWindowPos(position);
  ImGui::SetNextWindowSize(size);
  ImGui::PushStyleVar(ImGuiStyleVar_Alpha,alpha);
- ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,12*scale);
+ ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,SintetOverlayStyle::style.rounding*.75f*scale);
  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,1*scale);
  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(0,0));
- ImGui::PushStyleColor(ImGuiCol_WindowBg,ImVec4(.081f,.081f,.085f,.97f));
+ auto surface=SintetOverlayStyle::style.surface;
+ surface.w=SintetOverlayStyle::style.opacity;
+ ImGui::PushStyleColor(ImGuiCol_WindowBg,surface);
  ImGui::PushStyleColor(ImGuiCol_Border,ImVec4(.26f,.26f,.27f,.8f));
  constexpr ImGuiWindowFlags flags=ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoMove|
      ImGuiWindowFlags_NoFocusOnAppearing|ImGuiWindowFlags_NoBringToFrontOnFocus|ImGuiWindowFlags_NoNav|ImGuiWindowFlags_NoScrollWithMouse;
@@ -109,9 +125,11 @@ bool iconButton(const char* id,Icon icon,ImVec2 top,float size,float scale,const
  ImGui::BeginDisabled(!enabled);
  const bool clicked=ImGui::InvisibleButton(id,ImVec2(size,size));
  const bool hovered=ImGui::IsItemHovered();
- const ImVec4 fill=active?ImVec4(.19f,.28f,.23f,1):hovered?ImVec4(.24f,.24f,.25f,1):ImVec4(.16f,.16f,.17f,1);
+ const auto& theme=SintetOverlayStyle::style;
+ const ImVec4 fill=active?SintetOverlayStyle::Blend(theme.surface,theme.accent,.27f):
+     SintetOverlayStyle::Blend(theme.surface,theme.text,hovered?.18f:.10f);
  draw->AddRectFilled(top,ImVec2(top.x+size,top.y+size),ImGui::GetColorU32(fill),7*scale);
- const ImVec4 ink=tint?*tint:active?ImVec4(.69f,.87f,.75f,1):ImVec4(.91f,.91f,.93f,1);
+ const ImVec4 ink=tint?*tint:active?theme.accent:theme.text;
  drawIcon(draw,icon,ImVec2(top.x+size*.5f,top.y+size*.5f),scale,ImGui::GetColorU32(ink));
  if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tooltip);
  ImGui::EndDisabled();
@@ -166,54 +184,66 @@ void drawBattery(ImDrawList* draw,ImVec2 top,float scale,float space){
  if(ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(p(-3,-5),p(space-4,15)))ImGui::SetTooltip("%s%s",percent,clock.powered?OverlayText(" · от сети"):OverlayText(" · от батареи"));
 }
 
-void drawBar(ImVec2 position,float width,float scale,float alpha,bool open,bool compact,float linkWidth,float batteryWidth,
-             ImFont* heading,const SintetSocial::State& network){
+void drawBar(ImVec2 position,float width,float height,float scale,float alpha,bool open,bool compact,bool vertical,
+             float linkWidth,float batteryWidth,ImFont* heading,const SintetSocial::State& network){
  auto p=[&](float x,float y){return ImVec2(position.x+x*scale,position.y+y*scale);};
- if(beginCard("##widget-bar",position,ImVec2(width,52*scale),alpha,scale,open)){
+ if(beginCard("##widget-bar",position,ImVec2(width,height),alpha,scale,open)){
   const float button=compact?28.f:32.f,top=(52-button)*.5f;
   const float step=button+4;
-  float x=8;
-  if(iconButton("##sound",Icon::Audio,p(x,top),button*scale,scale,OverlayText("Звук"),popup==Popup::Sound))
+  float x=8,y=8;
+  auto place=[&](float size){
+   const ImVec2 point=vertical?p((width/scale-size)*.5f,y):p(x,top);
+   if(vertical)y+=step;
+   else x+=size+4;
+   return point;
+  };
+  if(iconButton("##sound",Icon::Audio,place(button),button*scale,scale,OverlayText("Звук"),popup==Popup::Sound))
    popup=popup==Popup::Sound?Popup::None:Popup::Sound;
-  x+=step;
-  if(iconButton("##performance",Icon::Performance,p(x,top),button*scale,scale,OverlayText("Производительность"),performanceOpen)){
+  if(iconButton("##performance",Icon::Performance,place(button),button*scale,scale,OverlayText("Производительность"),performanceOpen)){
    performanceOpen=!performanceOpen;
    if(!performanceOpen)pinned=false;
   }
-  x+=step;
   const auto quality=networkColor(network.quality);
   auto* draw=ImGui::GetWindowDrawList();
-  ImGui::SetCursorScreenPos(p(x,top));
+  const auto link=place(linkWidth);
+  ImGui::SetCursorScreenPos(link);
   if(ImGui::InvisibleButton("##network",ImVec2(linkWidth*scale,button*scale)))
    popup=popup==Popup::Network?Popup::None:Popup::Network;
   const bool hovered=ImGui::IsItemHovered();
-  draw->AddRectFilled(p(x,top),p(x+linkWidth,top+button),
-      ImGui::GetColorU32(hovered||popup==Popup::Network?ImVec4(.24f,.24f,.25f,1):ImVec4(.16f,.16f,.17f,1)),7*scale);
-  drawIcon(draw,Icon::Network,p(x+button*.5f,26),.81f*scale,ImGui::GetColorU32(quality));
+  const auto& theme=SintetOverlayStyle::style;
+  draw->AddRectFilled(link,ImVec2(link.x+linkWidth*scale,link.y+button*scale),
+      ImGui::GetColorU32(SintetOverlayStyle::Blend(theme.surface,theme.text,hovered||popup==Popup::Network?.18f:.10f)),7*scale);
+  drawIcon(draw,Icon::Network,ImVec2(link.x+button*scale*.5f,link.y+button*scale*.5f),.81f*scale,ImGui::GetColorU32(quality));
   const auto delay=ping(network.quality);
-  if(linkWidth>button)draw->AddText(ImGui::GetFont(),(compact?11:13)*scale,p(x+(compact?25:30),19),ImGui::GetColorU32(quality),delay.c_str());
+  if(linkWidth>button)draw->AddText(ImGui::GetFont(),(compact?11:13)*scale,ImVec2(link.x+(compact?25:30)*scale,link.y+(button-13)*scale*.5f),ImGui::GetColorU32(quality),delay.c_str());
   if(hovered)ImGui::SetTooltip(OverlayText("Сеть P2P · %s"),delay.c_str());
-  x+=linkWidth+4;
-  if(iconButton("##screenshot",Icon::Camera,p(x,top),button*scale,scale,OverlayText("Снимок игры · Ctrl + F12")))SintetScreenshot::Request();
-  x+=step;
-  const auto mic=SintetAudio::Snapshot()[2];
+  if(iconButton("##screenshot",Icon::Camera,place(button),button*scale,scale,OverlayText("Снимок игры · Ctrl + F12"),
+                false,!SintetOverlayStyle::preview))SintetScreenshot::Request();
+  const auto mic=volumes()[2];
   const ImVec4 red(.98f,.51f,.50f,1);
-  if(iconButton("##microphone",mic.muted?Icon::MicOff:Icon::Mic,p(x,top),button*scale,scale,
+  if(iconButton("##microphone",mic.muted?Icon::MicOff:Icon::Mic,place(button),button*scale,scale,
                 mic.available?(mic.muted?OverlayText("Включить микрофон Windows"):OverlayText("Выключить микрофон Windows")):OverlayText("Микрофон Windows недоступен"),
                 false,mic.available,mic.muted?&red:nullptr))
-   SintetAudio::SetMuted(SintetAudio::Target::Microphone,!mic.muted);
-  x+=step;
-  if(iconButton("##ghost",ghost?Icon::EyeOff:Icon::Eye,p(x,top),button*scale,scale,
+   setMuted(SintetAudio::Target::Microphone,!mic.muted);
+  if(iconButton("##ghost",ghost?Icon::EyeOff:Icon::Eye,place(button),button*scale,scale,
                 ghost?OverlayText("Показать закреплённые виджеты"):OverlayText("Скрыть закреплённые виджеты"),ghost))ghost=!ghost;
-  x+=step+4;
-  draw->AddLine(p(x,10),p(x,42),ImGui::GetColorU32(ImVec4(.32f,.32f,.33f,.65f)),scale);
-  x+=11;
-  if(batteryWidth>0){drawBattery(draw,p(x,21),scale,batteryWidth);x+=batteryWidth;}
+  const auto divider=ImGui::GetColorU32(SintetOverlayStyle::Blend(theme.surface,theme.text,.28f));
+  if(vertical){
+   draw->AddLine(p(10,y+1),p(width/scale-10,y+1),divider,scale);
+   y+=7;
+   x=10;
+  }else{
+   x+=4;
+   draw->AddLine(p(x,10),p(x,42),divider,scale);
+   x+=11;
+  }
+  if(batteryWidth>0&&!vertical){drawBattery(draw,p(x,21),scale,batteryWidth);x+=batteryWidth;}
   char time[12],date[16];
   std::snprintf(time,sizeof(time),"%02d:%02d",clock.local.wHour,clock.local.wMinute);
   std::snprintf(date,sizeof(date),"%02d.%02d.%04d",clock.local.wDay,clock.local.wMonth,clock.local.wYear);
-  draw->AddText(heading,19*scale,p(x,8),ImGui::GetColorU32(ImGuiCol_Text),time);
-  draw->AddText(ImGui::GetFont(),11*scale,p(x,30),ImGui::GetColorU32(ImGuiCol_TextDisabled),date);
+  draw->AddText(heading,19*scale,p(x,vertical?y:8),ImGui::GetColorU32(ImGuiCol_Text),time);
+  draw->AddText(ImGui::GetFont(),11*scale,p(x,vertical?y+22:30),ImGui::GetColorU32(ImGuiCol_TextDisabled),date);
+  if(vertical&&batteryWidth>0)drawBattery(draw,p(x,y+40),scale,batteryWidth);
  }
  endCard();
 }
@@ -295,7 +325,7 @@ void volumeRow(SintetAudio::Target target,const SintetAudio::Volume& volume,cons
  draw->AddText(ImGui::GetFont(),13*scale,ImVec2(top.x+width-34*scale-valueWidth,top.y),mutedInk,value);
  ImGui::PushID(static_cast<int>(target));
  if(iconButton("##mute",volume.muted?Icon::Muted:Icon::Audio,p(width/scale-24,-4),24*scale,.77f*scale,
-               volume.muted?OverlayText("Включить звук"):OverlayText("Выключить звук"),volume.muted,volume.available))SintetAudio::SetMuted(target,!volume.muted);
+               volume.muted?OverlayText("Включить звук"):OverlayText("Выключить звук"),volume.muted,volume.available))setMuted(target,!volume.muted);
  const auto slider=p(0,21);
  const float length=width-34*scale;
  ImGui::SetCursorScreenPos(slider);
@@ -305,8 +335,8 @@ void volumeRow(SintetAudio::Target target,const SintetAudio::Volume& volume,cons
  const bool released=ImGui::IsItemDeactivated()&&ImGui::IsMouseReleased(ImGuiMouseButton_Left);
  if(volume.available&&(ImGui::IsItemActive()||released)){
   level=std::clamp((ImGui::GetIO().MousePos.x-slider.x)/length,0.f,1.f);
-  SintetAudio::SetLevel(target,level);
-  if(volume.muted)SintetAudio::SetMuted(target,false);
+  setVolume(target,level);
+  if(volume.muted)setMuted(target,false);
  }
  fill+=(level-fill)*(1-std::exp(-delta*22));
  const auto line=p(0,27);
@@ -324,9 +354,9 @@ void drawSound(ImVec2 position,float width,float scale,float alpha,float delta,b
   auto* draw=ImGui::GetWindowDrawList();
   const ImVec2 title(position.x+14*scale,position.y+11*scale);
   draw->AddText(heading,16*scale,title,ImGui::GetColorU32(ImGuiCol_Text),OverlayText("Звук"));
-  const auto volumes=SintetAudio::Snapshot();
-  volumeRow(SintetAudio::Target::Windows,volumes[0],"Windows",ImVec2(title.x,position.y+42*scale),width-28*scale,scale,delta);
-  volumeRow(SintetAudio::Target::Minecraft,volumes[1],"Minecraft",ImVec2(title.x,position.y+96*scale),width-28*scale,scale,delta);
+  const auto current=volumes();
+  volumeRow(SintetAudio::Target::Windows,current[0],"Windows",ImVec2(title.x,position.y+42*scale),width-28*scale,scale,delta);
+  volumeRow(SintetAudio::Target::Minecraft,current[1],"Minecraft",ImVec2(title.x,position.y+96*scale),width-28*scale,scale,delta);
  }
  endCard();
 }
@@ -473,6 +503,13 @@ void LoadPreferences(){
 bool GhostMode(){return ghost;}
 bool NetworkPinned(){return networkPinned;}
 
+void ResetPreview(){
+ popup=Popup::None;
+ performanceOpen=pinned=ghost=networkPinned=performanceMoved=false;
+ barMotion=soundMotion=networkMotion=performanceMotion=0;
+ previewVolumes={{{true,false,.65f},{true,false,.45f},{true,false,.80f}}};
+}
+
 void Draw(bool open,float scale,ImFont* heading,const SintetSocial::State& network,const char* renderer){
  const auto& io=ImGui::GetIO();
  metrics.recordFrame(io.DeltaTime);
@@ -486,28 +523,34 @@ void Draw(bool open,float scale,ImFont* heading,const SintetSocial::State& netwo
  const float linkWidth=compact?(iconsOnly?28.f:59.f):77.f;
  const float batteryWidth=battery?(compact?(iconsOnly?29.f:54.f):61.f):0.f;
  const float margin=12*scale;
- const float barWidth=((compact?261.f:281.f)+linkWidth+batteryWidth)*scale;
+ const auto& theme=SintetOverlayStyle::style;
+ const bool vertical=theme.vertical&&display.y>=(battery?306.f:286.f)*scale;
+ const bool bottom=theme.bottom&&!vertical;
+ const float barWidth=(vertical?91.f:(compact?261.f:281.f)+linkWidth+batteryWidth)*scale;
+ const float barHeight=(vertical?(battery?282.f:262.f):52.f)*scale;
  const float maxX=std::max(margin,display.x-barWidth-margin);
- const float minX=std::min(426*scale,maxX);
- const float barX=std::clamp((display.x-barWidth)*.5f,minX,maxX);
- const float barY=(-52+64*bar)*scale;
+ const float minX=std::min(theme.width*scale+margin,maxX);
+ const float barX=vertical?display.x-margin-barWidth+(barWidth+margin)*(1-bar):std::clamp((display.x-barWidth)*.5f,minX,maxX);
+ const float barY=vertical?margin:bottom?display.y+margin-(barHeight+2*margin)*bar:(-52+64*bar)*scale;
  const bool canShowBar=display.x>=barWidth+2*margin;
- if(bar>0&&canShowBar)drawBar(ImVec2(barX,barY),barWidth,scale,bar,open,compact,linkWidth,batteryWidth,heading,network);
+ if(bar>0&&canShowBar)drawBar(ImVec2(barX,barY),barWidth,barHeight,scale,bar,open,compact||vertical,vertical,vertical?77.f:linkWidth,batteryWidth,heading,network);
 
  const bool sound=open&&popup==Popup::Sound&&canShowBar;
  const bool showNetwork=open&&popup==Popup::Network&&canShowBar;
- SintetAudio::Watch(open&&canShowBar,sound);
+ if(!SintetOverlayStyle::preview)SintetAudio::Watch(open&&canShowBar,sound);
  const float soundAlpha=animate(soundMotion,sound,delta);
  const float networkAlpha=animate(networkMotion,showNetwork,delta);
  if(soundAlpha>0&&canShowBar){
   const float width=std::min(244*scale,display.x-2*margin);
-  const float x=std::clamp(barX+(barWidth-width)*.5f,margin,display.x-width-margin);
-  drawSound(ImVec2(x,barY+(62-9*(1-soundAlpha))*scale),width,scale,soundAlpha*bar,delta,sound,heading);
+  const float x=std::clamp(vertical?barX-width-margin:barX+(barWidth-width)*.5f,margin,display.x-width-margin);
+  const float y=vertical?barY:bottom?barY-156*scale:barY+(62-9*(1-soundAlpha))*scale;
+  drawSound(ImVec2(x,y),width,scale,soundAlpha*bar,delta,sound,heading);
  }
  if(networkAlpha>0&&canShowBar){
   const float width=std::min(320*scale,display.x-2*margin);
-  const float x=std::clamp(barX+(barWidth-width)*.5f,margin,display.x-width-margin);
-  drawNetwork(ImVec2(x,barY+(62-9*(1-networkAlpha))*scale),width,scale,networkAlpha*bar,showNetwork,heading,network);
+  const float x=std::clamp(vertical?barX-width-margin:barX+(barWidth-width)*.5f,margin,display.x-width-margin);
+  const float y=vertical?barY:bottom?std::max(margin,barY-300*scale):barY+(62-9*(1-networkAlpha))*scale;
+  drawNetwork(ImVec2(x,y),width,scale,networkAlpha*bar,showNetwork,heading,network);
  }
 
  const bool showPerformance=performanceOpen&&(open||pinned)&&!(ghost&&pinned);
@@ -515,7 +558,8 @@ void Draw(bool open,float scale,ImFont* heading,const SintetSocial::State& netwo
  const ImVec2 size(296*scale,220*scale);
  if(performance<=0||display.x<size.x+2*margin||display.y<size.y+2*margin)return;
  metrics.readProcess();
- const float maxPerfX=std::max(margin,display.x-size.x-margin),maxPerfY=std::max(margin,display.y-size.y-margin);
+ const float maxPerfX=std::max(margin,display.x-size.x-margin);
+ const float maxPerfY=std::max(margin,display.y-size.y-margin-(bottom?(barHeight+margin)*bar:0));
  const ImVec2 resting=performanceMoved?
      ImVec2(std::clamp(performancePosition.x,margin,maxPerfX),std::clamp(performancePosition.y,margin,maxPerfY)):
      ImVec2(maxPerfX,maxPerfY);

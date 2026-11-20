@@ -74,3 +74,5 @@ html[data-compact-layout] .launcher-settings-nav a {min-height:32px; padding-blo
  :root input[type=checkbox]:not([role=switch],.appearance-switch input) {appearance:auto}
  :root input[type=checkbox]:not([role=switch],.appearance-switch input)::before {display:none}
 }
+.backup-controls {align-items:end; margin-top:12px}
+.backup-controls > button {justify-self:start; min-height:38px}

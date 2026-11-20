@@ -178,7 +178,7 @@
   }
   function mount(root = document) {
     const selects = root.matches?.('select') ? [root] : Array.from(root.querySelectorAll?.('select') || []);
-    selects.forEach(source => { if (!source.multiple && !instances.has(source)) instances.set(source, new SelectControl(source)); });
+    selects.forEach(source => { if (!source.multiple && !source.hasAttribute("data-native-select") && !instances.has(source)) instances.set(source, new SelectControl(source)); });
   }
   mount();
   new MutationObserver(records => {

@@ -16,6 +16,8 @@ import (
 )
 
 type Settings struct {
+	WorldBackup          bool            `json:"worldBackup"`
+	WorldBackupMinutes   int             `json:"worldBackupMinutes"`
 	InterfaceLanguage    string          `json:"interfaceLanguage,omitempty"`
 	GamePreferences      GamePreferences `json:"gamePreferences"`
 	DiscordPresence      bool            `json:"discordPresence"`
@@ -54,7 +56,7 @@ type Configuration struct {
 }
 
 func DefaultSettings(root string) Settings {
-	return Settings{DiscordPresence: true, OverlayEnabled: true, ApplyOverlayFont: true, GameDirectory: root, InstanceMode: "profile", Width: 1280, Height: 720, MemoryMB: 4096, AutoMemory: true, GameStartAction: "tray", CloseAction: "quit", OverlayHotkey: "Shift + Tab"}
+	return Settings{WorldBackupMinutes: 60, DiscordPresence: true, OverlayEnabled: true, ApplyOverlayFont: true, GameDirectory: root, InstanceMode: "profile", Width: 1280, Height: 720, MemoryMB: 4096, AutoMemory: true, GameStartAction: "tray", CloseAction: "quit", OverlayHotkey: "Shift + Tab"}
 }
 func ReadSettings(path string, defaults Settings) (Settings, error) {
 	settings := defaults
@@ -75,6 +77,11 @@ func WriteSettings(path string, settings Settings) error {
 	return accountfiles.Write(path, data)
 }
 func ValidateSettings(s Settings) error {
+	switch s.WorldBackupMinutes {
+	case 0, 15, 30, 60, 120, 240, 1440:
+	default:
+		return fmt.Errorf("недопустимый интервал резервного копирования миров")
+	}
 	if err := s.GamePreferences.validate(); err != nil {
 		return err
 	}
@@ -131,6 +138,8 @@ func EffectiveMemory(settings Settings, total int) int {
 }
 
 type LaunchOptions struct {
+	WorldBackupInterval      time.Duration
+	OverlayAppearance        string
 	GamePreferences          GamePreferences
 	QuickPlayPort            int
 	OpenOverlayLobby         bool
@@ -170,7 +179,15 @@ type LaunchOptions struct {
 }
 
 func (s Settings) LaunchOptions(total int) LaunchOptions {
-	return LaunchOptions{MinMemoryMB: 512, MemoryMB: EffectiveMemory(s, total), Width: s.Width, Height: s.Height, Fullscreen: s.Fullscreen, JavaPath: s.JavaPath, InstanceMode: s.InstanceMode, GamePreferences: s.GamePreferences}
+	var backupInterval time.Duration
+	if s.WorldBackup {
+		minutes := s.WorldBackupMinutes
+		if minutes == 0 {
+			minutes = 60
+		}
+		backupInterval = time.Duration(minutes) * time.Minute
+	}
+	return LaunchOptions{WorldBackupInterval: backupInterval, MinMemoryMB: 512, MemoryMB: EffectiveMemory(s, total), Width: s.Width, Height: s.Height, Fullscreen: s.Fullscreen, JavaPath: s.JavaPath, InstanceMode: s.InstanceMode, GamePreferences: s.GamePreferences}
 }
 
 type JavaInfo struct {

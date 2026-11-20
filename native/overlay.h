@@ -6,4 +6,4 @@ SINTET_API unsigned int WINAPI SintetOverlayStart(void);
 SINTET_API unsigned int WINAPI SintetOverlayStop(void);
 SINTET_API void WINAPI SintetOverlaySetGame(unsigned int pid,const WCHAR *name,const WCHAR *build);
 SINTET_API void WINAPI SintetOverlayEnable(unsigned int enabled);
-SINTET_API void WINAPI SintetOverlayPreview(void);
+SINTET_API unsigned int WINAPI SintetOverlayPreview(const char* appearance,const char* language,const WCHAR* font,unsigned int mode);

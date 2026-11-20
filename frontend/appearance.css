@@ -396,3 +396,21 @@ html[data-text-scale] #logs-dialog .journal-actions button {font-size:calc(12px 
 html[data-text-scale] #logs-dialog :where(pre,.journal-evidence code,.journal-actions span) {
   font-size:calc(11px * var(--text-scale,1));
 }
+.appearance-editor-tabs {position:sticky; top:16px; align-self:start; z-index:1}
+.overlay-preview-actions {
+ display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+ margin:10px 0 8px; padding:8px; border-radius:var(--panel-radius,12px);
+ background:color-mix(in srgb,var(--panel-color,#181818) 94%,var(--text-color,#ededed));
+}
+.overlay-preview-actions button {padding:9px 13px}
+.overlay-preview-stage {position:relative; overflow:hidden; margin:0 0 16px; border-radius:12px; background:#171717}
+#overlay-preview-canvas {display:block; width:100%; height:auto; transform:scaleY(-1); cursor:default; touch-action:none}
+.overlay-preview-stage:focus-within {outline:2px solid var(--accent,#ededed); outline-offset:2px}
+#overlay-preview-canvas:focus {outline:none}
+#overlay-preview-status:not(:empty) {position:absolute; inset:0; display:grid; place-content:center; padding:14px; font-size:12px; color:var(--text-color,#ededed); background:#171717}
+.overlay-inherit-accent {display:flex; align-items:center; gap:8px; margin-bottom:14px}
+.overlay-style-controls {margin-bottom:15px}
+.overlay-style-colors {display:flex; flex-wrap:wrap; gap:10px 22px; margin:0 0 12px}
+.overlay-style-colors label {display:flex; align-items:center; gap:8px}
+.overlay-style-colors input[type=color] {width:32px; height:24px; padding:2px; cursor:pointer}
+@media(max-width:650px){.appearance-editor-tabs{top:8px}}

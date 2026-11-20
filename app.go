@@ -380,6 +380,8 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 		options.PrepareOverlay = a.prepareGameOverlay
 		options.OverlayAvatar = overlayAvatar
 		options.OverlayNetworkPinFile = filepath.Join(a.profiles.root, "overlay-network-pinned")
+		appearance := a.GetAppearance()
+		options.OverlayAppearance = appearance.Overlay.RendererSettings(appearance.Accent)
 		options.OverlayFont = a.overlayFontPath(settings.ApplyOverlayFont)
 	}
 	if a.social != nil && a.social.address != "" {
@@ -409,7 +411,7 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 			observeRun(running)
 		}
 		action := settings.GameStartAction
-		if lobbyLaunch && action == "quit" {
+		if (lobbyLaunch || settings.WorldBackup) && action == "quit" {
 			action = "tray"
 		}
 		a.gameWindowBehavior(running, action)
@@ -424,6 +426,17 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 	a.mu.RUnlock()
 	return err
 }
+func (a *App) OpenWorldBackupFolder() error {
+	a.mu.RLock()
+	root := a.service.Root
+	a.mu.RUnlock()
+	path := filepath.Join(root, "World Backups")
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return err
+	}
+	return exec.Command("explorer.exe", path).Start()
+}
+
 func (a *App) OpenGameFolder() {
 	a.mu.RLock()
 	root := a.settings.GameDirectory

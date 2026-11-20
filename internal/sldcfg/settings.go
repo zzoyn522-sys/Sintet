@@ -1,86 +1,128 @@
 package sldcfg
 
-import "regexp"
+import (
+	"fmt"
+	"regexp"
+)
 
 var backgroundFile = regexp.MustCompile(`^[0-9a-f]{32}\.(png|jpg|jpeg|webp|gif|mp4|webm)$`)
 var appearanceFontFile = regexp.MustCompile(`^[0-9a-f]{32}\.(ttf|otf|woff|woff2)$`)
 var themeColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
+type OverlayAppearance struct {
+	Position          string `json:"position"`
+	Material          string `json:"material"`
+	Surface           string `json:"surface"`
+	Text              string `json:"text"`
+	Accent            string `json:"accent"`
+	Opacity           int    `json:"opacity"`
+	Blur              int    `json:"blur"`
+	Dim               int    `json:"dim"`
+	Scale             int    `json:"scale"`
+	Width             int    `json:"width"`
+	Rounding          int    `json:"rounding"`
+	UseLauncherAccent bool   `json:"useLauncherAccent"`
+}
+
+func DefaultOverlay() OverlayAppearance {
+	return OverlayAppearance{Position: "top", Material: "acrylic", Surface: "#121214", Text: "#ededed", Accent: "#8ec5a2", Opacity: 75, Blur: 8, Dim: 40}
+}
+
+func (p OverlayAppearance) Valid() bool {
+	return (p.Position == "top" || p.Position == "right" || p.Position == "bottom") &&
+		(p.Material == "acrylic" || p.Material == "tint" || p.Material == "solid") &&
+		themeColor.MatchString(p.Surface) && themeColor.MatchString(p.Text) && themeColor.MatchString(p.Accent) &&
+		p.Opacity >= 0 && p.Opacity <= 100 && p.Blur >= 0 && p.Blur <= 24 && p.Dim >= 0 && p.Dim <= 100 &&
+		(p.Scale == 0 || p.Scale >= 75 && p.Scale <= 125) &&
+		(p.Width == 0 || p.Width >= 350 && p.Width <= 520) &&
+		(p.Rounding == 0 || p.Rounding >= 4 && p.Rounding <= 28)
+}
+
+func (p OverlayAppearance) RendererSettings(launcherAccent string) string {
+	accent := p.Accent
+	if p.UseLauncherAccent && themeColor.MatchString(launcherAccent) {
+		accent = launcherAccent
+	}
+	return fmt.Sprintf("%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d",
+		p.Position, p.Material, p.Surface, p.Text, accent, p.Opacity, p.Blur, p.Dim, p.Scale, p.Width, p.Rounding)
+}
+
 type Appearance struct {
-	FontFile             string `json:"fontFile"`
-	BorderWidth          int    `json:"borderWidth"`
-	BorderOpacity        int    `json:"borderOpacity"`
-	Shadow               string `json:"shadow"`
-	ShadowStrength       int    `json:"shadowStrength"`
-	Vignette             int    `json:"vignette"`
-	Grain                int    `json:"grain"`
-	GradientStyle        string `json:"gradientStyle"`
-	GradientShape        string `json:"gradientShape"`
-	GradientAngle        int    `json:"gradientAngle"`
-	GradientOpacity      int    `json:"gradientOpacity"`
-	GradientStart        string `json:"gradientStart"`
-	GradientMiddle       string `json:"gradientMiddle"`
-	GradientEnd          string `json:"gradientEnd"`
-	BarColor             string `json:"barColor"`
-	MutedColor           string `json:"mutedColor"`
-	NavColor             string `json:"navColor"`
-	NavText              string `json:"navText"`
-	NavActive            string `json:"navActive"`
-	NavOpacity           int    `json:"navOpacity"`
-	NavBlur              int    `json:"navBlur"`
-	NavHeight            int    `json:"navHeight"`
-	NavTabWidth          int    `json:"navTabWidth"`
-	NavTabHeight         int    `json:"navTabHeight"`
-	NavTabRadius         int    `json:"navTabRadius"`
-	NavTabGap            int    `json:"navTabGap"`
-	NavTextSize          int    `json:"navTextSize"`
-	ProfileColor         string `json:"profileColor"`
-	ProfileText          string `json:"profileText"`
-	ProfileControl       string `json:"profileControl"`
-	Theme                string `json:"theme"`
-	Font                 string `json:"font"`
-	Accent               string `json:"accent"`
-	Opacity              int    `json:"opacity"`
-	Blur                 int    `json:"blur"`
-	Radius               int    `json:"radius"`
-	Dim                  int    `json:"dim"`
-	Fit                  string `json:"fit"`
-	Gradient             bool   `json:"gradient"`
-	Animate              bool   `json:"animate"`
-	Background           string `json:"background"`
-	CanvasColor          string `json:"canvasColor"`
-	PanelColor           string `json:"panelColor"`
-	TextColor            string `json:"textColor"`
-	Position             string `json:"position"`
-	Compact              bool   `json:"compact"`
-	Borders              bool   `json:"borders"`
-	TextScale            int    `json:"textScale"`
-	TextWeight           int    `json:"textWeight"`
-	ButtonRadius         int    `json:"buttonRadius"`
-	BackgroundBlur       int    `json:"backgroundBlur"`
-	BackgroundEdgeBlur   int    `json:"videoEdgeBlur"` // Preserve settings from the video-only editor.
-	BackgroundSaturation int    `json:"backgroundSaturation"`
-	BackgroundZoom       int    `json:"backgroundZoom"`
-	BackgroundBrightness int    `json:"backgroundBrightness"`
-	BackgroundContrast   int    `json:"backgroundContrast"`
-	BackgroundHue        int    `json:"backgroundHue"`
-	BackgroundGrayscale  int    `json:"backgroundGrayscale"`
-	BackgroundSepia      int    `json:"backgroundSepia"`
-	BackgroundOpacity    int    `json:"backgroundOpacity"`
-	GradientX            int    `json:"gradientX"`
-	GradientY            int    `json:"gradientY"`
-	GradientSize         int    `json:"gradientSize"`
-	MotionSpeed          int    `json:"motionSpeed"`
-	BackgroundEffect     string `json:"backgroundEffect"`
-	WaveColor            string `json:"waveColor"`
-	WaveIntensity        int    `json:"waveIntensity"`
-	WaveAmplitude        int    `json:"waveAmplitude"`
-	WaveTrail            int    `json:"waveTrail"`
-	WaveOffset           int    `json:"waveOffset"`
+	Overlay              OverlayAppearance `json:"overlay"`
+	FontFile             string            `json:"fontFile"`
+	BorderWidth          int               `json:"borderWidth"`
+	BorderOpacity        int               `json:"borderOpacity"`
+	Shadow               string            `json:"shadow"`
+	ShadowStrength       int               `json:"shadowStrength"`
+	Vignette             int               `json:"vignette"`
+	Grain                int               `json:"grain"`
+	GradientStyle        string            `json:"gradientStyle"`
+	GradientShape        string            `json:"gradientShape"`
+	GradientAngle        int               `json:"gradientAngle"`
+	GradientOpacity      int               `json:"gradientOpacity"`
+	GradientStart        string            `json:"gradientStart"`
+	GradientMiddle       string            `json:"gradientMiddle"`
+	GradientEnd          string            `json:"gradientEnd"`
+	BarColor             string            `json:"barColor"`
+	MutedColor           string            `json:"mutedColor"`
+	NavColor             string            `json:"navColor"`
+	NavText              string            `json:"navText"`
+	NavActive            string            `json:"navActive"`
+	NavOpacity           int               `json:"navOpacity"`
+	NavBlur              int               `json:"navBlur"`
+	NavHeight            int               `json:"navHeight"`
+	NavTabWidth          int               `json:"navTabWidth"`
+	NavTabHeight         int               `json:"navTabHeight"`
+	NavTabRadius         int               `json:"navTabRadius"`
+	NavTabGap            int               `json:"navTabGap"`
+	NavTextSize          int               `json:"navTextSize"`
+	ProfileColor         string            `json:"profileColor"`
+	ProfileText          string            `json:"profileText"`
+	ProfileControl       string            `json:"profileControl"`
+	Theme                string            `json:"theme"`
+	Font                 string            `json:"font"`
+	Accent               string            `json:"accent"`
+	Opacity              int               `json:"opacity"`
+	Blur                 int               `json:"blur"`
+	Radius               int               `json:"radius"`
+	Dim                  int               `json:"dim"`
+	Fit                  string            `json:"fit"`
+	Gradient             bool              `json:"gradient"`
+	Animate              bool              `json:"animate"`
+	Background           string            `json:"background"`
+	CanvasColor          string            `json:"canvasColor"`
+	PanelColor           string            `json:"panelColor"`
+	TextColor            string            `json:"textColor"`
+	Position             string            `json:"position"`
+	Compact              bool              `json:"compact"`
+	Borders              bool              `json:"borders"`
+	TextScale            int               `json:"textScale"`
+	TextWeight           int               `json:"textWeight"`
+	ButtonRadius         int               `json:"buttonRadius"`
+	BackgroundBlur       int               `json:"backgroundBlur"`
+	BackgroundEdgeBlur   int               `json:"videoEdgeBlur"` // Preserve settings from the video-only editor.
+	BackgroundSaturation int               `json:"backgroundSaturation"`
+	BackgroundZoom       int               `json:"backgroundZoom"`
+	BackgroundBrightness int               `json:"backgroundBrightness"`
+	BackgroundContrast   int               `json:"backgroundContrast"`
+	BackgroundHue        int               `json:"backgroundHue"`
+	BackgroundGrayscale  int               `json:"backgroundGrayscale"`
+	BackgroundSepia      int               `json:"backgroundSepia"`
+	BackgroundOpacity    int               `json:"backgroundOpacity"`
+	GradientX            int               `json:"gradientX"`
+	GradientY            int               `json:"gradientY"`
+	GradientSize         int               `json:"gradientSize"`
+	MotionSpeed          int               `json:"motionSpeed"`
+	BackgroundEffect     string            `json:"backgroundEffect"`
+	WaveColor            string            `json:"waveColor"`
+	WaveIntensity        int               `json:"waveIntensity"`
+	WaveAmplitude        int               `json:"waveAmplitude"`
+	WaveTrail            int               `json:"waveTrail"`
+	WaveOffset           int               `json:"waveOffset"`
 }
 
 func Default() Appearance {
-	return Appearance{Theme: "original", Font: "default", Accent: "#ededed", BorderWidth: 1, BorderOpacity: 8, Shadow: "off", ShadowStrength: 40, GradientStyle: "classic", GradientShape: "linear",
+	return Appearance{Overlay: DefaultOverlay(), Theme: "original", Font: "default", Accent: "#ededed", BorderWidth: 1, BorderOpacity: 8, Shadow: "off", ShadowStrength: 40, GradientStyle: "classic", GradientShape: "linear",
 		GradientAngle: 145, GradientOpacity: 45, GradientStart: "#6142a5", GradientMiddle: "#3957a2", GradientEnd: "#151329",
 		BarColor: "#101010", MutedColor: "#a0a0a0",
 		NavOpacity: 100, NavHeight: 55, NavTabWidth: 130, NavTabHeight: 39, NavTabRadius: 11, NavTabGap: 52, NavTextSize: 15,
@@ -95,7 +137,7 @@ func (p Appearance) Valid() bool {
 			return false
 		}
 	}
-	return (p.Theme == "original" || p.Theme == "slate" || p.Theme == "midnight" || p.Theme == "warm") &&
+	return p.Overlay.Valid() && (p.Theme == "original" || p.Theme == "slate" || p.Theme == "midnight" || p.Theme == "warm") &&
 		(p.Font == "default" || p.Font == "segoe" || p.Font == "arial" || p.Font == "georgia" || p.Font == "mono" || p.Font == "verdana" || p.Font == "calibri" || (p.Font == "custom" && p.FontFile != "")) &&
 		themeColor.MatchString(p.Accent) && themeColor.MatchString(p.CanvasColor) &&
 		themeColor.MatchString(p.PanelColor) && themeColor.MatchString(p.TextColor) &&

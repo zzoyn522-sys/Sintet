@@ -83,6 +83,9 @@ func (a *App) GetAppearance() Appearance {
 func (a *App) DefaultAppearance() Appearance { return defaultAppearance() }
 
 func (a *App) SaveAppearance(settings Appearance) error {
+	if settings.Overlay == (sldcfg.OverlayAppearance{}) {
+		settings.Overlay = sldcfg.DefaultOverlay()
+	}
 	if !settings.Valid() {
 		return errors.New("Проверь параметры оформления и размер окна.")
 	}
