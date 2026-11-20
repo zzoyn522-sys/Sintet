@@ -28,11 +28,12 @@ type lobbyMemberState struct {
 	lobbyPreparation
 }
 type lobbyExchange struct {
-	WorldReady    bool               `json:"worldReady"`
-	NoPack        bool               `json:"noPack,omitempty"`
-	Digest        string             `json:"digest"`
-	Members       []lobbyMemberState `json:"members"`
-	RosterVersion uint64             `json:"rosterVersion,omitempty"`
+	WorldReady       bool               `json:"worldReady"`
+	MixedUnavailable bool               `json:"mixedUnavailable,omitempty"`
+	NoPack           bool               `json:"noPack,omitempty"`
+	Digest           string             `json:"digest"`
+	Members          []lobbyMemberState `json:"members"`
+	RosterVersion    uint64             `json:"rosterVersion,omitempty"`
 }
 type lobbyReport struct {
 	lobbyPreparation
@@ -239,7 +240,7 @@ func (m *socialManager) launchLobbyHost(ctx context.Context) error {
 	if m.app.State().Running {
 		return errors.New("Minecraft уже запущен; открой мир для сети")
 	}
-	return m.app.Launch(profile, "Player")
+	return m.app.Launch(profile, m.lobbyPlayerName())
 }
 
 func allowedLobbyPhase(phase string) bool {
@@ -256,15 +257,15 @@ func (m *socialManager) hostLobbyHandler(peerID, guest string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		m.mu.Lock()
 		snapshot, room, account := m.hostPack, m.state.Room, m.account
-		authorized := false
+		var membership *socialPeer
 		for _, peer := range m.state.Peers {
 			if peer.ID == peerID && peer.Guest == guest {
-				authorized = true
+				membership = &peer
 				break
 			}
 		}
 		m.mu.Unlock()
-		if room == nil || room.Host != account || !authorized {
+		if room == nil || room.Host != account || membership == nil {
 			http.Error(w, "Lobby unavailable", 403)
 			return
 		}
@@ -325,6 +326,10 @@ func (m *socialManager) hostLobbyHandler(peerID, guest string) http.Handler {
 			m.rosterVersion++
 		}
 		result := lobbyExchange{WorldReady: m.state.WorldReady, NoPack: manual, Digest: digest, RosterVersion: m.rosterVersion}
+		if result.WorldReady && m.mixedPeerLocked(*membership) && (!m.mixedWorldReadyLocked() || membership.GameProfile == nil) {
+			result.WorldReady = false
+			result.MixedUnavailable = true
+		}
 		if report.RosterVersion != result.RosterVersion {
 			for _, member := range m.state.Members {
 				if member.Leader {
@@ -417,6 +422,9 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 		m.gameCommandPort = 0
 		m.gameJoinUntil = time.Time{}
 		m.state.Status = "Ждём, пока лидер откроет мир для сети"
+		if result.MixedUnavailable {
+			m.state.Status = "Вход с разными профилями недоступен в текущем Minecraft хоста"
+		}
 	case m.gameCommandEpoch == epoch && m.gameCommandPort != 0 && m.gameCommandPort == m.state.LocalPort && now.Before(m.gameCommandUntil):
 		// Preserve the menu/handoff stage while the Java bridge is still waiting.
 	case m.gameCommandEpoch == epoch && m.state.LocalPort != 0 && now.Before(m.gameJoinUntil):

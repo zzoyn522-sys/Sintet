@@ -454,6 +454,10 @@ func overlayEnvironment(r Receipt, name string, options LaunchOptions) []string 
 		version := strings.TrimSuffix(strings.TrimPrefix(r.LoaderVersion, base+"-"), "-"+base)
 		loader += " " + version
 	}
+	provider := options.IdentityProvider
+	if provider == "" {
+		provider = "local"
+	}
 	return []string{
 		"SINTET_OVERLAY_OPEN_LOBBY=" + strconv.FormatBool(options.OpenOverlayLobby),
 		"SINTET_OVERLAY_LANGUAGE=" + options.InterfaceLanguage,
@@ -461,6 +465,7 @@ func overlayEnvironment(r Receipt, name string, options LaunchOptions) []string 
 		"SINTET_OVERLAY_HOTKEY_KEY=" + strconv.Itoa(key),
 		"SINTET_OVERLAY_HOTKEY_MODS=" + strconv.Itoa(modifiers),
 		"SINTET_OVERLAY_PLAYER=" + name,
+		"SINTET_OVERLAY_PROVIDER=" + provider,
 		"SINTET_OVERLAY_VERSION=" + base,
 		"SINTET_OVERLAY_LOADER=" + loader,
 		"SINTET_OVERLAY_BUILD_NAME=" + options.OverlayBuildName,

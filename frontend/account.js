@@ -2,6 +2,57 @@
  const dialog=document.querySelector('#account-dialog'),trigger=document.querySelector('#account-button'),status=document.querySelector('#account-status');
  let account=null,provider='sintet',accountError='';
  const defaultAvatar='assets/brand/default-avatar.webp';
+ let badgeCatalog=new Map(),badgeCatalogSnapshot='',badgeCatalogRequest=0;
+ async function refreshBadges(force=false){
+  const request=++badgeCatalogRequest;
+  try{
+   const response=await fetch('https://sintet-identity.zzoyn522.workers.dev/api/profile-badges',force?{cache:'no-store'}:undefined);
+   if(!response.ok)return;
+   const {items}=await response.json();
+   if(request!==badgeCatalogRequest||!Array.isArray(items))return;
+   const next=new Map();
+   for(const item of items.slice(0,256)){
+    if(!item||typeof item.id!=='string'||!/^[a-z0-9][a-z0-9-]{0,39}$/.test(item.id)||
+       typeof item.label!=='string'||item.label.length>80||typeof item.png!=='string'||
+       item.png.length>32000||!/^iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(item.png))continue;
+    next.set(item.id,{src:'data:image/png;base64,'+item.png,label:item.label});
+   }
+   const snapshot=JSON.stringify([...next]);
+   if(snapshot===badgeCatalogSnapshot)return;
+   badgeCatalogSnapshot=snapshot;
+   badgeCatalog=next;
+   window.dispatchEvent(new Event('sintet:profile-badges'));
+  }catch{ /* Keep the last catalog while the network is unavailable. */ }
+ }
+ function renderName(target,name,person){
+  let label=target.firstElementChild;
+  if(!label?.classList.contains('account-display-label')){
+   label=document.createElement('span');
+   label.className='account-display-label';
+   target.classList.add('account-display-name');
+   target.replaceChildren(label);
+  }
+  if(label.textContent!==name)label.textContent=name;
+  const badges=Array.isArray(person?.badges)?person.badges:[];
+  const wanted=[...new Set(badges)].filter(id=>badgeCatalog.has(id));
+  const current=[...target.querySelectorAll('.account-role-badge')];
+  if(current.length===wanted.length&&current.every((image,i)=>{
+   const item=badgeCatalog.get(wanted[i]);
+   return image.dataset.badge===wanted[i]&&image.getAttribute('src')===item.src&&image.title===item.label;
+  }))return;
+  current.forEach(image=>image.remove());
+  label.after(...wanted.map(id=>{
+   const item=badgeCatalog.get(id);
+   const image=document.createElement('img');
+   image.className='account-role-badge';
+   image.dataset.badge=id;
+   image.src=item.src;
+   image.alt=item.label;
+   image.title=item.label;
+   image.draggable=false;
+   return image;
+  }));
+ }
  function showAvatar(target,name,url){
   if(!target)return;
   const initial=name[0]?.toUpperCase()||'P';
@@ -75,7 +126,21 @@
   }
  }
  window.addEventListener('sintet:settings',()=>void refreshActivity());
- document.querySelector('#account-handle').addEventListener('click',()=>settingsLink.click());
+ document.querySelector('#account-handle').addEventListener('click',async()=>{
+  if(provider==='sintet'){settingsLink.click();return;}
+  const handle=window.SintetLobbyProfile?.handle;
+  if(!handle)return;
+  try{await navigator.clipboard.writeText('@'+handle);toast('Юзернейм скопирован')}catch{}
+ });
+ const avatarChange=document.querySelector('#account-lobby-avatar');
+ avatarChange.addEventListener('click',async()=>{
+  avatarChange.disabled=true;
+  try{
+   const address=await window.go?.main?.App?.ChangeLobbyAvatar();
+   if(address){toast('Аватарка обновлена');void syncProfile();}
+  }catch(error){toast(String(error))}
+  finally{avatarChange.disabled=false}
+ });
  settingsLink.addEventListener('click',()=>window.go?.main?.App?.OpenAccountSettings().catch(()=>toast('Не удалось открыть настройки')));
  function applyGlow(colors){
   ['start','middle','end'].forEach((stop,index)=>{
@@ -106,15 +171,19 @@
  function syncProfile(){
   const name=document.querySelector('#profile-name').textContent;
   const online=!!account&&provider!=='local';
-  document.querySelector('#account-title').textContent=name;
   const handle=document.querySelector('#account-handle');
-  handle.hidden=provider!=='sintet'||!account?.id;
-  handle.textContent=account?.handle?'@'+account.handle:'Задать юзернейм на сайте';
-  handle.title='Настройки Sintet ID';
+  const candidate=window.SintetLobbyProfile;
+  const lobby=candidate?.provider===provider&&(provider!=='sintet'||candidate.id===account?.id)?candidate:null;
+  renderName(document.querySelector('#account-title'),name,lobby);
+  const username=provider==='sintet'?account?.handle:lobby?.handle;
+  handle.hidden=provider==='sintet'?!account?.id:!username;
+  handle.textContent=username?'@'+username:'Задать юзернейм на сайте';
+  handle.title=provider==='sintet'?'Настройки Sintet ID':'Скопировать юзернейм для лобби';
+  avatarChange.hidden=provider!=='microsoft'&&provider!=='ely';
   const idButton=document.querySelector('#account-id');
   idButton.hidden=!account?.id;
   document.querySelector('#account-id-value').textContent=account?.id||'';
-  const avatarURL=provider==='sintet'?account?.avatarURL||'':'';
+  const avatarURL=(provider==='sintet'?account?.avatarURL:lobby?.avatarUrl)||'';
   const statsID=provider==='sintet'?account?.id||'':'';
   document.querySelector('#account-email').hidden=!statsID;
   document.querySelector('#account-email-value').textContent=statsID?(account.email||'Не указана'):'';
@@ -130,7 +199,9 @@
   document.querySelector('#account-provider-details').hidden=!online;
   if(online){
    const ely=provider==='ely', microsoft=provider==='microsoft';
-   document.querySelector('#account-skin-logo').src=microsoft?'assets/brand/microsoft.svg':'assets/brand/'+(ely?'ely':'sintet-id')+'-icon-light.svg';
+   const skinLogo=document.querySelector('#account-skin-logo');
+   const skinLogoSrc=microsoft?'assets/brand/microsoft.svg':'assets/brand/'+(ely?'ely':'sintet-id')+'-icon-light.svg';
+   if(skinLogo.getAttribute('src')!==skinLogoSrc)skinLogo.src=skinLogoSrc;
    document.querySelector('#account-skin-provider').textContent=microsoft?'Microsoft':ely?'Ely.by':'Sintet ID';
    document.querySelector('#account-skin-description').textContent=microsoft?'Скин из профиля Minecraft':ely?'Скин из профиля Ely.by':'Скин из профиля Sintet ID';
   }
@@ -185,8 +256,8 @@
 
  function close(){dialog.close()}
  trigger.addEventListener('click',()=>{
-  dialog.showModal();
   syncProfile();
+  dialog.showModal();
   void refreshActivity();
   clearInterval(activityTimer);
   activityTimer=setInterval(refreshActivity,3000);
@@ -204,5 +275,10 @@
  dialog.addEventListener('pointerdown',e=>{backdropDown=e.target===dialog&&outside(e)});dialog.addEventListener('click',e=>{if(backdropDown&&e.target===dialog&&outside(e))close();backdropDown=false});
  document.querySelector('#sintet-id-login').addEventListener('click',()=>window.SintetIdentity?.login());document.querySelector('#ely-login').addEventListener('click',()=>window.SintetIdentity?.loginEly());
  window.addEventListener('sintet:profile',syncProfile);
- window.SintetAccount={renderAvatar,setAccount(value,source='sintet',error=''){account=value;provider=source;accountError=error;syncProfile()}};syncProfile();
+ window.addEventListener('sintet:lobby-profile',syncProfile);
+ window.addEventListener('sintet:profile-badges',syncProfile);
+ window.addEventListener('sintet:badge-catalog',()=>void refreshBadges(true));
+ refreshBadges();
+ setInterval(refreshBadges,60000);
+ window.SintetAccount={renderAvatar,renderName,setAccount(value,source='sintet',error=''){account=value;provider=source;accountError=error;syncProfile()}};syncProfile();
 })();

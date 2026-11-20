@@ -14,6 +14,7 @@
 #include "screenshot.h"
 #include "social.h"
 #include "widgets.h"
+#include "badge_marks.h"
 
 namespace SintetWidgets {
 namespace {
@@ -252,10 +253,13 @@ void drawNetwork(ImVec2 position,float width,float scale,float alpha,bool open,I
    const float section=(width/scale-28)/3;
    const char* latency=network.leader?OverlayText("Макс. пинг"):OverlayText("Пинг до хоста");
    draw->AddText(font,12*scale,p(14,45),muted,latency);
-   draw->AddText(font,12*scale,p(14+section,45),muted,OverlayText("Потери проб"));
+   const auto lossLabel=p(14+section,45);
+   labelClipped(draw,font,12*scale,lossLabel,(section-4)*scale,muted,OverlayText("Потери пакетов"));
    draw->AddText(font,12*scale,p(14+section*2,45),muted,OverlayText("Туннель"));
    draw->AddText(heading,16*scale,p(14,63),ImGui::GetColorU32(networkColor(quality)),ping(quality).c_str());
    draw->AddText(heading,16*scale,p(14+section,63),ink,loss);
+   if(open&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(lossLabel,p(14+section*2,79)))
+    ImGui::SetTooltip("%s",OverlayText("Доля проверочных пакетов без ответа за последние 12 секунд."));
    draw->AddText(heading,16*scale,p(14+section*2,63),ink,speed);
    for(size_t i=0;i<network.networkPeers.size();++i){
     const auto& peer=network.networkPeers[i];
@@ -263,7 +267,9 @@ void drawNetwork(ImVec2 position,float width,float scale,float alpha,bool open,I
     const auto color=ImGui::GetColorU32(networkColor(peer.quality));
     draw->AddRectFilled(p(12,y-3),p(width/scale-12,y+36),ImGui::GetColorU32(ImVec4(.12f,.12f,.13f,1)),7*scale);
     draw->AddCircleFilled(p(23,y+8),3*scale,color);
-    labelClipped(draw,heading,13*scale,p(32,y+1),width-48*scale,ink,peer.name.c_str());
+    const auto namePos=p(32,y+1);
+    const float nameWidth=width-48*scale,iconSize=12*scale;
+    SintetBadgeMark::DrawName(draw,heading,13*scale,namePos,nameWidth,ink,peer.name,iconSize,peer.provider,peer.badges,open);
     char values[80];
     if(peer.quality.loss>=0)std::snprintf(values,sizeof(values),OverlayText("%s  ·  %.0f%%  ·  %.1f КБ/с"),ping(peer.quality).c_str(),peer.quality.loss,peer.quality.kbPerSec);
     else std::snprintf(values,sizeof(values),OverlayText("%s  ·  –  ·  %.1f КБ/с"),ping(peer.quality).c_str(),peer.quality.kbPerSec);

@@ -59,4 +59,8 @@ func TestScopedReleasesStillRequireSignatureAndDoNotTreatCurrentStableAsAnError(
 	if releaseVersionLabel("0.9.9.1", "test") != "0.9.9 TEST" || releaseVersionLabel("0.9.9", "") != "0.9.9" {
 		t.Fatal("test release not clearly labeled")
 	}
+	if !versionIsNewer("1.10.0.1", "0.9.25.79") || !versionIsNewer("1.10.0.1", "1.10.0.0") ||
+		!versionIsNewer("1.10.1.0", "1.10.0.1") || releaseVersionLabel("1.10.0.1", "") != "1.10.0.1" {
+		t.Fatal("four-part stable release version is ordered or labeled incorrectly")
+	}
 }

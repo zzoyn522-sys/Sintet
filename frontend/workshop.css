@@ -79,8 +79,9 @@
 .ws-resource-footer .ws-action{font-size:11px;padding:10px 13px;min-width:97px}
 .ws-resource-grid>.ws-empty{grid-column:1/-1}
 
-html[data-launcher-panels] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.mod-card,.ws-resource-card,.ws-build-card,.ws-empty),
-html[data-launcher-panels] .ws-dialog {
+html[data-launcher-panels] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.mod-card,.ws-resource-card,.ws-build-card,.ws-empty,.ws-skeleton:not(.ws-skeleton--lines)),
+html[data-launcher-panels] .ws-dialog,
+html[data-launcher-panels] :where(.ws-dialog) :where(.ws-skeleton:not(.ws-skeleton--lines)) {
   background-color: color-mix(in srgb, var(--launcher-surface,#171717) var(--launcher-opacity), transparent);
   backdrop-filter: blur(var(--launcher-blur));
   border-radius: var(--launcher-radius);
@@ -91,7 +92,8 @@ html[data-launcher-panels] #workshop :is(.mod-card,.ws-resource-card,.ws-build-c
 html[data-launcher-panels] .ws-dialog .ws-mod-info {
   background-color: color-mix(in srgb,var(--launcher-surface,#121212) var(--launcher-opacity),transparent);
 }
-html[data-panel-borders] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-resource-card,.ws-build-card,.ws-empty) {
+html[data-panel-borders] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-resource-card,.ws-build-card,.ws-empty,.ws-skeleton:not(.ws-skeleton--lines)),
+html[data-panel-borders] :where(.ws-dialog) :where(.ws-skeleton:not(.ws-skeleton--lines)) {
   outline: var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
   outline-offset: -1px;
 }
@@ -106,7 +108,7 @@ html[data-panel-shadow] #workshop .ws-main {
   margin: -20px -14px -12px;
   padding: 20px 45px 56px 42px;
 }
-html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-resource-card,.ws-build-card,.ws-empty) {
+html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-resource-card,.ws-build-card,.ws-empty,.ws-skeleton:not(.ws-skeleton--lines)) {
   box-shadow: var(--panel-shadow);
 }
 .ws-sidebar .ws-categories {min-height:0;overflow-y:auto;scrollbar-width:thin}
@@ -556,7 +558,7 @@ html[data-launcher-panels] .ws-theme-gallery>footer,html[data-launcher-panels] .
 .ws-theme-badge.active{color:#b1d9ba;background:#233128}
 
 /* Workshop selection and cross-catalog sources */
-#workshop .ws-toolbar[data-bulk] > :is(#ws-create-build,#ws-theme-toolbar,.mods-search) { display:none; }
+#workshop .ws-toolbar[data-bulk] > :is(#ws-build-file-actions,#ws-theme-toolbar,.mods-search) { display:none; }
 .ws-bulk-toolbar:not([hidden]) { display:flex; align-items:center; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
 #ws-bulk-hint { margin-top:3px; color:#9b9b9b; font-size:10px; line-height:1.3; }
 #ws-bulk-count { padding-inline:6px; color:#a9c7ff; font-size:12px; font-weight:650; white-space:nowrap; }
@@ -1050,7 +1052,7 @@ html:not([data-launcher-panels],[data-panel-borders]) .ws-dialog.ws-build-manage
 .ws-build-manage .ws-build-variant p { font-size: 12px; }
 .ws-build-manage .ws-build-section :is(input[type=text],input:not([type]),input[type=number],select,.s-select-trigger) { height: 38px; }
 .ws-build-manage .ws-build-panel { scrollbar-color: var(--build-hover) transparent; }
-.ws-build-manage .ws-build-panel :is(.ws-build-mod,.ws-build-no-mods,.shared-catalog-project) {
+.ws-build-manage .ws-build-panel :is(.ws-build-mod,.ws-build-no-mods,.shared-catalog-project,.ws-skeleton:not(.ws-skeleton--lines)) {
   background: var(--build-tile);
   border-radius: var(--build-radius);
   outline: var(--build-outline);
@@ -1199,3 +1201,104 @@ html[data-compact-layout] .ws-build-manage :is(.ws-build-control-card,.shared-bu
  .ws-utility-body { padding-inline: 15px; }
  .ws-utility-dialog .ws-build-header { padding-inline-start: 15px; }
 }
+
+/* Catalog placeholders follow the geometry of the lists they stand in for. */
+.ws-skeleton-group{display:contents}
+.ws-skeleton {
+  --ws-skeleton-surface:var(--build-surface,var(--launcher-surface,#171717));
+  --ws-skeleton-ink:var(--build-ink,var(--custom-text,#ededed));
+  --ws-skeleton-muted:var(--build-muted,var(--custom-muted,#a0a0a0));
+  --ws-skeleton-opacity:var(--build-opacity,var(--launcher-opacity,100%));
+  --ws-skeleton-accent:var(--launcher-accent,var(--ws-skeleton-ink));
+  --ws-skeleton-fill:color-mix(in srgb,var(--ws-skeleton-surface),var(--ws-skeleton-ink) 13%);
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:13px;
+  min-width:0;
+  min-height:92px;
+  padding:15px;
+  overflow:hidden;
+  border-radius:12px;
+  background-color:var(--ws-skeleton-surface);
+  pointer-events:none;
+}
+.ws-skeleton::after {
+  content:'';
+  position:absolute;
+  inset:0;
+  --ws-skeleton-glint:color-mix(in srgb,var(--ws-skeleton-ink),var(--ws-skeleton-accent) 60%);
+  background:linear-gradient(105deg,transparent 25%,color-mix(in srgb,var(--ws-skeleton-glint) 10%,transparent) 49%,transparent 73%);
+  animation:ws-skeleton-sweep 1.95s linear infinite;
+}
+.ws-skeleton:nth-child(even)::after{animation-delay:-.14s}
+@keyframes ws-skeleton-sweep {
+  from{transform:translateX(-100%)}
+  to{transform:translateX(100%)}
+}
+.ws-skeleton-stack{display:grid;gap:7px;flex:1;min-width:0}
+.ws-skeleton-block {
+  display:block;
+  flex:none;
+  border-radius:4px;
+  background-color:color-mix(in srgb,var(--ws-skeleton-fill) var(--ws-skeleton-opacity),transparent);
+}
+.ws-skeleton-block:is(.ws-skeleton-description,.ws-skeleton-description-tail,.ws-skeleton-short,.ws-skeleton-meta-line,.ws-skeleton-meta-line-short) {
+  --ws-skeleton-fill:color-mix(in srgb,var(--ws-skeleton-surface),var(--ws-skeleton-muted) 15%);
+}
+.ws-skeleton-icon{width:47px;height:47px;border-radius:10px}
+.ws-skeleton-title{width:min(64%,196px);height:calc(13px * var(--text-scale,1))}
+.ws-skeleton-description{width:min(94%,355px);height:8px}
+.ws-skeleton-description-tail{width:min(68%,238px);height:8px}
+.ws-skeleton-short{width:66px;max-width:75%;height:8px}
+.ws-skeleton-stack + .ws-skeleton-stack{flex:0 0 clamp(54px,12vw,120px)}
+.ws-skeleton-meta-title{width:54%;height:13px}
+.ws-skeleton-meta-line{width:85%;height:7px}
+.ws-skeleton-meta-line-short{width:62%;height:7px}
+.ws-skeleton-badge{width:53px;height:19px}
+.ws-skeleton-action {
+  --ws-skeleton-fill:color-mix(in srgb,var(--ws-skeleton-surface),var(--ws-skeleton-accent) 24%);
+  width:clamp(62px,10vw,103px);
+  height:36px;
+  border-radius:var(--build-control-radius,8px);
+}
+html[data-button-radius] .ws-skeleton-action {border-radius:var(--button-radius)}
+.ws-skeleton--theme{min-height:77px}
+.ws-skeleton--theme .ws-skeleton-icon{width:67px;height:45px}
+.ws-skeleton--tile{display:block;padding:0;border-radius:15px}
+.ws-skeleton-cover{width:100%;height:155px;border-radius:0}
+.ws-skeleton--tile .ws-skeleton-stack{gap:10px;padding:16px}
+.ws-skeleton--tile .ws-skeleton-title{margin-bottom:1px}
+.ws-skeleton-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
+.ws-skeleton--shared,.ws-skeleton--compact{gap:10px;min-height:58px;padding:8px}
+.ws-skeleton--shared .ws-skeleton-icon,.ws-skeleton--compact .ws-skeleton-icon{width:36px;height:36px;border-radius:8px}
+.ws-skeleton--compact .ws-skeleton-action{width:68px;height:29px}
+.ws-skeleton--lines{min-height:0;padding:6px 0;background:transparent;border-radius:5px}
+.ws-skeleton--lines .ws-skeleton-title{width:min(75%,240px);height:10px}
+.ws-skeleton--lines .ws-skeleton-short{width:min(47%,150px)}
+html[data-compact-layout] #workshop :is(.ws-skeleton--mod,.ws-skeleton--theme){min-height:58px;padding:8px 13px}
+@media(max-width:770px) {
+ .ws-skeleton:not(.ws-skeleton--tile)>.ws-skeleton-stack+.ws-skeleton-stack{display:none}
+}
+@media(prefers-reduced-motion:reduce) {
+ .ws-skeleton::after{animation:none;display:none}
+}
+
+.ws-build-file-actions {display:flex; align-items:center; flex-wrap:wrap; gap:7px}
+.ws-build-file-actions[hidden],#ws-pack-import-warnings[hidden] {display:none}
+#ws-import-pack {display:inline-flex; align-items:center; gap:7px; white-space:nowrap}
+#ws-import-pack svg {width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round}
+.ws-pack-import-details {
+ display:grid; grid-template-columns:1fr 1fr; gap:8px;
+}
+.ws-pack-import-details > div {
+ display:grid; gap:4px; padding:10px 12px; border-radius:var(--build-control-radius,8px);
+ background:var(--build-control,#252525); color:var(--build-ink,#e5e5e5);
+}
+.ws-pack-import-details span {font-size:12px; opacity:.7}
+#ws-pack-import-warnings {
+ margin:0; padding:10px 15px 10px 30px; border-radius:8px;
+ color:#ecc76f; background:#dba5291a; font-size:12px; line-height:1.55;
+}
+#ws-pack-import-status:empty {display:none}
+#ws-pack-import-status {font-size:12px; color:#efaaaa; overflow-wrap:anywhere}

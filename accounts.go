@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -43,6 +42,7 @@ type profileSlot struct {
 	microsoft *identity.MicrosoftClient
 }
 type profileRoster struct {
+	lobbyDefaultName      string
 	hideDefault           bool
 	root, base            string
 	active                string
@@ -103,13 +103,7 @@ func (r *profileRoster) makeSlot(record profileRecord) *profileSlot {
 			path = filepath.Join(r.root, "identity.dpapi")
 		}
 		slot.sintet = identity.New(r.base, path)
-		slot.sintet.ServiceBase = "https://sintet-identity.zzoyn522.workers.dev"
-		// Isolated desktop previews can test a local identity worker without using public sessions.
-		if previewDataDirectory != "" {
-			if local, err := url.Parse(r.base); err == nil && local.Scheme == "http" && local.Hostname() == "127.0.0.1" {
-				slot.sintet.ServiceBase = r.base
-			}
-		}
+		slot.sintet.ServiceBase = identityService(r.base)
 	case "ely":
 		if record.Key == "legacy-ely" {
 			path = filepath.Join(r.root, "ely.dpapi")
@@ -296,6 +290,7 @@ func (r *profileRoster) selection(defaultName string) accountSelection {
 func (a *App) IdentityState(defaultName string) accountSelection {
 	a.authMu.Lock()
 	defer a.authMu.Unlock()
+	a.profiles.lobbyDefaultName = localAccount(defaultName).Username
 	return a.profiles.selection(defaultName)
 }
 

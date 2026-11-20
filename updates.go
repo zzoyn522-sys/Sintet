@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -21,12 +22,23 @@ import (
 	"time"
 )
 
-// Set these values at release time with Go linker flags. The signing key never ships.
-var launcherVersion = "0.9.25.13"
+// VERSION records the major version, feature branch, patch, and build in that order.
+//
+//go:embed VERSION
+var defaultLauncherVersion string
+
+// Release builds can override the version with a linker flag.
+var launcherVersion string
 var updatePublicKeyHex = "6465d83b4eece79f1bae8ef11c302271f9c79683c4b3cf38f5a2e5c8fa5ae99f"
 var updateHealthMarker string
 var targetedBootstrapAccountID string
 var launcherChannel string
+
+func init() {
+	if launcherVersion == "" {
+		launcherVersion = strings.TrimSpace(defaultLauncherVersion)
+	}
+}
 
 const updateManifestURL = "https://sintet-updates.zzoyn522.workers.dev/stable/latest.json"
 

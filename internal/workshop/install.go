@@ -587,11 +587,18 @@ func (w *progressWriter) Write(data []byte) (int, error) {
 	w.progress(w.done, w.total)
 	return n, err
 }
-func (m *Manager) download(ctx context.Context, v Version, path string, progress func(int64, int64)) (string, error) {
-	allowed := allowedDownload
-	if v.Kind == "packfile" {
-		allowed = allowedPackDownload
+func downloadURLPolicy(v Version) func(string) bool {
+	if v.RequirePublicDownload {
+		return publicPackDownload
 	}
+	if v.Kind == "packfile" {
+		return allowedPackDownload
+	}
+	return allowedDownload
+}
+
+func (m *Manager) download(ctx context.Context, v Version, path string, progress func(int64, int64)) (string, error) {
+	allowed := downloadURLPolicy(v)
 	urls, seen := []string{}, map[string]bool{}
 	for _, u := range append([]string{v.URL}, v.URLs...) {
 		if allowed(u) && !seen[u] && len(urls) < 8 {
@@ -647,9 +654,8 @@ func (m *Manager) downloadOnce(ctx context.Context, v Version, path string, prog
 	if isZipPack(v.Kind) || v.Kind == "modpacks" {
 		limit = 1 << 30
 	}
-	allowed := allowedDownload
+	allowed := downloadURLPolicy(v)
 	if v.Kind == "packfile" {
-		allowed = allowedPackDownload
 		limit = 1 << 30
 	}
 	if !allowed(v.URL) || !safeContentFilename(v.Filename, v.Kind) || v.Size < 0 || (v.Size == 0 && v.Kind != "packfile") || v.Size > limit {

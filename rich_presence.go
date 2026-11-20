@@ -46,10 +46,31 @@ type friendActivityTotals struct {
 	MinecraftMs int64 `json:"minecraftMs"`
 }
 
+// The service expires online status after 35 seconds. Leave room for a slow tick or retry.
+const presenceHeartbeatInterval = 20 * time.Second
+
+type presenceSnapshot struct {
+	activity               socialActivity
+	music                  presenceMusic
+	status, version, room  string
+	privacy                presencePrivacy
+	epoch, privacyRevision uint64
+}
+
+type presencePublication struct {
+	snapshot presenceSnapshot
+	sentAt   time.Time
+}
+
 func (m *socialManager) publishPresence(activity socialActivity, status, version string) error {
 	m.mu.Lock()
 	client, epoch, account := m.client, m.epoch, m.account
 	privacy, uploaded := m.state.Privacy, m.sharedMusicCover
+	last, revision := m.lastPresence, m.privacyRevision
+	var room string
+	if m.state.Room != nil {
+		room = m.state.Room.Code
+	}
 	m.mu.Unlock()
 	if client == nil {
 		m.app.presenceMedia(false)
@@ -59,6 +80,20 @@ func (m *socialManager) publishPresence(activity socialActivity, status, version
 		activity, status, version = socialActivity{Mode: "launcher"}, "launcher", ""
 	}
 	music, cover := m.app.presenceMedia(privacy.ShareMusic && !privacy.Invisible)
+	activity.Music = nil
+	activity.accountID = ""
+	snapshot := presenceSnapshot{
+		activity: activity, status: status, version: version, room: room,
+		privacy: privacy, epoch: epoch, privacyRevision: revision,
+	}
+	if music != nil {
+		snapshot.music = *music
+	}
+	now := time.Now()
+	if last.snapshot == snapshot && now.Sub(last.sentAt) < presenceHeartbeatInterval {
+		return nil
+	}
+
 	var uploadKey string
 	if music != nil && music.Digest != "" {
 		uploadKey = account + ":" + music.Digest
@@ -72,10 +107,13 @@ func (m *socialManager) publishPresence(activity socialActivity, status, version
 	err := client.SocialRequest(ctx, "POST", "/api/social", map[string]any{
 		"action": "presence", "status": status, "version": version, "activity": activity,
 	}, nil)
-	if err == nil && uploadKey != "" {
+	if err == nil {
 		m.mu.Lock()
-		if m.epoch == epoch && m.state.Privacy == privacy {
-			m.sharedMusicCover = uploadKey
+		if m.client == client && m.epoch == epoch && m.state.Privacy == privacy && m.privacyRevision == revision {
+			m.lastPresence = presencePublication{snapshot: snapshot, sentAt: now}
+			if uploadKey != "" {
+				m.sharedMusicCover = uploadKey
+			}
 		}
 		m.mu.Unlock()
 	}

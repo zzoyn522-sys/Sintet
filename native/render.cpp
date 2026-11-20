@@ -5,6 +5,7 @@
 #include <gl/GL.h>
 #include <atomic>
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cmath>
 #include <chrono>
@@ -24,6 +25,8 @@
 #include "widgets.h"
 #include "layout.h"
 #include "brand.h"
+#include "provider_mark.h"
+#include "badge_marks.h"
 #include "vendor/imgui/backends/imgui_impl_win32.h"
 #include "vendor/imgui/backends/imgui_impl_opengl3.h"
 #include "vendor/minhook/include/MinHook.h"
@@ -56,6 +59,8 @@ float interfaceScale=1.0f;
 ImFont* titleFont;
 ImFont* headingFont;
 GLuint avatarTexture=0,buildIconTexture=0,backdropTexture=0;
+std::shared_ptr<const SintetSocial::BadgeCatalog> badgeCatalog;
+std::unordered_map<std::string,GLuint> badgeTextures;
 std::string buildName,buildPreset,gameVersionLine,gpuRenderer;
 std::string overlayHotkey="Shift + Tab";
 int overlayHotkeyKey=VK_TAB,overlayHotkeyMods=MOD_SHIFT;
@@ -188,9 +193,9 @@ void drawGlass(ImVec2 position,ImVec2 size) {
   draw->AddImageRounded((ImTextureID)(intptr_t)backdropTexture,position,ImVec2(position.x+size.x,position.y+size.y),uv0,uv1,IM_COL32(255,255,255,(int)(255.0f/sample)),16*interfaceScale,ImDrawFlags_RoundCornersRight);
  }
 }
-GLuint uploadAvatar(const std::string& hex) {
- if(hex.size()!=36*36*8)return 0;
- unsigned char pixels[36*36*4];
+template<int size> GLuint uploadIcon(const std::string& hex) {
+ if(hex.size()!=size*size*8)return 0;
+ unsigned char pixels[size*size*4];
  auto digit=[](char c)->int {
   if(c>='0'&&c<='9')return c-'0';
   if(c>='a'&&c<='f')return c-'a'+10;
@@ -206,14 +211,14 @@ GLuint uploadAvatar(const std::string& hex) {
  glBindTexture(GL_TEXTURE_2D,texture);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
  glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
- glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,36,36,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+ glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,size,size,0,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
  glBindTexture(GL_TEXTURE_2D,0);
  return texture;
 }
 
 GLuint loadIcon(const char* variable) {
  char hex[36*36*8+1]={0};
- return GetEnvironmentVariableA(variable,hex,sizeof(hex))==36*36*8?uploadAvatar(hex):0;
+ return GetEnvironmentVariableA(variable,hex,sizeof(hex))==36*36*8?uploadIcon<36>(hex):0;
 }
 
 std::string environmentText(const wchar_t* variable) {
@@ -293,6 +298,30 @@ void drawFittedText(ImDrawList* draw,ImFont* font,float size,ImVec2 pos,float wi
  draw->AddText(font,size,ImVec2(pos.x+length,pos.y),color,"...");
 }
 
+void drawSocialName(ImFont* font,float fontSize,float available,const std::string& name,
+                    SintetSocial::AccountProvider provider,const std::vector<std::string>& badges){
+ const float width=SintetBadgeMark::DrawName(ImGui::GetWindowDrawList(),font,fontSize,ImGui::GetCursorScreenPos(),
+    available,ImGui::GetColorU32(ImGuiCol_Text),name,14*interfaceScale,provider,badges,visible);
+ ImGui::Dummy(ImVec2(width,fontSize));
+}
+
+void drawMixedProfileWarning(float scale){
+ const ImVec2 top=ImGui::GetCursorScreenPos();
+ const float center=top.y+ImGui::GetTextLineHeight()*.5f;
+ const ImVec4 amber(.89f,.76f,.49f,1);
+ const ImU32 color=ImGui::GetColorU32(amber);
+ auto* draw=ImGui::GetWindowDrawList();
+ draw->AddTriangle(ImVec2(top.x+7*scale,center-6*scale),ImVec2(top.x+scale,center+5*scale),
+                   ImVec2(top.x+13*scale,center+5*scale),color,1.2f*scale);
+ draw->AddLine(ImVec2(top.x+7*scale,center-2.6f*scale),ImVec2(top.x+7*scale,center+scale),color,1.15f*scale);
+ draw->AddCircleFilled(ImVec2(top.x+7*scale,center+3*scale),.65f*scale,color);
+ ImGui::Dummy(ImVec2(14*scale,ImGui::GetTextLineHeight()));
+ ImGui::SameLine();
+ ImGui::PushStyleColor(ImGuiCol_Text,amber);
+ ImGui::TextWrapped("%s",OverlayText("Разные типы профилей. Скины и плащи друг друга не видны."));
+ ImGui::PopStyleColor();
+}
+
 void drawGameProfile(float scale) {
  if(gameVersionLine.empty()&&buildName.empty())return;
  const ImVec2 top=ImGui::GetCursorScreenPos();
@@ -340,7 +369,7 @@ void socialAvatar(const SintetSocial::Person& person,float scale) {
  }else if(!person.avatar.empty()){
   auto pixels=SintetSocial::AvatarPixels(person);
   if(!pixels.empty()&&textures.size()<256){
-   texture=uploadAvatar(pixels);
+   texture=uploadIcon<36>(pixels);
    if(texture)textures.emplace(person.avatar,texture);
   }
  }
@@ -488,7 +517,8 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
  ImGui::BeginDisabled(state.busy||!visible);
  if(section==0){
   for(const auto& invite:state.invites){
-   ImGui::PushID(invite.id.c_str());socialTitle(invite.sender.name.c_str());ImGui::TextDisabled(OverlayText("Приглашает в лобби"));
+   ImGui::PushID(invite.id.c_str());
+   drawSocialName(headingFont,headingFont->FontSize,ImGui::GetContentRegionAvail().x,invite.sender.name,invite.sender.provider,invite.sender.badges);ImGui::TextDisabled(OverlayText("Приглашает в лобби"));
    const auto details=invitationDetails(invite);
    if(!details.empty())ImGui::TextWrapped("%s",details.c_str());
    socialButton(OverlayText("Принять"),"invite-accept",invite.id);ImGui::SameLine();socialButton(OverlayText("Отклонить"),"invite-decline",invite.id);ImGui::Separator();ImGui::PopID();
@@ -503,10 +533,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    if(ImGui::BeginChild("Friend",ImVec2(0,0),cardFlags,SintetLayout::FixedCard)){
     socialAvatar(f.person,scale);
     ImGui::BeginGroup();
-    const float nameWidth=ImGui::GetContentRegionAvail().x;
-    drawFittedText(ImGui::GetWindowDrawList(),headingFont,headingFont->FontSize,ImGui::GetCursorScreenPos(),
-                   nameWidth,ImGui::GetColorU32(ImGuiCol_Text),f.person.name);
-    ImGui::Dummy(ImVec2(0,headingFont->FontSize));
+    drawSocialName(headingFont,headingFont->FontSize,ImGui::GetContentRegionAvail().x,f.person.name,f.person.provider,f.person.badges);
     const bool inLobby=std::any_of(state.members.begin(),state.members.end(),[&](const auto& member){return member.person.id==f.person.id;});
     if(f.status=="pending"){
      ImGui::TextDisabled(f.incoming?OverlayText("Заявка в друзья"):OverlayText("Заявка отправлена"));
@@ -555,6 +582,20 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    ImGui::TextDisabled("%s",hint);
   }
  }else if(section==1){
+  if(!state.lobbyProvider.empty()&&state.lobbyProvider!="sintet"){
+   const ImVec4 amber(.92f,.78f,.45f,1);
+   const ImVec2 marker=ImGui::GetCursorScreenPos();
+   static bool open=false;
+   const auto* title=OverlayText("Лобби без Sintet ID");
+   if(ImGui::InvisibleButton("##external-lobby-info",ImVec2(px(22)+ImGui::CalcTextSize(title).x,px(20))))open=!open;
+   auto* warningDraw=ImGui::GetWindowDrawList();
+   const ImU32 color=ImGui::GetColorU32(amber);
+   warningDraw->AddTriangle(ImVec2(marker.x+px(9),marker.y+px(3)),ImVec2(marker.x+px(3),marker.y+px(14)),ImVec2(marker.x+px(15),marker.y+px(14)),color,px(1.3f));
+   warningDraw->AddLine(ImVec2(marker.x+px(9),marker.y+px(7)),ImVec2(marker.x+px(9),marker.y+px(10)),color,px(1.2f));
+   warningDraw->AddCircleFilled(ImVec2(marker.x+px(9),marker.y+px(12)),px(.65f),color);
+   warningDraw->AddText(ImVec2(marker.x+px(22),marker.y),color,title);
+   if(open)ImGui::TextWrapped("%s",OverlayText("Для игры с друзьями рекомендуем Sintet ID. Без него доступен 1 ГБ TURN на два месяца. Прямое P2P не тратит этот лимит."));
+  }
   constexpr size_t pageSize=12;
   static std::string pagedRoom;
   static size_t memberLimit=pageSize;
@@ -565,11 +606,62 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    pagedRoom=state.room;memberLimit=pageSize;searchOpen=false;search[0]=0;searchReveal=0;
   }
   socialTitle(OverlayText("Играть вместе"));
+  const char* capacityTitle=OverlayText("Размер лобби");
+  const int occupied=state.members.empty()?state.connected+1:static_cast<int>(state.members.size());
+  static std::string capacityRoom;
+  static int capacityInput=4;
+  const bool canResize=state.leader&&!state.room.empty();
   if(!state.room.empty()||state.localPort){
    ImGui::SameLine();
    ImGui::PushFont(titleFont);
-   ImGui::Text("%d / %d",state.members.empty()?state.connected+1:(int)state.members.size(),state.roomCapacity);
+   ImGui::Text("%d / %d",occupied,state.roomCapacity);
    ImGui::PopFont();
+   if(canResize){
+    ImGui::SameLine();
+    if(ImGui::SmallButton("+##lobby-capacity")){
+     capacityInput=state.roomCapacity;
+     capacityRoom=state.room;
+     ImGui::OpenPopup(capacityTitle);
+    }
+    if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",capacityTitle);
+   }
+  }
+  ImGui::SetNextWindowSize(ImVec2(px(390),0),ImGuiCond_Appearing);
+  if(ImGui::BeginPopupModal(capacityTitle,nullptr,ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoSavedSettings)){
+   if(!canResize||capacityRoom!=state.room||!visible)ImGui::CloseCurrentPopup();
+   ImGui::TextUnformatted(OverlayText("Максимум участников · 4–150"));
+   ImGui::SetNextItemWidth(px(160));
+   ImGui::InputInt("##capacity",&capacityInput);
+   const bool valid=capacityInput>=4&&capacityInput<=150;
+   const int excess=valid?std::max(0,occupied-capacityInput):0;
+   if(capacityInput>4){
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(.92f,.78f,.45f,1));
+    ImGui::TextWrapped("%s",OverlayText("Больше 4 участников повышают нагрузку на компьютер и интернет лидера. Возможны лаги и обрывы."));
+    ImGui::PopStyleColor();
+   }
+   if(capacityInput>8){
+    ImGui::Spacing();
+    ImGui::TextWrapped("%s",OverlayText("При 9 и более участниках лимит TURN в лобби — 1 ГБ на аккаунт на два месяца. Прямое P2P лимит не тратит."));
+   }
+   if(excess){
+    ImGui::Spacing();
+    ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(.92f,.78f,.45f,1));
+    ImGui::TextWrapped(OverlayText("Будут отключены последние вошедшие участники: %d."),excess);
+    ImGui::PopStyleColor();
+   }
+   ImGui::Spacing();
+   if(ImGui::Button(OverlayText("Отмена")))ImGui::CloseCurrentPopup();
+   ImGui::SameLine();
+   ImGui::BeginDisabled(!canResize||capacityRoom!=state.room||!valid||capacityInput==state.roomCapacity);
+   if(ImGui::Button(OverlayText(excess?"Отключить лишних и применить":"Применить"))){
+    SintetSocial::Action(excess?"lobby-capacity-confirm":"lobby-capacity",std::to_string(capacityInput));
+    ImGui::CloseCurrentPopup();
+   }
+   ImGui::EndDisabled();
+   ImGui::EndPopup();
+  }
+  if(!state.room.empty()||state.localPort){
    if(state.localPort&&state.worldReady){
     if(ImGui::Button(OverlayText("Скопировать адрес"))){
      char address[40];sprintf_s(address,"127.0.0.1:%d",state.localPort);ImGui::SetClipboardText(address);
@@ -682,9 +774,9 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     ImGui::BeginGroup();
     socialAvatar(member.person,scale);
     ImGui::BeginGroup();
-    ImGui::PushFont(titleFont);
-    ImGui::TextUnformatted(member.person.name.c_str());
-    ImGui::PopFont();
+    const float reserved=member.leader?px(28):state.leader?px(49):0;
+    drawSocialName(titleFont,titleFont->FontSize,std::max(0.f,ImGui::GetContentRegionAvail().x-reserved),
+                   member.person.name,member.person.provider,member.person.badges);
     if(member.leader){
      ImGui::SameLine();
      const ImVec2 crown=ImGui::GetCursorScreenPos();
@@ -938,7 +1030,9 @@ void drawInvitation(const SintetSocial::State& state,bool hasNetworkHUD){
  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,6*scale);ImGui::PushStyleVar(ImGuiStyleVar_Alpha,fade);
  ImGui::Begin("Game invitation",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_AlwaysAutoResize|ImGuiWindowFlags_NoFocusOnAppearing|(visible?0:ImGuiWindowFlags_NoInputs));
  ImGui::SetWindowFontScale(size);
- socialTitle(invite.sender.name.c_str());ImGui::TextUnformatted(OverlayText("Приглашает вас в лобби"));
+ drawSocialName(headingFont,headingFont->FontSize*size,ImGui::GetContentRegionAvail().x,
+                invite.sender.name,invite.sender.provider,invite.sender.badges);
+ ImGui::TextUnformatted(OverlayText("Приглашает вас в лобби"));
  const auto details=invitationDetails(invite);
  if(!details.empty())ImGui::TextWrapped("%s",details.c_str());
  if(visible){ImGui::BeginDisabled(state.busy||removed);socialButton(OverlayText("Принять"),"invite-accept",invite.id);ImGui::SameLine();socialButton(OverlayText("Отклонить"),"invite-decline",invite.id);ImGui::EndDisabled();}
@@ -1022,11 +1116,24 @@ void drawPanel(const SintetSocial::State& state) {
  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(px(8),px(3)));
  ImGui::BeginChild("Player",ImVec2(0,px(70)),ImGuiChildFlags_AlwaysUseWindowPadding,SintetLayout::FixedCard);
  char nick[128]={0};GetEnvironmentVariableA("SINTET_OVERLAY_PLAYER",nick,128);
+ static const auto gameProvider=[]{
+  char provider[16]={0};GetEnvironmentVariableA("SINTET_OVERLAY_PROVIDER",provider,sizeof(provider));
+  return SintetSocial::ParseAccountProvider(provider);
+ }();
  ImVec2 avatar=ImGui::GetCursorScreenPos();avatar.y+=px(6);
  draw=ImGui::GetWindowDrawList();drawAvatar(draw,avatar,scale);
  ImGui::SetCursorPos(ImVec2(px(66),px(10)));
- drawFittedText(draw,headingFont,px(20),ImGui::GetCursorScreenPos(),ImGui::GetWindowWidth()-px(116),white,*nick?nick:"Player");
- ImGui::Dummy(ImVec2(0,px(20)));
+ const bool currentProfile=[&]{
+  if(state.self.id.empty()||state.self.provider!=gameProvider)return false;
+  if(gameProvider==SintetSocial::AccountProvider::Sintet){
+   char id[80]={0};
+   return GetEnvironmentVariableA("SINTET_OVERLAY_ID",id,sizeof(id))==36&&state.self.id==id;
+  }
+  return *nick&&state.self.name==nick;
+ }();
+ static const std::vector<std::string> noBadges;
+ drawSocialName(headingFont,px(20),ImGui::GetWindowWidth()-px(116),*nick?nick:"Player",gameProvider,
+                currentProfile?state.self.badges:noBadges);
  ImGui::SetCursorPosX(px(66));ImGui::TextDisabled(OverlayText("В игре"));
  ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth()-px(40),px(20)));
  ImVec2 copy=ImGui::GetCursorScreenPos();
@@ -1041,6 +1148,7 @@ void drawPanel(const SintetSocial::State& state) {
  draw->AddRect(ImVec2(copy.x+px(10),copy.y+px(9)),ImVec2(copy.x+px(21),copy.y+px(21)),copyColor,px(2),0,px(1.4f));
  ImGui::EndChild();ImGui::PopStyleVar(2);
  drawGameProfile(scale);
+ if(SintetSocial::MixedProfileLobby(state))drawMixedProfileWarning(scale);
  const char* tabs[]={OverlayText("Друзья"),OverlayText("Лобби")};
  for(int i=0;i<2;i++){
   ImVec2 top=ImGui::GetCursorScreenPos();
@@ -1192,6 +1300,11 @@ void renderFrame(GLFWwindow* current) {
  if(visible&&(wheelX!=0||wheelY!=0))ImGui::GetIO().AddMouseWheelEvent(wheelX,wheelY);
  ImGui::NewFrame();
  const auto state=SintetSocial::Snapshot();
+ if(state.badgeCatalog!=badgeCatalog){
+  for(const auto& item:badgeTextures)if(item.second)glDeleteTextures(1,&item.second);
+  badgeTextures.clear();
+  badgeCatalog=state.badgeCatalog;
+ }
  if(openLobbyOnStart&&state.localPort>0&&!state.room.empty()){
   openLobbyOnStart=false;
   section=1;
@@ -1239,6 +1352,65 @@ DWORD WINAPI loadRenderer(void*){
  fputs("Sintet Overlay: cannot connect Windows OpenGL renderer\n",stderr);return 1;
 }
 }
+
+float SintetBadgeMark::DrawName(ImDrawList* draw,ImFont* font,float fontSize,ImVec2 top,float available,
+                               ImU32 color,const std::string& name,float iconSize,SintetSocial::AccountProvider provider,
+                               const std::vector<std::string>& badges,bool tooltip){
+ const float measured=font->CalcTextSizeA(fontSize,FLT_MAX,0,name.c_str()).x;
+ const float slot=1.4f*iconSize;
+ const bool providerVisible=SintetProviderMark::Label(provider)&&available>=slot;
+ const float providerWidth=providerVisible?slot:0;
+ std::array<SintetSocial::BadgeCatalog::const_iterator,32> icons;
+ size_t count=0;
+ if(badgeCatalog)for(const auto& id:badges){
+  if(count==icons.size())break;
+  const auto it=badgeCatalog->find(id);
+  if(it!=badgeCatalog->end())icons[count++]=it;
+ }
+ const float reservedName=std::min(measured,4*fontSize);
+ const size_t slots=static_cast<size_t>(std::max(0.f,available-providerWidth-reservedName)/slot);
+ const bool overflow=count>slots&&slots>1;
+ const size_t shown=std::min(count,slots)-(overflow?1:0);
+ const float nameWidth=std::max(0.f,available-providerWidth-slot*(shown+(overflow?1:0)));
+ drawFittedText(draw,font,fontSize,top,nameWidth,color,name);
+ const float nameEnd=std::min(measured,nameWidth);
+ float offset=nameEnd;
+ const float gap=slot-iconSize;
+ const float y=top.y+(fontSize-iconSize)*.5f;
+ if(providerVisible){
+  SintetProviderMark::Draw(draw,ImVec2(top.x+offset+gap,y),iconSize,provider,tooltip);
+  offset+=slot;
+ }
+ for(size_t i=0;i<shown;++i){
+  const auto& badge=*icons[i];
+  auto [texture,inserted]=badgeTextures.try_emplace(badge.first,0);
+  if(inserted)texture->second=uploadIcon<24>(badge.second.pixels);
+  const ImVec2 min(top.x+offset+gap,y),max(min.x+iconSize,y+iconSize);
+  if(texture->second){
+   draw->AddImage((ImTextureID)(intptr_t)texture->second,min,max,ImVec2(0,0),ImVec2(1,1),ImGui::GetColorU32(IM_COL32_WHITE));
+   if(tooltip&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(min,max)){
+    ImGui::BeginTooltip();
+    ImGui::TextUnformatted(badge.second.label.c_str());
+    if(slots==1)for(size_t extra=shown;extra<count;++extra)ImGui::TextUnformatted(icons[extra]->second.label.c_str());
+    ImGui::EndTooltip();
+   }
+  }
+  offset+=slot;
+ }
+ if(overflow){
+  const ImVec2 min(top.x+offset+gap,y),max(top.x+offset+slot,y+iconSize);
+  const std::string more="+"+std::to_string(count-shown);
+  drawFittedText(draw,font,iconSize*.75f,ImVec2(min.x,min.y+iconSize*.125f),iconSize,color,more);
+  if(tooltip&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(min,max)){
+   ImGui::BeginTooltip();
+   for(size_t i=shown;i<count;++i)ImGui::TextUnformatted(icons[i]->second.label.c_str());
+   ImGui::EndTooltip();
+  }
+  offset+=slot;
+ }
+ return offset;
+}
+
 extern "C" void SintetRenderStart(){sessionStarted=GetTickCount64();SintetSocial::Start();SintetMedia::Start();SintetAudio::Start();SintetScreenshot::Start();stopping=false;loaderThread=CreateThread(nullptr,0,loadRenderer,nullptr,0,nullptr);}
 extern "C" void SintetRenderStop(){
  stopping=true;

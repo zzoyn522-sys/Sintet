@@ -29,25 +29,45 @@ func TestNativeOverlaySocialIPC(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
+		case "/badges":
+			revision, label := strings.Repeat("a", 64), "Developer"
+			if received.Load() {
+				revision, label = strings.Repeat("b", 64), "Maintainer"
+			}
+			result := map[string]any{"revision": revision}
+			if r.URL.Query().Get("revision") != revision {
+				result["icons"] = map[string]overlayBadgeIcon{"developer": {Label: label, Pixels: strings.Repeat("f", 24*24*8)}}
+			}
+			json.NewEncoder(w).Encode(result)
 		case "/state":
 			connection := ""
+			provider := "local"
 			capacity, turnLimit := 150, int64(1_000_000_000)
 			if received.Load() {
-				connection = "invite-received"
+				connection, provider = "join-received", "sintet"
 				capacity, turnLimit = 8, 5_000_000_000
 			}
 			members := make([]socialMember, capacity)
 			for i := range members {
-				members[i] = socialMember{ID: fmt.Sprintf("test-%d", i), Username: fmt.Sprintf("Player%d", i), Handle: fmt.Sprintf("player%d", i), Leader: i == 0}
+				members[i] = socialMember{ID: fmt.Sprintf("test-%d", i), Username: fmt.Sprintf("Player%d", i),
+					Handle: fmt.Sprintf("player%d", i), Provider: provider, Leader: i == 0}
 			}
-			json.NewEncoder(w).Encode(map[string]any{"enabled": true, "connection": connection,
-				"room": socialRoom{Code: "123456", Capacity: capacity}, "members": members, "turnActive": true,
+			peerProvider := "microsoft"
+			if received.Load() {
+				peerProvider = "ely"
+			}
+			members[len(members)-1].Provider = peerProvider
+			members[len(members)-1].Badges = []string{"developer"}
+			json.NewEncoder(w).Encode(map[string]any{"enabled": true, "connection": connection, "lobbyProvider": provider,
+				"room": socialRoom{Code: "123456", Capacity: capacity}, "members": members, "turnActive": true, "lobbyConnected": true,
+				"lobbyProfile":   socialAccount{ID: "self", Username: "Player0", Provider: provider, Badges: []string{"developer"}},
 				"lobbyTurnUsage": turnUsageView{Used: 5000, Limit: turnLimit},
-				"friends":        []any{map[string]any{"account": socialAccount{ID: "test-account", Username: "Adolo"}, "status": "accepted", "presence": map[string]string{"status": "menu"}}}})
+				"networkPeers":   []socialLink{{Name: "Player", Provider: peerProvider, Badges: []string{"developer"}}},
+				"friends":        []any{map[string]any{"account": socialAccount{ID: "test-account", Username: "Adolo", Provider: "local", Badges: []string{"developer"}}, "status": "accepted", "presence": map[string]string{"status": "menu"}}}})
 		case "/action":
 			var body map[string]string
 			json.NewDecoder(r.Body).Decode(&body)
-			action <- body["action"] == "invite" && body["target"] == "test-account"
+			action <- body["action"] == "join" && body["target"] == "123456"
 			received.Store(true)
 			json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 		default:

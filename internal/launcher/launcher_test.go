@@ -6,6 +6,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +16,62 @@ import (
 	"sync/atomic"
 	"testing"
 )
+
+type installerTestTransport func(*http.Request) (*http.Response, error)
+
+func (f installerTestTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestForgeInstallerUsesMavenVersion(t *testing.T) {
+	for _, tt := range []struct {
+		name, base, loader, version, wantURL string
+	}{
+		{"short Forge version", "1.20.1", "forge", "47.4.23", "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.23/forge-1.20.1-47.4.23-installer.jar.sha1"},
+		{"full Forge version", "1.20.1", "forge", "1.20.1-47.4.23", "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.23/forge-1.20.1-47.4.23-installer.jar.sha1"},
+		{"NeoForge version", "1.21.1", "neoforge", "21.1.215", "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.215/neoforge-21.1.215-installer.jar.sha1"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			service := New(t.TempDir())
+			var requested string
+			service.HTTP.Transport = installerTestTransport(func(req *http.Request) (*http.Response, error) {
+				requested = req.URL.String()
+				return nil, fmt.Errorf("stop after checksum request")
+			})
+			if _, err := service.installForge(context.Background(), tt.base, tt.loader, tt.version, ""); err == nil {
+				t.Fatal("expected checksum request to fail in the test")
+			}
+			if requested != tt.wantURL {
+				t.Fatalf("checksum URL = %q, want %q", requested, tt.wantURL)
+			}
+		})
+	}
+}
+
+func TestLauncherDownloadRedirectKeepsHTTPS(t *testing.T) {
+	for _, target := range []string{"https://cdn.example.test/installer.jar", "http://cdn.example.test/installer.jar"} {
+		t.Run(target, func(t *testing.T) {
+			requests := 0
+			client := &http.Client{Transport: installerTestTransport(func(req *http.Request) (*http.Response, error) {
+				requests++
+				response := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("fixture"))}
+				if requests == 1 {
+					response.StatusCode = http.StatusFound
+					response.Header = http.Header{"Location": {target}}
+				}
+				return response, nil
+			})}
+			data, err := fetch(context.Background(), client, "https://example.test/installer.jar")
+			if strings.HasPrefix(target, "https:") {
+				if err != nil || string(data) != "fixture" || requests != 2 {
+					t.Fatalf("HTTPS redirect failed: requests=%d error=%v", requests, err)
+				}
+			} else if err == nil || requests != 1 {
+				t.Fatalf("HTTP redirect was followed: requests=%d error=%v", requests, err)
+			}
+		})
+	}
+}
 
 func TestInstallPlanKeepsNativeOnlyLibrariesOutOfClasspath(t *testing.T) {
 	var profile Profile

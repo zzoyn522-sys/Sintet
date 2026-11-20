@@ -27,11 +27,28 @@ func TestLiveSocialWorkerToWebRTCTunnel(t *testing.T) {
 		Name  string `json:"username"`
 		Token string `json:"token"`
 	}
-	if os.Getenv("SINTET_SOCIAL_FIXTURES") == "" {
+	localOutput := os.Getenv("SINTET_LOCAL_SOCIAL_FIXTURE_IDS")
+	if os.Getenv("SINTET_SOCIAL_FIXTURES") == "" && localOutput == "" {
 		t.Skip("live disposable fixtures not supplied")
 	}
-	if err := json.Unmarshal([]byte(os.Getenv("SINTET_SOCIAL_FIXTURES")), &fixtures); err != nil || len(fixtures) != 2 {
+	if localOutput == "" && (json.Unmarshal([]byte(os.Getenv("SINTET_SOCIAL_FIXTURES")), &fixtures) != nil || len(fixtures) != 2) {
 		t.Fatal("invalid fixtures")
+	}
+	if address := os.Getenv("SINTET_SOCIAL_LIVE_IPV4"); address != "" {
+		if ip := net.ParseIP(address); ip == nil || ip.To4() == nil {
+			t.Fatal("invalid live fixture IPv4")
+		}
+		original := http.DefaultTransport
+		fixtureTransport := http.DefaultTransport.(*http.Transport).Clone()
+		dial := fixtureTransport.DialContext
+		fixtureTransport.DialContext = func(ctx context.Context, network, endpoint string) (net.Conn, error) {
+			if endpoint == "sintet-identity.zzoyn522.workers.dev:443" {
+				endpoint = net.JoinHostPort(address, "443")
+			}
+			return dial(ctx, network, endpoint)
+		}
+		http.DefaultTransport = fixtureTransport
+		defer func() { http.DefaultTransport = original; fixtureTransport.CloseIdleConnections() }()
 	}
 	previousChannel := launcherChannel
 	launcherChannel = "test"
@@ -39,7 +56,35 @@ func TestLiveSocialWorkerToWebRTCTunnel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 65*time.Second)
 	defer cancel()
 	managers := make([]*socialManager, 2)
-	for i, fixture := range fixtures {
+	for i := range managers {
+		if localOutput != "" {
+			root := t.TempDir()
+			name := "Local" + strings.ReplaceAll(filepath.Base(root), "-", "")
+			if len(name) > 16 {
+				name = name[:16]
+			}
+			app := lobbyFixture(t)
+			app.profiles = newProfileRoster(root, publicIdentityService)
+			app.profiles.lobbyDefaultName = name
+			manager := newSocialManager(app, ctx)
+			client, err := manager.lobbyClient(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, err := os.OpenFile(localOutput, os.O_WRONLY|os.O_APPEND, 0600)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = out.WriteString(client.SavedAccount().ID + "\n")
+			out.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			managers[i] = manager
+			defer manager.disconnect()
+			continue
+		}
+		fixture := fixtures[i]
 		portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/api/launcher/token" {
 				http.NotFound(w, r)

@@ -18,6 +18,7 @@ import (
 type Settings struct {
 	InterfaceLanguage    string          `json:"interfaceLanguage,omitempty"`
 	GamePreferences      GamePreferences `json:"gamePreferences"`
+	DiscordPresence      bool            `json:"discordPresence"`
 	OverlayEnabled       bool            `json:"overlayEnabled"`
 	GameDirectory        string          `json:"gameDirectory"`
 	InstanceMode         string          `json:"instanceMode"`
@@ -53,7 +54,7 @@ type Configuration struct {
 }
 
 func DefaultSettings(root string) Settings {
-	return Settings{OverlayEnabled: true, ApplyOverlayFont: true, GameDirectory: root, InstanceMode: "profile", Width: 1280, Height: 720, MemoryMB: 4096, AutoMemory: true, GameStartAction: "tray", CloseAction: "quit", OverlayHotkey: "Shift + Tab"}
+	return Settings{DiscordPresence: true, OverlayEnabled: true, ApplyOverlayFont: true, GameDirectory: root, InstanceMode: "profile", Width: 1280, Height: 720, MemoryMB: 4096, AutoMemory: true, GameStartAction: "tray", CloseAction: "quit", OverlayHotkey: "Shift + Tab"}
 }
 func ReadSettings(path string, defaults Settings) (Settings, error) {
 	settings := defaults

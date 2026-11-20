@@ -360,6 +360,14 @@ func (s *Service) download(ctx context.Context, f File, progress func(int64)) er
 				return err
 			}
 			defer resp.Body.Close()
+			limit := f.Size
+			if limit <= 0 {
+				const maxDownloadWithoutSize = 2 << 30
+				limit = maxDownloadWithoutSize
+			}
+			if resp.ContentLength > limit {
+				return fmt.Errorf("проверка размера/хеша не пройдена: %s", f.Path)
+			}
 			required := f.Size
 			if resp.ContentLength > required {
 				required = resp.ContentLength
@@ -373,13 +381,22 @@ func (s *Service) download(ctx context.Context, f File, progress func(int64)) er
 			}
 			tmp := out.Name()
 			defer os.Remove(tmp)
-			n, err := io.Copy(out, resp.Body)
+			n, err := io.Copy(out, io.LimitReader(resp.Body, limit))
 			closeErr := out.Close()
 			if err != nil {
 				return err
 			}
 			if closeErr != nil {
 				return closeErr
+			}
+			if n == limit {
+				extra, err := io.Copy(io.Discard, io.LimitReader(resp.Body, 1))
+				if err != nil {
+					return err
+				}
+				if extra != 0 {
+					return fmt.Errorf("проверка размера/хеша не пройдена: %s", f.Path)
+				}
 			}
 			if !validFile(tmp, f, true) {
 				return fmt.Errorf("проверка размера/хеша не пройдена: %s", f.Path)

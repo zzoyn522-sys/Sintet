@@ -62,7 +62,7 @@ public const long LauncherSize=${launcherSize}L;
 "@
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'Package.cs'),$package,[Text.UTF8Encoding]::new($false))
 $parsedVersion=[Version]::Parse($Version)
-$assemblyVersion="$($parsedVersion.Major).$($parsedVersion.Minor).$($parsedVersion.Build).0"
+$assemblyVersion="$($parsedVersion.Major).$($parsedVersion.Minor).$([Math]::Max($parsedVersion.Build,0)).$([Math]::Max($parsedVersion.Revision,0))"
 $assemblyInfo=@"
 using System.Reflection;
 [assembly: AssemblyTitle("Sintet Setup")]
@@ -74,7 +74,8 @@ using System.Reflection;
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'AssemblyInfo.cs'),$assemblyInfo,[Text.UTF8Encoding]::new($false))
 $setupManifest=Join-Path $PSScriptRoot 'setup.manifest'
 $manifestText=[IO.File]::ReadAllText($setupManifest)
-$manifestText=[regex]::Replace($manifestText,'(<assemblyIdentity version=")[^"]+(")',('$1'+$assemblyVersion+'$2'))
+$manifestText=[regex]::Replace($manifestText,'(<assemblyIdentity version=")[^"]+(")',('${1}'+$assemblyVersion+'${2}'))
+$null=[xml]$manifestText
 [IO.File]::WriteAllText($setupManifest,$manifestText,[Text.UTF8Encoding]::new($false))
 $framework = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 $compiler = Join-Path $framework 'csc.exe'

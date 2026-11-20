@@ -1,10 +1,85 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
+
+	"sintet/internal/identity"
 )
+
+func TestPresenceSendsChangesAndKeepsOnlineHeartbeat(t *testing.T) {
+	const accountID = "ba815a63-4176-45db-8e70-12e3801c1207"
+	var requests atomic.Int32
+	var reject atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/launcher/token":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"account": identity.Account{ID: accountID, Username: "Fixture"},
+				"token":   strings.Repeat("t", 43), "expires": time.Now().Add(time.Hour),
+			})
+		case "/api/social":
+			requests.Add(1)
+			if reject.Load() {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client := identity.New(server.URL, filepath.Join(t.TempDir(), "session.dpapi"))
+	address, err := client.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizeFixture(t, address, strings.Repeat("c", 43))
+	m := newSocialManager(&App{}, context.Background())
+	m.client, m.account = client, accountID
+
+	publish := func(activity socialActivity, wantRequests int32) {
+		t.Helper()
+		if err := m.publishPresence(activity, activity.legacyStatus(), activity.Version); err != nil {
+			t.Fatal(err)
+		}
+		if got := requests.Load(); got != wantRequests {
+			t.Fatalf("requests after %s = %d, want %d", activity.Mode, got, wantRequests)
+		}
+	}
+
+	idle := socialActivity{Mode: "launcher"}
+	publish(idle, 1)
+	publish(idle, 1)
+	m.lastPresence.sentAt = time.Now().Add(-presenceHeartbeatInterval)
+	publish(idle, 2)
+
+	playing := socialActivity{Mode: "singleplayer", Version: "1.20.1"}
+	reject.Store(true)
+	if err := m.publishPresence(playing, playing.legacyStatus(), playing.Version); err == nil {
+		t.Fatal("expected status update to fail")
+	}
+	reject.Store(false)
+	publish(playing, 4)
+	publish(playing, 4)
+
+	m.state.Room = &socialRoom{Code: "123456"}
+	publish(socialActivity{Mode: "lobby", Version: "1.20.1"}, 5)
+	m.state.Privacy.Invisible = true
+	publish(playing, 6)
+	publish(playing, 6)
+	m.epoch++
+	publish(playing, 7)
+}
 
 func TestRichPresenceDoesNotShareLocalAddresses(t *testing.T) {
 	for _, address := range []string{"127.0.0.1:25565", "192.168.1.8", "[fd00::4]:25565", "minecraft.local:25565"} {

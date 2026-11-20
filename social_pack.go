@@ -358,7 +358,7 @@ func (m *socialManager) connectPreparedPack(ctx context.Context) error {
 		}
 	}
 	m.updatePack(plan.epoch, "launching", "Запускаем Minecraft", 0, 0)
-	if err := m.app.launchInstance(profile, "Player", port, plan.fromInvite, func(useBridge bool) { m.queueColdLobbyJoin(plan, port, useBridge) }); err != nil {
+	if err := m.app.launchInstance(profile, m.lobbyPlayerName(), port, plan.fromInvite, func(useBridge bool) { m.queueColdLobbyJoin(plan, port, useBridge) }); err != nil {
 		m.packFailure(plan.epoch, err)
 		return err
 	}

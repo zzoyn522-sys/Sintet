@@ -152,7 +152,7 @@
  document.querySelector('.launcher-invitations').append(turnNotice);
  const turnLobby=turnMeter(false),turnSettings=turnMeter(true);
  let shownTURNNotice=0,turnNoticeTimer,settingsUsageLoading=false,settingsUsageGeneration=0;
- document.querySelector('#settings-form .settings-grid').append(turnSettings);
+ document.querySelector('#launcher-settings-social').append(turnSettings);
  function turnMeter(settings){
   const root=element(settings?'article':'section',settings?'preference-card wide turn-meter':'turn-meter turn-meter-lobby');
   root.hidden=!settings;
@@ -183,7 +183,9 @@
     used>=1e3?window.SintetLanguage.formatSize(used/1e3,'kilobyte',1):window.SintetLanguage.formatSize(used,'byte');
    value.textContent=formatUsed+' / '+window.SintetLanguage.formatSize(usage.limit/1e9,'gigabyte',usage.limit%1e9?2:0);
    progress.value=Math.min(1,usage.used/usage.limit);
-   root.classList.toggle('turn-meter-exhausted',progress.value===1);
+   const greenToAmber=Math.min(1,progress.value*2),amberToRed=Math.max(0,progress.value*2-1);
+   const rgb=[.45+.48*greenToAmber,.78+.02*greenToAmber-.42*amberToRed,.54-.25*greenToAmber-.06*amberToRed];
+   progress.style.setProperty('--turn-progress-color','rgb('+rgb.map(channel=>Math.round(channel*255)).join(' ')+')');
    if(usage.periodEnd){
     const date=new Date(usage.periodEnd+'T00:00:00Z');
     const formatted=new Intl.DateTimeFormat(document.documentElement.lang||undefined,{day:'numeric',month:'long',timeZone:'UTC'}).format(date);
@@ -192,7 +194,7 @@
   }else{
    value.textContent=window.SintetText.translate(fallback);
    reset.textContent='';
-   root.classList.remove('turn-meter-exhausted');
+   progress.style.removeProperty('--turn-progress-color');
   }
   reset.hidden=!reset.textContent;
  }
@@ -212,7 +214,7 @@
  async function refreshSettingsTurn(){
   if(!api()?.TurnUsage||settingsUsageLoading||turnSettings.getClientRects().length===0)return;
   if(!state?.enabled){
-   updateTurnMeter(turnSettings,null,'Войди через Sintet ID');
+   updateTurnMeter(turnSettings,null,'Выбери профиль для лобби');
    return;
   }
   settingsUsageLoading=true;
@@ -236,7 +238,7 @@
  function position(){const anchor=toggle.getBoundingClientRect(),top=anchor.bottom+10;panel.style.left=Math.max(12,Math.min(anchor.left,innerWidth-410))+'px';panel.style.top=top+'px';panel.style.maxHeight=Math.max(160,innerHeight-top-12)+'px'}
  panel.addEventListener('beforetoggle',event=>{if(event.newState==='open'){position();refresh()}});
  panel.addEventListener('toggle',event=>toggle.setAttribute('aria-expanded',String(event.newState==='open')));
- window.addEventListener('resize',()=>{if(panel.matches(':popover-open'))position()});
+ window.addEventListener('resize',()=>{if(panel.matches(':popover-open')||panel.hasAttribute('data-tour-preview'))position()});
  const tools=document.createElement('div');tools.className='friends-tools';
  tools.innerHTML='<div class="friends-search"><input id="friend-search" placeholder="Поиск по друзьям" autocomplete="off" maxlength="36"><button type="button" id="friend-search-submit">Найти аккаунт</button></div><div id="friend-search-results"></div>';
  list.before(tools);
@@ -259,6 +261,20 @@
  function selectTab(name){activeTab=name;const friends=name==='friends';friendPage.hidden=!friends;lobbyPage.hidden=friends;friendTab.setAttribute('aria-selected',String(friends));lobbyTab.setAttribute('aria-selected',String(!friends));friendTab.tabIndex=friends?0:-1;lobbyTab.tabIndex=friends?-1:0;}
  for(const [button,name,page] of [[friendTab,'friends',friendPage],[lobbyTab,'lobby',lobbyPage]]){button.type='button';button.setAttribute('role','tab');button.id='social-tab-'+name;button.setAttribute('aria-controls',page.id);page.setAttribute('aria-labelledby',button.id);button.onclick=()=>selectTab(name);button.onkeydown=event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();selectTab(name==='friends'?'lobby':'friends');(name==='friends'?lobbyTab:friendTab).focus()}};tabs.append(button)}
  selectTab('friends');
+ window.SintetLobbyTour={
+  open(){
+   showRequests=false;
+   panel.dataset.tourPreview='';
+   selectTab('lobby');
+   position();
+   render();
+  },
+  close(){
+   delete panel.dataset.tourPreview;
+   selectTab('friends');
+   render();
+  },
+ };
  function openSocialTab(name){
   const open=()=>{
    showRequests=false;
@@ -273,6 +289,13 @@
  presenceLogin.onclick=()=>document.querySelector('#account-button').click();
  footer.innerHTML='<div id="friends-room" class="friends-room" hidden><span>Код комнаты</span><button type="button" id="friends-copy-room"></button></div><button type="button" id="friends-host" class="friends-create-lobby">Создать комнату</button><form id="friends-join" class="friends-search"><input id="friends-code" placeholder="Код комнаты · 6 цифр" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required><button type="submit">Войти в лобби</button></form><p id="friends-connection" role="status"></p><div class="lobby-address-actions"><button type="button" id="friends-endpoint" hidden></button><button type="button" id="friends-auto-join" hidden><svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M4 2v12l10-6z"/></svg></button></div><p id="friends-error" role="alert"></p>';
  footer.prepend(turnLobby);
+ const lobbyWarning=element('details','lobby-profile-warning');
+ const lobbyWarningButton=element('summary','');
+ lobbyWarningButton.innerHTML='<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v4m0 3v.1"/></svg>';
+ lobbyWarningButton.append(element('span','','Лобби без Sintet ID'));
+ lobbyWarning.append(lobbyWarningButton,element('p','','Для игры с друзьями рекомендуем Sintet ID. Без него доступен 1 ГБ TURN на два месяца. Прямое P2P не тратит этот лимит.'));
+ lobbyWarning.hidden=true;
+ footer.prepend(lobbyWarning);
  function element(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text)node.textContent=text;return node}
  function button(label,action,target){const node=element('button','friend-action',label);node.type='button';node.disabled=busy||state?.busy;node.onclick=()=>act(action,target);return node}
  async function act(action,target=''){
@@ -327,13 +350,22 @@
  }
  function row(account,status,buttons){
   const node=element('div','friend-row');node.append(friendAvatar(account));
-  const content=element('div','friend-details');content.append(element('strong','',account.username));if(account.handle)content.append(element('small','friend-handle','@'+account.handle));content.append(element('span','',status));node.append(content);
+  const content=element('div','friend-details');
+  const name=element('strong','',account.username);
+  window.SintetAccount.renderName(name,account.username,account);
+  content.append(name);if(account.handle)content.append(element('small','friend-handle','@'+account.handle));content.append(element('span','',status));node.append(content);
   if(account.leader){
    const crown=element('span','lobby-crown');crown.title='Лидер лобби';
    crown.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m3 7 5 4 4-7 4 7 5-4-3 12H6Z" stroke-linejoin="round"/></svg>';
-   content.querySelector('strong').append(crown);
+   name.append(crown);
   }
   const actions=element('div','friend-actions');actions.append(...buttons);node.append(actions);return node;
+ }
+ function profileMark(provider){
+  const providers={microsoft:['assets/brand/microsoft.svg','Microsoft'],ely:['assets/brand/ely-icon-light.svg','Ely.by'],sintet:['assets/brand/sintet-id-icon-light.svg','Sintet ID']};
+  const mark=providers[provider];
+  if(!mark){const local=element('span','presence-provider-icon local-profile-mark','◉');local.title='Локальный профиль';local.setAttribute('aria-label',local.title);return local;}
+  const node=element('img','presence-provider-icon');node.src=mark[0];node.alt=mark[1];node.title=mark[1];return node;
  }
  const preparationLabels={connecting:'Подключается',checking:'Сверяет сборку',required:'Нужно подготовить сборку',downloading:'Скачивает',installing:'Устанавливает Minecraft',stopping:'Перезапускает игру',launching:'Запускает игру',ready:'Готов',world:'В мире',error:'Нужна повторная попытка'};
  const presenceLabels={lobby:'В лобби',singleplayer:'Одиночный мир',multiplayer:'Мультиплеер',world:'В мире Minecraft',menu:'В главном меню',launcher:'В лаунчере',offline:'Не в сети'};
@@ -566,7 +598,10 @@
   summary.type='button';
   summary.dataset.presenceAction='details-'+account.id;
   const identity=element('span','presence-identity');
-  identity.append(element('strong','',account.username));
+  const playerName=element('strong','presence-player-name');
+  window.SintetAccount.renderName(playerName,account.username,account);
+  playerName.append(profileMark(account.provider||'sintet'));
+  identity.append(playerName);
   if(account.handle)identity.append(element('small','presence-handle','@'+account.handle));
   const context=mode==='multiplayer'&&activity?.server?activity.server:activity?.build;
   if(context)identity.append(element('small','',context));
@@ -637,7 +672,7 @@
 
  function renderPresence(offline=window.SintetNetwork.offline||!!state?.offline){
   if(presence.inert)return;
-  const enabled=!!state?.enabled&&!offline;
+  const enabled=!!state?.enabled&&(!state.lobbyProvider||state.lobbyProvider==='sintet'||!!state.lobbyProfile)&&!offline;
   const members=new Set((state?.members||[]).map(member=>member.id));
   const friends=enabled?(state.friends||[]).filter(friend=>friend.account&&friend.status==='accepted').map(friend=>{
    const activity=friend.presence?.activity;
@@ -655,7 +690,8 @@
   presenceOnline.hidden=!enabled;
   presenceOnline.textContent=state?.reconnecting?'Переподключение…':online+' в сети';
   presenceOnline.classList.toggle('has-online',online>0&&!state?.reconnecting);
-  presenceActions.hidden=!enabled;
+  presenceActions.hidden=offline||!state?.enabled;
+  presence.querySelector('#presence-open-friends').hidden=!enabled;
   privacyButton.hidden=!enabled;
   presenceLogin.hidden=offline||!state||enabled;
   presenceEmpty.hidden=invites.length+friends.length>0;
@@ -912,14 +948,20 @@
  }
  function render(){
   const offline=window.SintetNetwork.offline||!!state?.offline;
+  const tourPreview=panel.hasAttribute('data-tour-preview');
   renderInvitation(offline);
   renderPresence(offline);
   offlineNotice.hidden=!offline;
-  tabs.hidden=offline;
+  tabs.hidden=offline&&!tourPreview;
   requestsButton.hidden=offline;
-  if(offline){friendPage.hidden=true;lobbyPage.hidden=true;requestsPanel.hidden=true;return}
+  if(offline&&!tourPreview){friendPage.hidden=true;lobbyPage.hidden=true;requestsPanel.hidden=true;return}
   selectTab(activeTab);
   if(!state)return;list.replaceChildren();
+  const external=!!state.lobbyProvider&&state.lobbyProvider!=='sintet';
+  const friendsEnabled=state.enabled&&(!external||!!state.lobbyProfile);
+  requestsButton.hidden=!friendsEnabled;
+  lobbyWarning.hidden=!external;
+  if(!external)lobbyWarning.open=false;
   const pending=(state.friends||[]).filter(friend=>friend.status==='pending'&&friend.account);
   document.querySelector('#friends-count').textContent=(state.friends||[]).filter(f=>f.status==='accepted').length;
   const incoming=pending.filter(friend=>friend.incoming).length;
@@ -928,7 +970,7 @@
   requestCount.hidden=incoming===0;
   requestsPanel.hidden=!showRequests;
   requestsButton.classList.toggle('active',showRequests);
-  tools.hidden=!state.enabled||showRequests;
+  tools.hidden=!friendsEnabled||showRequests;
   list.hidden=showRequests;
   requestsPanel.replaceChildren();
   if(showRequests){
@@ -954,7 +996,7 @@
    }
    const node=row(friend.account,status,buttons);node.classList.toggle('friend-online',!!friend.presence);list.append(node);
   }
-  if(!list.children.length&&!showRequests){const empty=element('div','friends-empty');empty.append(element('strong','',state.enabled?(filter?'Друзья не найдены':'Пока нет друзей'):'Войди через Sintet ID'),element('span','',state.enabled?(filter?'Можно поискать аккаунт по нику или ID':'Найди друга по нику или ID'):'Друзья и приглашения привязаны к аккаунту'));list.append(empty)}
+  if(!list.children.length&&!showRequests){const empty=element('div','friends-empty');empty.append(element('strong','',friendsEnabled?(filter?'Друзья не найдены':'Пока нет друзей'):'Подключаем профиль…'),element('span','',friendsEnabled?'Найди друга по нику, @юзернейму или ID':'В лобби можно войти по коду'));list.append(empty)}
   document.querySelector('#friends-join').hidden=!!state.room||!!state.localPort;
   const chooseLobbyProfile=state.hostNeedsPack||state.preGameLobby&&(!state.room||state.leader);
  lobbySetup.hidden=!chooseLobbyProfile;
@@ -1005,15 +1047,36 @@
   let reconnect=document.querySelector('#lobby-reconnect');if(!reconnect){reconnect=button('Восстановить соединение','reconnect-lobby');reconnect.id='lobby-reconnect';document.querySelector('#friends-error').after(reconnect)}reconnect.hidden=!state.room||state.leader||state.lobbyConnected||busy||state.busy;
   renderPack();
  }
- async function refresh(){
+ window.addEventListener('sintet:profile-badges',()=>{
+  lastPresenceView='';
+  membersKey='';
+  if(state)render();
+ });
+ let lobbyProfileSnapshot='';
+ let discordJoinNotice=0;
+ window.addEventListener('sintet:badge-assignments',()=>void refresh(true));
+ async function refresh(badges=false){
   if(!api())return;
   const request=++stateRead;
   try{
-   const next=await api().FriendsState();
+   const next=await (badges&&api().RefreshProfileBadges?api().RefreshProfileBadges():api().FriendsState());
    if(request<stateApplied)return;
    stateApplied=request;
-   const enabledChanged=state?.enabled!==next.enabled;
+   const enabledChanged=state?.enabled!==next.enabled||state?.lobbyProvider!==next.lobbyProvider;
    state=next;
+   if(next.discordJoinNotice&&next.discordJoinNotice!==discordJoinNotice){
+    discordJoinNotice=next.discordJoinNotice;
+    selectTab('lobby');
+    if(!panel.matches(':popover-open')&&!document.querySelector('dialog[open]')){position();panel.showPopover()}
+    if(next.discordJoinError)toast(window.SintetText.translate(next.discordJoinError));
+   }
+   window.SintetBadgeLive?.setEnabled(!!next.enabled&&!!next.lobbyProfile&&!next.offline);
+   const profileKey=JSON.stringify(next.lobbyProfile||null);
+   if(profileKey!==lobbyProfileSnapshot){
+    lobbyProfileSnapshot=profileKey;
+    window.SintetLobbyProfile=next.lobbyProfile||null;
+    window.dispatchEvent(new CustomEvent('sintet:lobby-profile',{detail:window.SintetLobbyProfile}));
+   }
    renderTurn(state);
    if(enabledChanged)refreshSettingsTurn();
    const phase=state.pack?.phase||'';

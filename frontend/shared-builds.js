@@ -1,5 +1,6 @@
 import {mergeWorkshopResults,projectSources} from './data/workshop-sources.js';
 import {orderModVersions} from './data/mod-versions.js';
+import {showWorkshopLoading} from './workshop-loading.js';
 
 const el=(tag,cls,text)=>{
  const node=document.createElement(tag);
@@ -273,7 +274,8 @@ function refreshBuilds(){
 }
 
 function setAccount(state) {
- const id=state?.provider==='sintet'?state.account?.id||'':'';
+ const id=state?.provider==='sintet'?state.account?.id||'':
+  window.SintetLobbyProfile?.provider===state?.provider?window.SintetLobbyProfile?.id||'':'';
  if(account===id)return;
  account=id;
  builds=[];
@@ -286,6 +288,7 @@ function setAccount(state) {
  if(refreshList)void refreshList();
 }
 window.addEventListener('sintet:identity',event=>setAccount(event.detail));
+window.addEventListener('sintet:lobby-profile',()=>setAccount(window.SintetIdentity?.current()));
 setAccount(window.SintetIdentity?.current());
 
 export function canShareBuild(build) {
@@ -441,9 +444,10 @@ async function openBuild(build) {
   },'shared-build-primary'));
   body.append(buttons);
  } else {
-  status.textContent='Загрузка…';
+  const finish=showWorkshopLoading(body,'compact',{count:4});
   try{await detail(build.id);clearStatus()}
-  catch(error){status.textContent=errorMessage(error)}
+  catch(error){if(dialog.open&&current?.id===build.id)status.textContent=errorMessage(error)}
+  finally{finish()}
  }
 }
 
@@ -766,7 +770,7 @@ function inviteForm() {
   if(busy)return;
   const term=field.value.trim(),request=++search,build=current;
   if(term.replace(/^@/,'').length<2){results.replaceChildren();return}
-  results.replaceChildren(el('p','shared-build-hint','Ищем аккаунты…'));
+  const finish=showWorkshopLoading(results,'compact',{count:2});
   try{
    const matches=await (api().SharedBuildSearch?api().SharedBuildSearch(term):api().FriendsSearch(term));
    if(current?.id!==build.id||request!==search||!form.isConnected)return;
@@ -774,7 +778,7 @@ function inviteForm() {
    render();
   }catch(error){
    if(request===search&&form.isConnected)results.replaceChildren(el('p','shared-build-hint',errorMessage(error)));
-  }
+  }finally{finish()}
  }
  field.addEventListener('input',()=>{
   memberQuery=field.value;
@@ -872,10 +876,10 @@ function catalogForm(build) {
    pages={};
    selected=null;
    chooseRequest++;
-   list.replaceChildren();
    selection.replaceChildren(el('p','shared-build-hint','Выбери мод, чтобы увидеть совместимые версии.'));
   }
-  notice.textContent=append?'Загружаем ещё…':term?'Ищем моды…':'Загружаем популярные моды…';
+  notice.textContent='';
+  const finish=showWorkshopLoading(list,'shared',{append,count:append?2:5});
   clearStatus();
   list.inert=true;
   selection.inert=true;
@@ -902,17 +906,19 @@ function catalogForm(build) {
     pages[provider]={items:[...(old?.items||[]),...(data.items||[])],offset,next:!!data.next&&offset>(old?.offset||0)};
    }
    const projects=mergeWorkshopResults(pages,term?'relevance':'downloads');
-   const warnings=failed.length?window.SintetText.format('Недоступен источник: %s',failed.map(provider=>catalogProviders[provider]).join(', ')):'';
-   notice.textContent=[
+   const warnings=failed.length?'Недоступен источник: '+failed.map(provider=>catalogProviders[provider]).join(', '):'';
+   const messages=[
     warnings,
     fallback?'Для сборки совпадений пока нет. Ниже – проекты для других версий.':
      !projects.length?(failed.length===providers.length?'Не удалось загрузить каталог.':'По этому запросу модов нет.'):'',
-   ].filter(Boolean).join(' ');
+   ].filter(Boolean);
+   notice.replaceChildren(...messages.map((message,index)=>document.createTextNode((index?' ':'')+message)));
    list.replaceChildren(...projects.map(project=>projectRow(project)));
    const next=Object.values(pages).some(entry=>entry.next);
    more.hidden=!next&&!failed.length;
    more.textContent=next?'Показать ещё':'Повторить';
   }finally{
+   finish();
    if(generation===request){
     list.inert=false;
     selection.inert=false;
@@ -956,8 +962,9 @@ function catalogForm(build) {
   }
   const title=el('h3','',project.name);
   const summary=el('p','shared-build-hint',item.description||project.description||'');
-  const versionState=el('p','shared-build-hint','Ищем совместимые версии…');
+  const versionState=el('div','shared-build-hint');
   selection.replaceChildren(title,sources,summary,versionState);
+  const finish=showWorkshopLoading(versionState,'lines',{count:1});
   try{
    const found=await api().ModVersions(item.provider,item.id,build.game,build.loader);
    if(generation!==chooseRequest||!page.isConnected)return;
@@ -965,7 +972,7 @@ function catalogForm(build) {
    const versions=orderModVersions(compatible.filter(version=>!version.unavailable));
    if(!versions.length){
     versionState.textContent=compatible.length?'Автор не разрешил автоматическое скачивание этих версий.':
-     'Для Minecraft '+build.game+' и '+loaders[build.loader]+' подходящих версий нет.';
+     `Для Minecraft ${build.game} и ${loaders[build.loader]} подходящих версий нет.`;
     return;
    }
    const field=el('label','shared-catalog-version','Версия мода');
@@ -978,7 +985,7 @@ function catalogForm(build) {
    selection.append(field,add);
   }catch(error){
    if(generation===chooseRequest&&page.isConnected)versionState.textContent=errorMessage(error);
-  }
+  }finally{finish()}
  }
 
  query.addEventListener('input',()=>schedule());

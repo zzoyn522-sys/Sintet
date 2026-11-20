@@ -37,10 +37,12 @@
   savedName=account?.username||defaultName();
   const mark=ely?'ely':'sintet-id', label=microsoft?'Microsoft':ely?'Ely.by':'Sintet ID';
   q('#account-profile-kind').hidden=online;
-  q('#account-identity-brand').hidden=!online||microsoft;
+  const brand=q('#account-identity-brand');
+  brand.hidden=!online||microsoft;
   q('#account-microsoft-brand').hidden=!microsoft;
-  q('#account-identity-brand').src='assets/brand/'+mark+'-light.svg';
-  q('#account-identity-brand').alt=label;
+  const brandSrc='assets/brand/'+mark+'-light.svg';
+  if(brand.getAttribute('src')!==brandSrc)brand.src=brandSrc;
+  if(brand.alt!==label)brand.alt=label;
   q('#nickname-source').hidden=!online;
   q('#nickname-source').src=microsoft?'assets/brand/microsoft.svg':'assets/brand/'+mark+'-icon-light.svg';
   q('#nickname-source').alt='Вход через '+label;

@@ -112,7 +112,7 @@ html[data-custom-canvas] #appearance-background {background-color: var(--custom-
 html[data-custom-panel] {--launcher-surface: var(--custom-panel)}
 html[data-custom-text] {color: var(--custom-text)}
 html[data-custom-text] :is(.minecraft-panel h1,.panel-heading,.preference-card h2,.current-game strong,.mods-toolbar h2,.mod-info h2,.account-identity h1,.settings-heading h1) {color: var(--custom-text)}
-html[data-panel-borders] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.account-dialog,.appearance-editor-tabs) {
+html[data-panel-borders] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.account-dialog,.appearance-editor-tabs,.logs-dialog) {
   outline: var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
   outline-offset: -1px;
 }
@@ -343,4 +343,56 @@ html[data-custom-profile] #account-dialog :is(.provider-source>div>span,.provide
 }
 html[data-custom-profile] #account-dialog .account-stack:not(.expanded) .account-slot.stacked .account-choice-avatar {
   box-shadow:0 0 0 2px var(--profile-base);
+}
+
+/* The journal shares the launcher's panel and control settings. */
+html[data-launcher-panels] #logs-dialog {
+  --journal-surface:var(--launcher-surface,#171717);
+  --journal-ink:var(--custom-text,#ededed);
+  --journal-muted:color-mix(in srgb,var(--journal-ink) 76%,var(--journal-surface));
+  --journal-control:color-mix(in srgb,var(--journal-surface) 91%,var(--journal-ink));
+  --journal-control-hover:color-mix(in srgb,var(--journal-surface) 80%,var(--journal-ink));
+  --journal-inset:color-mix(in srgb,var(--journal-surface) 88%,black);
+  border-radius:calc(var(--launcher-radius) + 8px);
+  background-color:color-mix(in srgb,var(--journal-surface) max(65%,var(--launcher-opacity)),transparent);
+  backdrop-filter:blur(var(--launcher-blur));
+  color:var(--journal-ink);
+}
+html[data-launcher-panels] #logs-dialog :where(.journal-tabs,.journal-finding,.journal-message,.journal-actions button,#logs-close) {
+  background-color:var(--journal-control);
+}
+html[data-launcher-panels] #logs-dialog :where(pre,.journal-evidence) {
+  background-color:var(--journal-inset);
+}
+html[data-launcher-panels] #logs-dialog :where(.journal-tabs button[aria-pressed=true],.journal-evidence:hover,.journal-actions button:hover,#logs-close:hover) {
+  background-color:var(--journal-control-hover);
+}
+html[data-custom-text] #logs-dialog {color:var(--custom-text)}
+html[data-launcher-panels] #logs-dialog :where(pre,.journal-tabs button,.journal-finding p,.journal-message,.journal-evidence,.journal-actions span),
+html[data-custom-text] #logs-dialog :where(pre,.journal-tabs button,.journal-finding p,.journal-message,.journal-evidence,.journal-actions span) {
+  color:var(--journal-muted,var(--custom-text));
+}
+html[data-launcher-panels] #logs-dialog :where(.journal-finding h2,.journal-tabs button[aria-pressed=true],.journal-actions button,#logs-close),
+html[data-custom-text] #logs-dialog :where(.journal-finding h2,.journal-tabs button[aria-pressed=true],.journal-actions button,#logs-close) {
+  color:inherit;
+}
+html[data-launcher-panels] #logs-dialog :where(pre,.journal-tabs,.journal-finding,.journal-message) {
+  border-radius:var(--launcher-radius);
+}
+html[data-button-radius] #logs-dialog :where(.journal-tabs button,.journal-evidence,.journal-actions button,#logs-close) {
+  border-radius:var(--button-radius,8px);
+}
+html[data-launcher-accent] #logs-dialog .journal-tabs button[aria-pressed=true] {
+  background-color:var(--launcher-accent);
+  color:var(--launcher-accent-text);
+}
+html[data-panel-shadow] #logs-dialog {box-shadow:var(--panel-shadow)}
+html[data-text-scale] #logs-title {font-size:calc(22px * var(--text-scale,1))}
+html[data-text-scale] #logs-dialog .journal-finding h2 {font-size:calc(15px * var(--text-scale,1))}
+html[data-text-scale] #logs-dialog :where(.journal-tabs button,.journal-finding p,.journal-message) {
+  font-size:calc(13px * var(--text-scale,1));
+}
+html[data-text-scale] #logs-dialog .journal-actions button {font-size:calc(12px * var(--text-scale,1))}
+html[data-text-scale] #logs-dialog :where(pre,.journal-evidence code,.journal-actions span) {
+  font-size:calc(11px * var(--text-scale,1));
 }

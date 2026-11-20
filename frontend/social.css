@@ -125,13 +125,20 @@
 #lobby-reconnect[hidden]{display:none}
 .lobby-pack.pack-error>p{display:block;grid-column:1/-1;margin-top:4px}.lobby-pack.pack-error .pack-sync-button{grid-row:1;max-width:145px}
 .turn-meter[hidden],.turn-meter [hidden],.turn-notice[hidden]{display:none}
+.lobby-profile-warning{margin:0 0 10px;color:#eaca74}
+.lobby-profile-warning[hidden]{display:none}
+.lobby-profile-warning summary{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:700;list-style:none}
+.lobby-profile-warning summary::-webkit-details-marker{display:none}
+.lobby-profile-warning p{margin:6px 0 0;padding-left:24px;color:var(--appearance-muted,#aaa);font-size:12px;line-height:1.5}
+.presence-player-name{display:flex;align-items:center;gap:7px}
+.presence-provider-icon{display:inline-block;width:13px;height:13px;object-fit:contain;flex:none;opacity:.85}
+.local-profile-mark{font-size:12px;line-height:13px}
 .turn-meter-lobby{padding:10px 12px;margin:0 0 10px;border-radius:var(--appearance-panel-radius,10px);background:rgba(255,255,255,.055)}
 .turn-meter-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13px}
 .turn-meter-value,.turn-meter-reset{font-size:11px;color:var(--appearance-muted,#aaa);font-variant-numeric:tabular-nums}
 .turn-meter-progress{display:block;appearance:none;width:100%;height:5px;margin:9px 0;border:0;border-radius:10px;overflow:hidden}
 .turn-meter-progress::-webkit-progress-bar{background:rgba(127,127,127,.27)}
-.turn-meter-progress::-webkit-progress-value{background:var(--appearance-accent,#8ac9a4);border-radius:10px;transition:width .25s ease}
-.turn-meter-exhausted .turn-meter-progress::-webkit-progress-value{background:#ef9c83}
+.turn-meter-progress::-webkit-progress-value{background:var(--turn-progress-color,#8ac9a4);border-radius:10px;transition:width .25s ease,background-color .25s ease}
 .turn-meter-hint,.turn-meter-reset,.turn-subscription p{margin:6px 0 0;font-size:11px;line-height:1.55}
 .turn-meter-hint,.turn-subscription p{opacity:.72}
 .turn-subscription{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px;padding:11px 13px;border-radius:10px;background:rgba(127,127,127,.11);font-size:12px}

@@ -14,7 +14,7 @@ using Microsoft.Win32;
 using System.Web.Script.Serialization;
 
 namespace SintetSetup {
- public sealed class InstallOptions { public string Directory; public bool Desktop = true; public bool Integrate = true; }
+ public sealed class InstallOptions { public string Directory; public bool Desktop = true; public bool Integrate = true; public bool UseBundledVersion; }
  public sealed class InstallMarker {
   public string Product = Engine.Product;
   public string Directory;
@@ -28,6 +28,14 @@ namespace SintetSetup {
   const string RegistryPath=@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Sintet";
   const string UpdateManifestUrl="https://sintet-updates.zzoyn522.workers.dev/stable/latest.json";
   public static string DefaultPath {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Programs","Sintet");}}
+  public static string InstalledPath {
+   get {
+    using(var key=Registry.CurrentUser.OpenSubKey(RegistryPath)){
+     string path=key==null?"":key.GetValue("InstallLocation","").ToString();
+     return !String.IsNullOrEmpty(path)&&File.Exists(Path.Combine(path,"install.xml"))?path:DefaultPath;
+    }
+   }
+  }
   static void RemoveUninstallShortcuts(string menu,string root) {
    foreach(var name in new[]{"Uninstall Sintet","Удалить Sintet","Видалити Sintet","Desinstalar o Sintet","Desinstalar Sintet"})
     RemoveShortcut(Path.Combine(menu,name+".lnk"),root);
@@ -58,14 +66,18 @@ namespace SintetSetup {
    if(!Environment.Is64BitOperatingSystem||Environment.OSVersion.Version.Major<10)throw new IOException(SetupLanguage.T("Для этой сборки нужна 64-битная Windows 10 или 11."));
    string root=Normalize(options.Directory);Directory.CreateDirectory(root);
    string existingMarker=Path.Combine(root,"install.xml");
-   if(File.Exists(existingMarker))ReadMarker(root);
+   if(File.Exists(existingMarker)){
+    var existing=ReadMarker(root);Version installedVersion,bundledVersion;
+    if(options.UseBundledVersion&&Version.TryParse(existing.Version,out installedVersion)&&Version.TryParse(Package.Version,out bundledVersion)&&installedVersion>bundledVersion)
+     throw new IOException("A newer version of Sintet is already installed.");
+   }
    else foreach(string name in new[]{"Sintet-launcher.exe","Sintet.ico","Uninstall.exe"})if(File.Exists(Path.Combine(root,name)))throw new IOException(SetupLanguage.T("В этой папке уже есть файлы с такими именами. Выбери другую папку для Sintet."));
    string probe=Path.Combine(root,".sintet-write-"+Guid.NewGuid().ToString("N"));
    try {using(File.Create(probe)){} } catch(UnauthorizedAccessException){throw new IOException(SetupLanguage.T("Нет доступа к папке. Выбери другую, например ")+DefaultPath);}
    finally {if(File.Exists(probe))File.Delete(probe);}
    progress(4,SetupLanguage.T("Проверяем компоненты"));
    if(options.Integrate&&!HasWebView())InstallWebView(progress);
-   DownloadedRelease remote=DownloadLatestLauncher(root,progress);
+   DownloadedRelease remote=options.UseBundledVersion?null:DownloadLatestLauncher(root,progress);
    progress(60,SetupLanguage.T("Подготавливаем лаунчер"));
    string exe=Path.Combine(root,"Sintet-launcher.exe"),temporary=Path.Combine(root,".sintet-"+Guid.NewGuid().ToString("N")+".tmp");
    try {
@@ -96,7 +108,8 @@ namespace SintetSetup {
      if(options.Desktop)Shortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Sintet.lnk"),exe,root,"");
      using(var key=Registry.CurrentUser.CreateSubKey(RegistryPath)){
       key.SetValue("DisplayName","Sintet");key.SetValue("DisplayVersion",releaseVersion);key.SetValue("Publisher","Sintet");key.SetValue("InstallLocation",root);key.SetValue("DisplayIcon",Path.Combine(root,"Sintet.ico"));
-      key.SetValue("UninstallString","\""+uninstaller+"\" --uninstall");key.SetValue("NoModify",1);key.SetValue("NoRepair",1);key.SetValue("EstimatedSize",(int)((new FileInfo(exe).Length+new FileInfo(uninstaller).Length)/1024));
+      key.SetValue("UninstallString","\""+uninstaller+"\" --uninstall");
+      key.SetValue("QuietUninstallString","\""+uninstaller+"\" --uninstall --silent");key.SetValue("NoModify",1);key.SetValue("NoRepair",1);key.SetValue("EstimatedSize",(int)((new FileInfo(exe).Length+new FileInfo(uninstaller).Length)/1024));
      }
     }
     progress(100,SetupLanguage.T("Готово"));

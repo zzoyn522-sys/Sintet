@@ -32,6 +32,7 @@ type PackPlan struct {
 	Bytes         int64     `json:"bytes"`
 	Warnings      []string  `json:"warnings"`
 	Created       time.Time `json:"-"`
+	LocalArchive  bool      `json:"-"`
 	folder        string
 	entries       []packEntry
 }
@@ -78,7 +79,7 @@ func safePackPath(value string) bool {
 	}
 	parts := strings.Split(strings.ToLower(value), "/")
 	for _, part := range parts {
-		if strings.HasPrefix(part, ".sintet-") {
+		if part == ".sintet" || strings.HasPrefix(part, ".sintet-") {
 			return false
 		}
 	}
@@ -135,13 +136,7 @@ func (m *Manager) PreparePack(ctx context.Context, provider, project, version, c
 	if v.URL == "" {
 		return result, errors.New("автор сборки запретил автоматическую загрузку этого файла")
 	}
-	if !filepath.IsAbs(cacheRoot) {
-		return result, errors.New("неверная папка кэша")
-	}
-	if err = os.MkdirAll(cacheRoot, 0700); err != nil {
-		return result, err
-	}
-	folder, err := os.MkdirTemp(cacheRoot, "pack-")
+	folder, err := newPackStage(cacheRoot)
 	if err != nil {
 		return result, err
 	}
@@ -161,8 +156,14 @@ func (m *Manager) PreparePack(ctx context.Context, provider, project, version, c
 	if err = m.parsePack(ctx, archive, &result); err != nil {
 		return result, err
 	}
+	result, err = m.rememberPackPlan(result)
+	keep = err == nil
+	return result, err
+}
+
+func (m *Manager) rememberPackPlan(result PackPlan) (PackPlan, error) {
 	var id [16]byte
-	if _, err = rand.Read(id[:]); err != nil {
+	if _, err := rand.Read(id[:]); err != nil {
 		return result, err
 	}
 	result.ID = hex.EncodeToString(id[:])
@@ -182,7 +183,6 @@ func (m *Manager) PreparePack(ctx context.Context, provider, project, version, c
 		}
 	}
 	m.packPlans[result.ID] = result
-	keep = true
 	return result, nil
 }
 func packLoader(game string, deps map[string]string) (string, string, error) {
@@ -277,20 +277,17 @@ func (m *Manager) parsePack(ctx context.Context, archive string, plan *PackPlan)
 		if e != nil {
 			return errors.New("в .mrpack нет modrinth.index.json")
 		}
-		var index struct {
-			Format       int               `json:"formatVersion"`
-			Game         string            `json:"game"`
-			Dependencies map[string]string `json:"dependencies"`
-			Files        []struct {
-				Path      string            `json:"path"`
-				Hashes    map[string]string `json:"hashes"`
-				Env       map[string]string `json:"env"`
-				Downloads []string          `json:"downloads"`
-				Size      int64             `json:"fileSize"`
-			} `json:"files"`
-		}
+		var index mrpackIndex
 		if json.Unmarshal(data, &index) != nil || index.Format != 1 || index.Game != "minecraft" || len(index.Files) > 10000 {
 			return errors.New("некорректный формат .mrpack")
+		}
+		if plan.LocalArchive {
+			if name := strings.TrimSpace(index.Name); name != "" {
+				plan.Project.Name = name
+			}
+			if len(index.VersionID) <= 100 {
+				plan.Version = index.VersionID
+			}
 		}
 		plan.Game = index.Dependencies["minecraft"]
 		plan.Loader, plan.LoaderVersion, err = packLoader(plan.Game, index.Dependencies)
@@ -314,7 +311,7 @@ func (m *Manager) parsePack(ctx context.Context, archive string, plan *PackPlan)
 			}
 			urls := []string{}
 			for _, u := range f.Downloads {
-				if allowedPackDownload(u) {
+				if allowedPackDownload(u) && (!plan.LocalArchive || publicPackDownload(u)) {
 					urls = append(urls, u)
 				}
 			}
@@ -325,7 +322,7 @@ func (m *Manager) parsePack(ctx context.Context, archive string, plan *PackPlan)
 			if hash == "" {
 				algo, hash = "sha1", f.Hashes["sha1"]
 			}
-			if e = add(packEntry{Path: f.Path, File: Version{Kind: "packfile", Filename: f.Path, URL: urls[0], URLs: urls, Size: f.Size, Algorithm: algo, Hash: hash}}, false); e != nil {
+			if e = add(packEntry{Path: f.Path, File: Version{Kind: "packfile", Filename: f.Path, URL: urls[0], URLs: urls, Size: f.Size, Algorithm: algo, Hash: hash, RequirePublicDownload: plan.LocalArchive}}, false); e != nil {
 				return e
 			}
 		}

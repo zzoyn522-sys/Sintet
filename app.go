@@ -18,45 +18,47 @@ import (
 )
 
 type App struct {
-	remotePackBusy   atomic.Bool
-	tray             *launcherTray
-	forceQuit        atomic.Bool
-	windowHidden     atomic.Bool
-	gameHidWindow    atomic.Bool
-	cacheMu          sync.Mutex
-	internetOffline  atomic.Bool
-	social           *socialManager
-	sharedBuilds     *sharedBuildManager
-	overlayMu        sync.Mutex
-	overlay          *overlayBridge
-	overlayError     error
-	contentMu        sync.Mutex
-	workshop         *workshop.Manager
-	avatarDB         *avatarDatabase
-	news             *newsFeed
-	authMu           sync.Mutex
-	profiles         *profileRoster
-	mu               sync.RWMutex
-	service          *launcher.Service
-	ctx              context.Context
-	settings         launcher.Settings
-	defaults         launcher.Settings
-	settingsPath     string
-	syncCancel       context.CancelFunc
-	profileRefresh   chan struct{}
-	activity         *activityTracker
-	warning          string
-	appearanceMu     sync.Mutex
-	appearance       Appearance
-	appearanceSlots  []AppearanceSlot
-	appearanceActive int
-	appearancePath   string
-	backgroundDir    string
-	draftBackground  string
-	draftFont        string
-	updates          *updateManager
-	support          *supportManager
-	importer         *launcherImporter
+	remotePackBusy     atomic.Bool
+	tray               *launcherTray
+	forceQuit          atomic.Bool
+	windowHidden       atomic.Bool
+	gameHidWindow      atomic.Bool
+	cacheMu            sync.Mutex
+	internetOffline    atomic.Bool
+	social             *socialManager
+	discordDone        chan struct{}
+	sharedBuilds       *sharedBuildManager
+	overlayMu          sync.Mutex
+	overlay            *overlayBridge
+	overlayError       error
+	contentMu          sync.Mutex
+	workshop           *workshop.Manager
+	avatarDB           *avatarDatabase
+	news               *newsFeed
+	authMu             sync.Mutex
+	profiles           *profileRoster
+	mu                 sync.RWMutex
+	service            *launcher.Service
+	ctx                context.Context
+	settings           launcher.Settings
+	defaults           launcher.Settings
+	settingsPath       string
+	syncCancel         context.CancelFunc
+	profileRefresh     chan struct{}
+	activity           *activityTracker
+	warning            string
+	appearanceMu       sync.Mutex
+	appearance         Appearance
+	appearanceSlots    []AppearanceSlot
+	appearanceActive   int
+	appearancePath     string
+	backgroundDir      string
+	draftBackground    string
+	draftFont          string
+	updates            *updateManager
+	support            *supportManager
+	importer           *launcherImporter
+	launcherTourMarker string
 }
 
 // Installer builds override this public URL; local development keeps localhost.
@@ -74,6 +76,7 @@ func NewApp() *App {
 	settingsPath := filepath.Join(appRoot, "settings.json")
 	settings, e := launcher.ReadSettings(settingsPath, defaults)
 	firstLaunch := os.IsNotExist(e)
+	tourMarker := prepareLauncherTour(appRoot, firstLaunch)
 	support := newSupportManager(appRoot, firstLaunch)
 	importer := newLauncherImporter(appRoot, firstLaunch)
 	warning := ""
@@ -106,7 +109,7 @@ func NewApp() *App {
 	}
 	appearancePath := filepath.Join(appRoot, "appearance.json")
 	library := readAppearanceLibrary(appearancePath)
-	return &App{avatarDB: newAvatarDatabase(), appearance: library.Current, appearanceSlots: library.Slots, appearanceActive: library.ActiveSlot, appearancePath: appearancePath, backgroundDir: filepath.Join(appRoot, "Backgrounds"), news: newNewsFeed(appRoot, mojangNewsURL, "minecraft.net"), profiles: newProfileRoster(appRoot, base), service: launcher.New(settings.GameDirectory), settings: settings, defaults: defaults, settingsPath: settingsPath, warning: warning, updates: newUpdateManager(filepath.Join(appRoot, "Updates")), support: support, importer: importer}
+	return &App{avatarDB: newAvatarDatabase(), appearance: library.Current, appearanceSlots: library.Slots, appearanceActive: library.ActiveSlot, appearancePath: appearancePath, backgroundDir: filepath.Join(appRoot, "Backgrounds"), news: newNewsFeed(appRoot, mojangNewsURL, "minecraft.net"), profiles: newProfileRoster(appRoot, base), service: launcher.New(settings.GameDirectory), settings: settings, defaults: defaults, settingsPath: settingsPath, warning: warning, updates: newUpdateManager(filepath.Join(appRoot, "Updates")), support: support, importer: importer, launcherTourMarker: tourMarker}
 }
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
@@ -146,6 +149,7 @@ func (a *App) startup(ctx context.Context) {
 		a.social.error(err)
 	}
 	go a.social.run()
+	a.startDiscordPresence(syncCtx)
 	a.sharedBuilds = newSharedBuildManager(a, syncCtx)
 	go a.sharedBuilds.pollTransfers()
 	go a.syncWorkshop(syncCtx)
@@ -185,6 +189,12 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 	if a.syncCancel != nil {
 		a.syncCancel()
+	}
+	if a.discordDone != nil {
+		select {
+		case <-a.discordDone:
+		case <-time.After(750 * time.Millisecond):
+		}
 	}
 	a.finishActivity()
 	a.CancelSintetLogin()
@@ -270,11 +280,26 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 	}
 	if (sharedOwner != "" || strings.HasPrefix(id, sharedProfilePrefix)) && quickPlayPort == 0 {
 		slot := a.profiles.find(a.profiles.active)
-		if sharedOwner == "" || slot == nil || slot.Provider != "sintet" || slot.sintet == nil {
+		if sharedOwner == "" {
 			return fmt.Errorf("открой общую сборку в мастерской")
 		}
-		if account := slot.sintet.SavedAccount(); account == nil || account.ID != sharedOwner {
+		accountID := ""
+		if slot != nil && slot.sintet != nil {
+			if account := slot.sintet.SavedAccount(); account != nil {
+				accountID = account.ID
+			}
+		} else if a.social != nil {
+			a.social.mu.Lock()
+			if a.social.externalSlot == a.profiles.active {
+				accountID = a.social.account
+			}
+			a.social.mu.Unlock()
+		}
+		if accountID != sharedOwner {
 			return fmt.Errorf("аккаунт изменился")
+		}
+		if slot == nil && a.profiles.active == defaultProfile {
+			name = localAccount(a.profiles.lobbyDefaultName).Username
 		}
 	}
 	var account *identity.Account

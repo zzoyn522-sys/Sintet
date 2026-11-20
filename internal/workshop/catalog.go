@@ -41,22 +41,23 @@ type Dependency struct {
 	Kind    string `json:"kind"`
 }
 type Version struct {
-	Published    time.Time    `json:"-"`
-	Kind         string       `json:"kind"`
-	Release      string       `json:"release"`
-	ID           string       `json:"id"`
-	Project      string       `json:"project"`
-	Name         string       `json:"name"`
-	Filename     string       `json:"filename"`
-	URL          string       `json:"-"`
-	URLs         []string     `json:"-"`
-	Hash         string       `json:"-"`
-	Algorithm    string       `json:"-"`
-	Size         int64        `json:"size"`
-	Unavailable  bool         `json:"unavailable,omitempty"`
-	Games        []string     `json:"games"`
-	Loaders      []string     `json:"loaders"`
-	Dependencies []Dependency `json:"dependencies"`
+	Published             time.Time    `json:"-"`
+	Kind                  string       `json:"kind"`
+	Release               string       `json:"release"`
+	ID                    string       `json:"id"`
+	Project               string       `json:"project"`
+	Name                  string       `json:"name"`
+	Filename              string       `json:"filename"`
+	RequirePublicDownload bool         `json:"-"`
+	URL                   string       `json:"-"`
+	URLs                  []string     `json:"-"`
+	Hash                  string       `json:"-"`
+	Algorithm             string       `json:"-"`
+	Size                  int64        `json:"size"`
+	Unavailable           bool         `json:"unavailable,omitempty"`
+	Games                 []string     `json:"games"`
+	Loaders               []string     `json:"loaders"`
+	Dependencies          []Dependency `json:"dependencies"`
 }
 type SearchResult struct {
 	NextOffset int       `json:"nextOffset"`

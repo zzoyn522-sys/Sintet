@@ -30,6 +30,7 @@ type Peer struct {
 	trace       []string
 	started     time.Time
 	hostPort    int
+	hostDial    func(context.Context, int) (net.Conn, func(), error)
 	hostWorld   context.Context
 	cancelWorld context.CancelFunc
 	packSession *yamux.Session
@@ -389,6 +390,13 @@ func (p *Peer) SetHostPort(port int) {
 	}
 	p.hostPort = port
 }
+
+func (p *Peer) SetHostDialer(dial func(context.Context, int) (net.Conn, func(), error)) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.hostDial = dial
+}
+
 func (p *Peer) serveHost(session *yamux.Session) {
 	limit := make(chan struct{}, 32)
 	for {
@@ -402,7 +410,7 @@ func (p *Peer) serveHost(session *yamux.Session) {
 				defer func() { <-limit }()
 				defer stream.Close()
 				p.mu.Lock()
-				port := p.hostPort
+				port, dial := p.hostPort, p.hostDial
 				if port != 0 && p.hostWorld == nil {
 					p.hostWorld, p.cancelWorld = context.WithCancel(context.Background())
 				}
@@ -411,8 +419,18 @@ func (p *Peer) serveHost(session *yamux.Session) {
 				if port == 0 {
 					return
 				}
-				dialer := net.Dialer{Timeout: 5 * time.Second}
-				target, err := dialer.DialContext(world, "tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+				var target net.Conn
+				var cleanup func()
+				var err error
+				if dial == nil {
+					dialer := net.Dialer{Timeout: 5 * time.Second}
+					target, err = dialer.DialContext(world, "tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)))
+				} else {
+					target, cleanup, err = dial(world, port)
+				}
+				if cleanup != nil {
+					defer cleanup()
+				}
 				if err != nil {
 					return
 				}
@@ -434,10 +452,18 @@ func bridge(a, b net.Conn) {
 	<-done
 }
 func (p *Peer) Listen(ctx context.Context) (int, error) {
+	return p.listen(ctx, "0.0.0.0:0")
+}
+
+func (p *Peer) ListenLocal(ctx context.Context) (int, error) {
+	return p.listen(ctx, "127.0.0.1:0")
+}
+
+func (p *Peer) listen(ctx context.Context, address string) (int, error) {
 	if err := p.Wait(ctx); err != nil {
 		return 0, err
 	}
-	listener, err := net.Listen("tcp4", "0.0.0.0:0")
+	listener, err := net.Listen("tcp4", address)
 	if err != nil {
 		return 0, err
 	}

@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -65,6 +66,22 @@ func TestPerFileDiskCheckDoesNotRetryOrLeaveGarbage(t *testing.T) {
 	files, _ := filepath.Glob(filepath.Join(s.Root, "assets", "objects", "ee", ".download-*"))
 	if len(files) != 0 {
 		t.Fatal("partial download left behind", files)
+	}
+}
+
+func TestOversizeDownloadIsDiscardedWhenLengthIsUnknown(t *testing.T) {
+	service := New(t.TempDir())
+	file := storageFixture([]byte("fixture"), "https://example.test/asset")
+	service.HTTP.Transport = installerTestTransport(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, ContentLength: -1,
+			Body: io.NopCloser(strings.NewReader("fixture with extra data"))}, nil
+	})
+	if err := service.download(context.Background(), file, nil); err == nil || !strings.Contains(err.Error(), "проверка размера/хеша не пройдена") {
+		t.Fatalf("oversize file not rejected: %v", err)
+	}
+	target := filepath.Join(service.Root, filepath.FromSlash(file.Path))
+	if entries, err := os.ReadDir(filepath.Dir(target)); err != nil || len(entries) != 0 {
+		t.Fatalf("unexpected files after failed download: %v, %v", entries, err)
 	}
 }
 

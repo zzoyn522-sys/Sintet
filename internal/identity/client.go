@@ -217,7 +217,8 @@ func (c *Client) SocialRequest(ctx context.Context, method, path string, body, o
 	coverRequest := method == http.MethodGet && strings.HasPrefix(path, "/api/social/music-cover?")
 	traceRequest := method == http.MethodPost && path == "/api/social/ice-trace"
 	usageRequest := method == http.MethodGet && (path == "/api/social/turn-usage" || strings.HasPrefix(path, "/api/social/turn-usage?room="))
-	if path != "/api/social" && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest && !usageRequest {
+	badgeStateRequest := method == http.MethodGet && path == "/api/social?profileBadges=1"
+	if path != "/api/social" && !badgeStateRequest && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest && !usageRequest {
 		return errors.New("invalid social route")
 	}
 	c.mu.Lock()

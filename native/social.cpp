@@ -3,6 +3,7 @@
 #include <windows.h>
 #include "language.h"
 #include <winhttp.h>
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <deque>
@@ -27,7 +28,7 @@ std::unordered_map<std::string,AvatarEntry> avatars;
 std::deque<Person> avatarQueue;
 HINTERNET pollRequest,actionRequest;
 std::wstring wide(const std::string& str){int n=MultiByteToWideChar(CP_UTF8,0,str.data(),(int)str.size(),nullptr,0);std::wstring out(n,0);MultiByteToWideChar(CP_UTF8,0,str.data(),(int)str.size(),out.data(),n);return out;}
-Json request(bool action,const std::wstring& path,const std::string& body="") {
+Json request(bool action,const std::wstring& path,const std::string& body="",size_t maxBytes=256*1024) {
  HINTERNET session=WinHttpOpen(L"Sintet Overlay/1.0",WINHTTP_ACCESS_TYPE_NO_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,0);
  if(!session)return Json{{"error",OverlayText("Связь с лаунчером недоступна")}};
  WinHttpSetTimeouts(session,1000,1000,2000,action?110000:1500);
@@ -38,20 +39,55 @@ Json request(bool action,const std::wstring& path,const std::string& body="") {
   {std::lock_guard<std::mutex> lock(mutex);if(action)actionRequest=handle;else pollRequest=handle;}
   const std::wstring headers=L"Authorization: Bearer "+authorization+L"\r\nContent-Type: application/json\r\n";
   ok=WinHttpSendRequest(handle,headers.c_str(),(DWORD)headers.size(),body.empty()?WINHTTP_NO_REQUEST_DATA:(void*)body.data(),(DWORD)body.size(),(DWORD)body.size(),0)&&WinHttpReceiveResponse(handle,nullptr);
-  while(ok){char block[8192];DWORD read=0;if(!WinHttpReadData(handle,block,sizeof(block),&read)){ok=false;break;}if(!read)break;data.append(block,read);if(data.size()>256*1024){ok=false;break;}}
+  while(ok){char block[8192];DWORD read=0;if(!WinHttpReadData(handle,block,sizeof(block),&read)){ok=false;break;}if(!read)break;data.append(block,read);if(data.size()>maxBytes){ok=false;break;}}
   {std::lock_guard<std::mutex> lock(mutex);auto& active=action?actionRequest:pollRequest;if(active==handle){active=nullptr;WinHttpCloseHandle(handle);}}
  }
  if(connection)WinHttpCloseHandle(connection);WinHttpCloseHandle(session);
  if(!ok)return Json{{"error",OverlayText("Связь с лаунчером недоступна")}};
  auto value=Json::parse(data,nullptr,false);return value.is_object()?value:Json{{"error",OverlayText("Некорректный ответ лаунчера")}};
 }
-Person person(const Json& value){if(!value.is_object())return {};return {value.value("id",""),value.value("username",""),value.value("avatarUrl","")};}
+std::vector<std::string> badgeIDs(const Json& row){
+ std::vector<std::string> ids;
+ const auto field=row.find("badges");
+ if(field==row.end()||!field->is_array())return ids;
+ for(const auto& item:*field){
+  if(ids.size()==32)break;
+  if(!item.is_string())continue;
+  const auto& id=item.get_ref<const std::string&>();
+  if(!id.empty()&&id.size()<=40&&std::find(ids.begin(),ids.end(),id)==ids.end())ids.push_back(id);
+ }
+ return ids;
+}
+Person person(const Json& value){
+ if(!value.is_object())return {};
+ return {value.value("id",""),value.value("username",""),value.value("avatarUrl",""),
+         ParseAccountProvider(value.value("provider","")),badgeIDs(value)};
+}
+void pollBadges(std::string& revision){
+ const auto reply=request(false,L"/badges?revision="+wide(revision),"",2*1024*1024);
+ const auto current=reply.value("revision","");
+ const auto icons=reply.find("icons");
+ if(current.size()!=64||current==revision||current.find_first_not_of("0123456789abcdef")!=std::string::npos||
+    icons==reply.end()||!icons->is_object()||icons->size()>256)return;
+ auto next=std::make_shared<BadgeCatalog>();
+ for(auto item=icons->begin();item!=icons->end();++item){
+  if(item.key().empty()||item.key().size()>40||!item.value().is_object())continue;
+  auto label=item.value().value("label","");
+  auto pixels=item.value().value("pixels","");
+  if(!label.empty()&&label.size()<=320&&pixels.size()==24*24*8)
+   next->emplace(item.key(),BadgeIcon{std::move(label),std::move(pixels)});
+ }
+ std::lock_guard<std::mutex> lock(mutex);
+ state.badgeCatalog=std::move(next);
+ revision=current;
+}
 LinkQuality linkQuality(const Json& value){
  if(!value.is_object())return {};
  return {true,value.value("pingMs",-1),value.value("loss",-1.0),value.value("kbPerSec",0.0),value.value("level","")};
 }
 DWORD WINAPI poll(void*) {
- std::string lastInvite;
+ std::string lastInvite,badgeRevision;
+ ULONGLONG nextBadgePoll=0;
  int ipcFailures=0;
  while(!stopping){
   auto value=request(false,L"/state");
@@ -69,6 +105,8 @@ DWORD WINAPI poll(void*) {
    state.preGameLobby=value.value("preGameLobby",false);
    state.noPack=value.value("noPack",false);
    state.lobbyConnected=value.value("lobbyConnected",false);
+   state.lobbyProvider=value.value("lobbyProvider","");
+   state.self=person(value.value("lobbyProfile",Json()));
    state.turnActive=value.value("turnActive",false);
    state.turnNotice=value.value("turnNotice",0LL);
    const auto usage=value.value("lobbyTurnUsage",value.value("turnUsage",Json()));
@@ -77,7 +115,7 @@ DWORD WINAPI poll(void*) {
    state.quality=linkQuality(value.value("quality",Json()));
    state.networkPeers.clear();
    if(value.contains("networkPeers")&&value["networkPeers"].is_array())for(const auto& row:value["networkPeers"]){
-    if(row.is_object()&&state.networkPeers.size()<4)state.networkPeers.push_back({row.value("name",""),linkQuality(row)});
+    if(row.is_object()&&state.networkPeers.size()<4)state.networkPeers.push_back({row.value("name",""),linkQuality(row),ParseAccountProvider(row.value("provider","")),badgeIDs(row)});
    }
    const auto room=value.contains("room")&&value["room"].is_object()?value["room"].value("code",""):"";
    const bool automatic=value.value("autoConnect",false);
@@ -112,6 +150,11 @@ DWORD WINAPI poll(void*) {
    if(!state.invites.empty()&&state.invites[0].id!=lastInvite){lastInvite=state.invites[0].id;MessageBeep(MB_OK);}
    }
   }catch(...){std::lock_guard<std::mutex> lock(mutex);state.error=OverlayText("Не удалось прочитать список друзей");}
+  const auto now=GetTickCount64();
+  if(!stopping&&now>=nextBadgePoll){
+   nextBadgePoll=now+2000;
+   try{pollBadges(badgeRevision);}catch(const Json::exception&){}
+  }
   for(int i=0;i<7&&!stopping;i++)Sleep(100);
  }
  return 0;
@@ -153,6 +196,24 @@ std::string AvatarPixels(const Person& person){
  return entry.pixels;
 }
 State Snapshot(){std::lock_guard<std::mutex> lock(mutex);return state;}
+AccountProvider ParseAccountProvider(const std::string& value){
+ if(value=="sintet")return AccountProvider::Sintet;
+ if(value=="microsoft")return AccountProvider::Microsoft;
+ if(value=="ely")return AccountProvider::Ely;
+ if(value=="local")return AccountProvider::Local;
+ return AccountProvider::Unknown;
+}
+bool MixedProfileLobby(const State& state){
+ if(!state.lobbyConnected||state.room.empty())return false;
+ auto provider=ParseAccountProvider(state.lobbyProvider);
+ for(const auto& member:state.members){
+  const auto current=member.person.provider;
+  if(current==AccountProvider::Unknown)continue;
+  if(provider!=AccountProvider::Unknown&&provider!=current)return true;
+  provider=current;
+ }
+ return false;
+}
 std::wstring LobbySearchKey(const std::string& text){
  const auto first=text.find_first_not_of(" \t\r\n@");
  if(first==std::string::npos)return {};

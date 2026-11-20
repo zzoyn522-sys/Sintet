@@ -6,17 +6,18 @@
  const escape=value=>value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  const templates=Object.entries(catalog).flatMap(([key,values])=>{
   const pieces=key.split(token), count=pieces.length-1;
-  if(count<1||count>3||!pieces[0]||!cyrillic.test(pieces[0])||
+  if(count<1||count>3||!pieces.some(piece=>cyrillic.test(piece))||
      values.some(value=>value.split(token).length!==pieces.length))return [];
-  return [{prefix:pieces[0], pattern:new RegExp('^'+pieces.map(escape).join('(.+?)')+'$','s'), values}];
+  const marker=pieces.reduce((longest,piece)=>piece.length>longest.length?piece:longest,'');
+  return [{prefix:pieces[0], marker, pattern:new RegExp('^'+pieces.map(escape).join('(.+?)')+'$','s'), values}];
  });
  function translate(phrase, depth=0){
   const index=langs.indexOf(language);
   if(index<0||language==='ru'||!cyrillic.test(phrase))return phrase;
   if(Object.hasOwn(catalog,phrase))return catalog[phrase][index]||phrase;
   if(depth>=2||phrase.length>2000)return phrase;
-  for(const {prefix,pattern,values} of templates){
-   if(!phrase.startsWith(prefix))continue;
+  for(const {prefix,marker,pattern,values} of templates){
+   if(!phrase.startsWith(prefix)||!phrase.includes(marker))continue;
    const match=phrase.match(pattern);
    if(!match)continue;
    let capture=0;

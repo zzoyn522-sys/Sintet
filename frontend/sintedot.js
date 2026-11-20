@@ -23,7 +23,8 @@
     const section = q(id);
     const items = (rows || []).map(row => {
       const item = document.createElement('li');
-      item.textContent = row;
+      if (row instanceof DocumentFragment) item.append(row);
+      else item.textContent = row;
       return item;
     });
     section.querySelector('ul').replaceChildren(...items);
@@ -61,10 +62,22 @@
     q('changes').querySelector('h3').textContent = state.preview ? 'План изменений' : 'Выполнено';
     list('changes', state.changes);
     list('issues', [...(state.error ? [state.error] : []), ...(state.issues || [])]);
-    list('journal', state.journal);
+    list('journal', (state.journal || []).map(entry => {
+      const separator = entry.indexOf(' — ');
+      if (separator < 0) return entry;
+      const row = document.createDocumentFragment();
+      row.append(entry.slice(0, separator), ' — ', entry.slice(separator + 3));
+      return row;
+    }));
     list('conflicts', (state.conflicts || []).map(conflict => {
-      const requirements = conflict.requirements.map(r => r.mod + ' (' + r.file + ') требует ' + (r.range || '*'));
-      return [conflict.modId + ' · Установлено: ' + (conflict.installed.join(', ') || 'нет'), ...requirements].join('\n');
+      const row = document.createDocumentFragment();
+      row.append(conflict.modId + ' · ');
+      if (conflict.installed.length) row.append('Установлено: ' + conflict.installed.join(', '));
+      else row.append('Нет установленной версии');
+      for (const requirement of conflict.requirements) {
+        row.append(document.createElement('br'), `${requirement.mod} (${requirement.file}) требует ${requirement.range || '*'}`);
+      }
+      return row;
     }));
     q('backup').hidden = !state.backup;
     q('backup').textContent = state.backup ? 'Резервная копия: ' + state.backup : '';
@@ -74,9 +87,13 @@
   function footer(state = {}, busy = false) {
     q('footer').hidden = !state.stage;
     q('footer').classList.toggle('sintedot-has-warning', warning(state));
-    const stage = window.SintetText?.translate(state.stage || '') || state.stage;
-    q('footer-stage').textContent = stage ? 'Sintedot · ' + stage + (state.error ? ' · ' + state.error : '') : '';
-    q('footer-stage').title = state.error || state.stage || '';
+    const label = q('footer-stage');
+    label.replaceChildren();
+    if (state.stage) {
+      label.append('Sintedot · ', state.stage);
+      if (state.error) label.append(' · ', state.error);
+    }
+    label.title = state.error || state.stage || '';
     q('footer-percent').textContent = busy && state.percent > 0 ? Math.floor(state.percent) + '%' : '';
     const progress = q('footer-progress');
     progress.hidden = !busy;

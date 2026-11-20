@@ -1,8 +1,17 @@
 #pragma once
+#include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 namespace SintetSocial {
-struct Person {std::string id,name,avatar;};
+enum class AccountProvider { Unknown, Sintet, Microsoft, Ely, Local };
+struct Person {
+ std::string id,name,avatar;
+ AccountProvider provider=AccountProvider::Unknown;
+ std::vector<std::string> badges;
+};
+struct BadgeIcon {std::string label,pixels;};
+using BadgeCatalog=std::unordered_map<std::string,BadgeIcon>;
 struct Friend {Person person;std::string status,presence,server;bool incoming=false;};
 struct Member {Person person;bool leader=false;std::string preparation;int percent=0;std::string handle;};
 struct Invite {std::string id,code;Person sender;std::string game,build,loader;};
@@ -12,7 +21,12 @@ struct LinkQuality {
  double loss=-1, kbPerSec=0;
  std::string level;
 };
-struct NetworkPeer {std::string name;LinkQuality quality;};
+struct NetworkPeer {
+ std::string name;
+ LinkQuality quality;
+ AccountProvider provider=AccountProvider::Unknown;
+ std::vector<std::string> badges;
+};
 struct State {
 	std::string packPhase,packName,packGame,packLoader,packDigest,packCurrent,packError;
 	bool packRestart=false,packNeedsGame=false;
@@ -24,6 +38,9 @@ struct State {
  bool turnActive=false;
  long long turnUsed=0,turnLimit=0,turnNotice=0;
  std::string error,connection,room,host;
+ std::string lobbyProvider;
+ Person self;
+ std::shared_ptr<const BadgeCatalog> badgeCatalog;
  int roomCapacity=4;
  int lanPort=0,localPort=0,connected=0;
  LinkQuality quality;
@@ -35,6 +52,8 @@ struct State {
 void Start();
 void Stop();
 State Snapshot();
+AccountProvider ParseAccountProvider(const std::string&);
+bool MixedProfileLobby(const State&);
 std::string AvatarPixels(const Person&);
 std::wstring LobbySearchKey(const std::string&);
 void Action(const std::string&,const std::string& target="");

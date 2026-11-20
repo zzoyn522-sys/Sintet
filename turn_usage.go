@@ -39,9 +39,12 @@ func readTURNUsage(ctx context.Context, client *identity.Client, room ...string)
 }
 
 func (a *App) TurnUsage() (turnUsageView, error) {
-	client := a.activeUpdateClient()
-	if client == nil {
-		return turnUsageView{}, errors.New("Войди через Sintet ID, чтобы увидеть лимит TURN")
+	if a.social == nil {
+		return turnUsageView{}, errors.New("сервис лобби запускается")
+	}
+	client, err := a.social.lobbyClient(context.Background())
+	if err != nil {
+		return turnUsageView{}, err
 	}
 	return readTURNUsage(context.Background(), client)
 }
@@ -93,7 +96,14 @@ func (m *socialManager) watchTURNPeer(client *identity.Client, account string, p
 		var usage turnUsageView
 		var err error
 		if roomCode != "" {
-			usage, err = m.readRoomTURNUsage(client, account, roomCode)
+			m.mu.Lock()
+			current := m.client
+			active := m.account == account
+			m.mu.Unlock()
+			if !active || current == nil {
+				return true
+			}
+			usage, err = m.readRoomTURNUsage(current, account, roomCode)
 		} else {
 			usage, err = readTURNUsage(m.ctx, client)
 		}

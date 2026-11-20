@@ -134,15 +134,30 @@ func newSharedBuildManager(app *App, ctx context.Context) *sharedBuildManager {
 }
 
 func (m *sharedBuildManager) session() (sharedBuildSession, error) {
+	social := m.app.social
 	m.app.authMu.Lock()
-	defer m.app.authMu.Unlock()
 	slot := m.app.profiles.find(m.app.profiles.active)
-	if slot != nil && slot.Provider == "sintet" && slot.sintet != nil {
-		if account := slot.sintet.SavedAccount(); account != nil && sharedUUID(account.ID) {
-			return sharedBuildSession{account: account.ID, client: slot.sintet, social: m.app.social}, nil
+	if slot != nil && slot.sintet != nil {
+		client := slot.sintet
+		m.app.authMu.Unlock()
+		if account := client.SavedAccount(); account != nil && sharedUUID(account.ID) {
+			return sharedBuildSession{account: account.ID, client: client, social: social}, nil
+		}
+		return sharedBuildSession{}, errors.New("войдите через Sintet ID")
+	}
+	m.app.authMu.Unlock()
+	if social != nil {
+		social.identity()
+		social.mu.Lock()
+		client := social.client
+		social.mu.Unlock()
+		if client != nil {
+			if account := client.SavedAccount(); account != nil && sharedUUID(account.ID) {
+				return sharedBuildSession{account: account.ID, client: client, social: social}, nil
+			}
 		}
 	}
-	return sharedBuildSession{}, errors.New("войдите через Sintet ID")
+	return sharedBuildSession{}, errors.New("ожидаем подключение профиля к сервису сборок")
 }
 
 func sharedUUID(value string) bool {

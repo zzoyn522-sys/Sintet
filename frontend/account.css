@@ -174,8 +174,17 @@
   scrollbar-width: thin;
   scrollbar-color: #454545 transparent;
 }
+@keyframes account-profile-fade {from {opacity:0} to {opacity:1}}
+@media (prefers-reduced-motion:no-preference) {
+  #account-dialog {animation:account-profile-fade .18s ease-out}
+}
 #account-dialog.resizing {overflow-y: hidden}
 #account-dialog .account-identity {padding-bottom: 22px}
+.account-lobby-avatar{display:flex;align-items:center;justify-content:center;gap:8px;width:max-content;max-width:100%;min-height:36px;margin:-9px auto 15px;padding:7px 12px;border:1px solid color-mix(in srgb,currentColor 15%,transparent);border-radius:10px;background:color-mix(in srgb,currentColor 6%,transparent);color:inherit;font-size:12px;font-weight:650;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+.account-lobby-avatar[hidden]{display:none}
+.account-lobby-avatar:hover{background:color-mix(in srgb,currentColor 11%,transparent);border-color:color-mix(in srgb,currentColor 24%,transparent)}
+.account-lobby-avatar:disabled{opacity:.6;cursor:wait}
+.account-lobby-avatar svg{width:15px;height:15px;flex:none}
 #account-dialog #account-done {display: block; margin-top: 18px}
 .account-id {
   margin: 3px 0 10px;
@@ -238,3 +247,7 @@
 .account-email{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 10px;margin:0 0 10px;border-radius:8px;background:#222;color:#aaa;font-size:12px}
 .account-email[hidden]{display:none}
 .account-email strong{min-width:0;color:#ddd;text-align:right;overflow-wrap:anywhere;font-weight:600}
+.account-display-name{display:flex;align-items:center;gap:6px;min-width:0}
+.account-display-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-role-badge{display:block;flex:none;width:1.08em;height:1.08em;object-fit:contain}
+#account-title.account-display-name{max-width:100%}

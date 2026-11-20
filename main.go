@@ -38,7 +38,7 @@ func main() {
 		os.Exit(runUpdateHelper(os.Args[2:]))
 	}
 	updateHealthMarker = updateHealthMarkerFromArgs(os.Args[1:])
-	if !identity.ThemePortalIsLocal() && updateHealthMarker == "" && !hasLauncherArg(os.Args[1:], "--startup") && !hasLauncherArg(os.Args[1:], "--sintet-skip-update") {
+	if !identity.ThemePortalIsLocal() && updateHealthMarker == "" && !hasLauncherArg(os.Args[1:], "--startup") && !hasLauncherArg(os.Args[1:], "--sintet-skip-update") && !hasLauncherArg(os.Args[1:], "--discord-launch") {
 		if err := startPrelaunchUpdater(); err == nil {
 			return
 		}

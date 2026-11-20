@@ -4,6 +4,7 @@ import {catalogDescription,showCatalogDescription} from './data/workshop-transla
 import {resourceResolution} from './data/resourcepacks.js';
 import {mergeWorkshopResults,projectSources,searchWorkshopSources,workshopProviders} from './data/workshop-sources.js';
 import {activeSharedBuild,answerSharedBuild,canShareBuild,handleSharedDrop,mountSharedSettings,refreshSharedBuilds,selectSharedPanel,sharedBuildCard,sharedBuildList,sharedBuildSettings,sharedSettingsBusy} from './shared-builds.js';
+import {clearWorkshopLoading,showWorkshopLoading,workshopLoading} from './workshop-loading.js';
 const q=s=>document.querySelector(s);
 const catalogKinds=['mods','resources','shaders','modpacks'];
 const isZipPack=kind=>kind==='resources'||kind==='shaders';
@@ -211,7 +212,7 @@ function configure(){
  q('#ws-provider').closest('.s-select')?.classList.toggle('hidden',state.scope!=='catalog'||!catalogKinds.includes(state.category));
  q('#ws-open-folder').hidden=state.scope!=='local'||!catalogKinds.includes(state.category);
  paintBulkSelection();
- q('#ws-create-build').hidden=state.scope!=='local'||state.category!=='modpacks';
+ q('#ws-build-file-actions').hidden=state.scope!=='local'||state.category!=='modpacks';
  q('#ws-theme-toolbar').hidden=!localThemes();
  q('.ws-sidebar-bottom').hidden=state.scope==='local'&&['modpacks','themes'].includes(state.category);
  q('#workshop-search').placeholder=categories.find(c=>c.id===state.category).search;
@@ -574,14 +575,16 @@ q('#ws-theme-publish').onclick=()=>void themeOperation(async()=>{
  return notice;
 });
 q('#ws-theme-portal-close').onclick=()=>themePortalDialog.close();
+let themePortalRequest=0;
 q('#ws-theme-portal').onclick=async()=>{
+ const request=++themePortalRequest;
  const rows=q('#ws-theme-portal-list');
- rows.replaceChildren();
- themePortalStatus.textContent='Загружаем оформления…';
+ themePortalStatus.textContent='';
+ const finish=showWorkshopLoading(rows,'compact',{count:3});
  themePortalDialog.showModal();
  try{
   const themes=await api.PortalThemes()||[];
-  if(!themePortalDialog.open)return;
+  if(!themePortalDialog.open||request!==themePortalRequest)return;
   themePortalStatus.textContent=themes.length?'':'Сохрани оформление в кабинет кнопкой «В кабинет» или загрузи .sldcfg на сайте.';
   rows.replaceChildren(...themes.map(theme=>{
    const row=node('div','ws-theme-portal-row');
@@ -604,7 +607,8 @@ q('#ws-theme-portal').onclick=async()=>{
    row.append(dot,node('strong','',theme.name),button);
    return row;
   }));
- }catch(e){themePortalStatus.textContent=error(e)}
+ }catch(e){if(themePortalDialog.open&&request===themePortalRequest)themePortalStatus.textContent=error(e)}
+ finally{finish()}
 };
 q('#ws-theme-close').onclick=()=>themeDialog.close();
 themeDialog.addEventListener('cancel',event=>{if(themeBusy)event.preventDefault()});
@@ -812,7 +816,7 @@ function render(){
  const items=local?state.items.filter(item=>[item.name,item.description,item.filename,item.authors,item.modID].join(' ').toLocaleLowerCase().includes(query)):state.items;
  list.replaceChildren(...items.map(local?localCard:card));
  if(!items.length)empty(state.query?'Ничего не найдено':'Здесь пока пусто',local?'Перетащи файлы в область выше или нажми «Добавить».':'Попробуй другой запрос.');
- q('#workshop-count').textContent=items.length?(`${items.length}${local||state.provider==='all'?'':' из '+state.total}`):'';
+ q('#workshop-count').textContent=items.length?(local||state.provider==='all'?String(items.length):window.SintetText.format('%d из %d',items.length,state.total)):'';
  updateLocalControls();
 }
 async function workshopTargets(kind){
@@ -831,7 +835,23 @@ async function refreshTargets(kind=state.category){
  remember();
 }
 async function load(more=false){
- if(!api)return;const request=++state.request;configure();q('#ws-more').hidden=true;q('#ws-more').textContent='Показать ещё';if(!more){state.offset=0;state.items=[];state.sourceResults={};list.replaceChildren()};message('Загрузка…');
+ if(!api)return;
+ const request=++state.request;
+ configure();
+ const moreButton=q('#ws-more');
+ moreButton.hidden=true;
+ moreButton.textContent='Показать ещё';
+ if(!more){
+  state.offset=0;
+  state.items=[];
+  state.sourceResults={};
+  q('#workshop-count').textContent='';
+  q('.ws-main').scrollTop=0;
+ }
+ const kind=list.classList.contains('ws-resource-grid')?'tile':
+  state.category==='themes'?'theme':state.category==='modpacks'?'build':'mod';
+ message('');
+ const finish=showWorkshopLoading(list,kind,{append:more});
  try{
   if(state.scope==='catalog'){
    if(window.SintetNetwork.offline){message('');q('#workshop-count').textContent='';empty(window.SintetNetwork.message,'Каталог загрузится, когда соединение восстановится.');return}
@@ -878,11 +898,12 @@ async function load(more=false){
     return;
    }
    await refreshTargets();if(request!==state.request)return;updateLocalControls();
-   if(state.category==='modpacks'){await refreshBuildList(request);message('');return}
+   if(state.category==='modpacks'){await refreshBuildList(request);if(request===state.request)message('');return}
    if(!state.target){empty('Сначала установи Minecraft','После установки здесь появятся файлы выбранной сборки.');message('');return}
    const records=await api.LocalWorkshop(state.target,state.category);if(request!==state.request)return;state.items=records||[];render();message(localContext()?.readOnly||'');
   }
- }catch(e){if(request===state.request){message(error(e));if(more)q('#ws-more').hidden=false;else if(!catalogThemes())empty('Не удалось загрузить содержимое','Можно сменить источник или повторить поиск.')}}
+ }catch(e){if(request===state.request){message(error(e));if(more)moreButton.hidden=false;else if(!catalogThemes())empty('Не удалось загрузить содержимое','Можно сменить источник или повторить поиск.')}}
+ finally{finish()}
 }
 function buildCard(build,shared){
  const row=node('article','ws-build-card');row.setAttribute('role','listitem');
@@ -951,17 +972,20 @@ function renderBuildRows(local,shared){
  }
 }
 
-async function refreshBuildList(request=state.request){
+async function refreshBuildList(request){
+ if(request===undefined&&workshopLoading(list))return;
+ request??=state.request;
  const read=++buildListRead;
  const builds=await api.WorkshopBuilds()||[];
  if(request!==state.request||read<buildListRendered)return;
  buildListRendered=read;
  if(activeBuild&&manageBuildDialog.open){
   const latest=builds.find(build=>build.id===activeBuild.id);
-  if(latest&&!!latest.installing!==!!activeBuild.installing){
+  if(latest&&(!!latest.installing!==!!activeBuild.installing||!!latest.installed!==!!activeBuild.installed)){
    const busy=!!latest.installing;
    q('#ws-build-save').disabled=busy;
    q('#ws-build-duplicate').disabled=busy||!latest.installed;
+   q('#ws-build-export-pack').disabled=exportingPack||busy||!latest.installed;
    q('#ws-build-delete').disabled=busy;
    q('#ws-build-apply-variant').disabled=busy;
    for(const control of q('#ws-build-mods').querySelectorAll('.ws-build-toggle'))control.disabled=busy;
@@ -988,16 +1012,144 @@ q('#workshop-search').oninput=()=>{
  state.query=q('#workshop-search').value.trim();q('#workshop-clear').hidden=!state.query;clearTimeout(searchTimer);
  if(bulkSelection.size&&!bulkBusy){bulkSelection.clear();paintBulkSelection()}
  if(localContent()){
-  if(state.target)render();
+  if(state.target&&!workshopLoading(list))render();
  }else{state.request++;searchTimer=setTimeout(()=>load(),350)}
 };
 q('#workshop-clear').onclick=()=>{q('#workshop-search').value='';state.query='';void load()};q('#ws-provider').onchange=()=>{state.provider=q('#ws-provider').value;void load()};q('#ws-target').onchange=()=>{state.target=q('#ws-target').value;if(state.category==='mods')modTarget=state.target;remember();if(state.scope==='local')void load()};
 q('#ws-more').onclick=()=>load(true);q('#ws-open-folder').onclick=()=>api.OpenWorkshopFolder(state.target,contentFolder(state.category)).catch(e=>message(error(e)));
 let activeSintedotBuild;
 const createBuildDialog=q('#ws-create-build-dialog'),manageBuildDialog=q('#ws-build-manage-dialog'),deleteBuildDialog=q('#ws-build-delete-dialog');let activeBuild=null,buildSystemMemory=8192;
+
+const packImportButton=q('#ws-import-pack'),packImportDialog=q('#ws-pack-import-dialog');
+const packImportName=q('#ws-pack-import-name'),packImportStatus=q('#ws-pack-import-status');
+let importPlan=null,importStarting=false,exportingPack=false,importedBuildID='';
+packImportButton.onclick=async()=>{
+ if(!api||packImportButton.disabled)return;
+ packImportButton.disabled=true;
+ packImportButton.setAttribute('aria-busy','true');
+ try{
+  const archive=await api.PrepareWorkshopPackImport();
+  if(!archive)return;
+  if(state.scope!=='local'||state.category!=='modpacks'){
+   await api.DiscardCatalogPack(archive.id);
+   return;
+  }
+  importPlan=archive;
+  packImportName.value=archive.project.name;
+  q('#ws-pack-import-variant').textContent=['Minecraft '+archive.game,names[archive.loader]||archive.loader,archive.loaderVersion].filter(Boolean).join(' · ');
+  q('#ws-pack-import-files').textContent=downloads(archive.files,false);
+  q('#ws-pack-import-size').textContent=size(archive.bytes);
+  const warnings=q('#ws-pack-import-warnings');
+  warnings.replaceChildren(...(archive.warnings||[]).map(warning=>node('li','',warning)));
+  warnings.hidden=!warnings.children.length;
+  packImportStatus.textContent='';
+  packImportDialog.showModal();
+ }catch(e){
+  message(error(e));
+  window.toast?.(error(e));
+ }finally{
+  packImportButton.disabled=false;
+  packImportButton.removeAttribute('aria-busy');
+ }
+};
+for(const button of packImportDialog.querySelectorAll('[data-close-pack-import]'))button.onclick=()=>{
+ if(!importStarting)packImportDialog.close();
+};
+packImportDialog.addEventListener('cancel',event=>{if(importStarting)event.preventDefault()});
+packImportDialog.addEventListener('close',()=>{
+ if(importPlan)void api.DiscardCatalogPack(importPlan.id).catch(()=>{});
+ importPlan=null;
+});
+q('#ws-pack-import-form').onsubmit=async event=>{
+ event.preventDefault();
+ if(!importPlan||importStarting)return;
+ const name=packImportName.value.trim(),submit=q('#ws-pack-import-submit');
+ if([...name].length<2){packImportName.focus();return}
+ importStarting=true;
+ submit.disabled=true;
+ packImportStatus.textContent='';
+ try{
+  const build=await api.InstallCatalogPack(importPlan.id,'',name);
+  importPlan=null;
+  lastInstallKind='modpacks';
+  lastSharedInstall=null;
+  importedBuildID=build.id;
+  previousBusy=true;
+  packImportDialog.close();
+  await pollInstall();
+ }catch(e){packImportStatus.textContent=error(e)}
+ finally{importStarting=false;submit.disabled=false}
+};
+q('#ws-build-export-pack').onclick=async()=>{
+ if(!activeBuild?.id||exportingPack)return;
+ const button=q('#ws-build-export-pack'),status=q('#ws-build-manage-status'),id=activeBuild.id;
+ exportingPack=true;
+ button.disabled=true;
+ status.textContent='Экспортируем .mrpack…';
+ try{
+  const saved=await api.ExportWorkshopPack(id);
+  if(activeBuild?.id===id&&manageBuildDialog.open)status.textContent='';
+  if(saved)window.toast?.('Файл .mrpack сохранён');
+ }catch(e){
+  if(activeBuild?.id===id&&manageBuildDialog.open)status.textContent=error(e);
+  else window.toast?.(error(e));
+ }finally{
+  exportingPack=false;
+  button.disabled=!activeBuild?.installed||!!activeBuild.installing;
+ }
+};
 function updateBuildLoaderVisibility(){const vanilla=q('#ws-build-loader').value==='vanilla';q('#ws-build-loader-version-label').hidden=vanilla;q('#ws-build-loader-version-label').disabled=vanilla}
-async function refreshBuildLoaderVersions(){const game=q('#ws-build-game').value,loader=q('#ws-build-loader').value;updateBuildLoaderVisibility();if(loader==='vanilla'){options(q('#ws-build-loader-version'),[]);q('#ws-build-create-submit').disabled=false;q('#ws-build-create-status').textContent='';return}q('#ws-build-create-submit').disabled=true;q('#ws-build-create-status').textContent='Загружаю версии загрузчика…';try{const builds=await api.LoaderVersions(game,loader);options(q('#ws-build-loader-version'),(builds||[]).map(value=>({value,label:value})),builds?.[0]);q('#ws-build-create-submit').disabled=!builds?.length;q('#ws-build-create-status').textContent=builds?.length?'':'Для этой версии Minecraft нет доступных версий загрузчика'}catch(e){options(q('#ws-build-loader-version'),[]);q('#ws-build-create-submit').disabled=true;q('#ws-build-create-status').textContent=error(e)}}
-async function showCreateBuild(){q('#ws-build-create-status').textContent='Загружаю версии Minecraft…';q('#ws-build-create-submit').disabled=true;q('#ws-build-name').value='';q('#ws-build-loader').value='fabric';createBuildDialog.showModal();try{const result=await api.ListVersions(),releases=(result.versions||[]).filter(version=>version.type==='release').map(version=>({value:version.id,label:version.id}));options(q('#ws-build-game'),releases,result.latest);if(!releases.length)throw Error('Список версий Minecraft пуст');await refreshBuildLoaderVersions()}catch(e){q('#ws-build-create-status').textContent=error(e)}}
+let buildCreateRequest=0;
+async function refreshBuildLoaderVersions(){
+ const game=q('#ws-build-game').value,loader=q('#ws-build-loader').value,request=++buildCreateRequest;
+ const select=q('#ws-build-loader-version'),submit=q('#ws-build-create-submit'),status=q('#ws-build-create-status');
+ const current=()=>createBuildDialog.open&&request===buildCreateRequest;
+ updateBuildLoaderVisibility();
+ if(loader==='vanilla'){
+  clearWorkshopLoading(status);
+  options(select,[]);
+  submit.disabled=false;
+  status.textContent='';
+  return;
+ }
+ submit.disabled=true;
+ options(select,[]);
+ const finish=showWorkshopLoading(status,'lines',{count:1});
+ try{
+  const builds=await api.LoaderVersions(game,loader)||[];
+  if(!current())return;
+  options(select,builds.map(value=>({value,label:value})),builds[0]);
+  submit.disabled=!builds.length;
+  status.textContent=builds.length?'':'Для этой версии Minecraft нет доступных версий загрузчика';
+ }catch(e){if(current())status.textContent=error(e)}
+ finally{finish()}
+}
+async function showCreateBuild(){
+ const request=++buildCreateRequest;
+ const game=q('#ws-build-game'),loader=q('#ws-build-loader'),status=q('#ws-build-create-status');
+ q('#ws-build-create-submit').disabled=true;
+ q('#ws-build-name').value='';
+ loader.value='fabric';
+ window.SintetUI?.select.refresh(loader);
+ options(game,[]);
+ options(q('#ws-build-loader-version'),[]);
+ loader.disabled=true;
+ window.SintetUI?.select.refresh(loader);
+ updateBuildLoaderVisibility();
+ const finish=showWorkshopLoading(status,'lines',{count:1});
+ createBuildDialog.showModal();
+ try{
+  const result=await api.ListVersions();
+  if(request!==buildCreateRequest||!createBuildDialog.open)return;
+  const releases=(result.versions||[]).filter(version=>version.type==='release').map(version=>({value:version.id,label:version.id}));
+  options(game,releases,result.latest);
+  if(!releases.length)throw Error('Список версий Minecraft пуст');
+  loader.disabled=false;
+  window.SintetUI?.select.refresh(loader);
+  await refreshBuildLoaderVersions();
+ }catch(e){if(request===buildCreateRequest&&createBuildDialog.open)status.textContent=error(e)}
+ finally{finish()}
+}
 q('#ws-create-build').onclick=()=>void showCreateBuild();for(const button of document.querySelectorAll('[data-close-build-create]'))button.onclick=()=>createBuildDialog.close();q('#ws-build-game').onchange=()=>void refreshBuildLoaderVersions();q('#ws-build-loader').onchange=()=>void refreshBuildLoaderVersions();
 q('#ws-create-build-form').onsubmit=async event=>{event.preventDefault();const submit=q('#ws-build-create-submit');submit.disabled=true;q('#ws-build-create-status').textContent='Создаю папки и устанавливаю Minecraft…';try{const build=await api.CreateWorkshopBuild(q('#ws-build-name').value,q('#ws-build-game').value,q('#ws-build-loader').value,q('#ws-build-loader-version').value);createBuildDialog.close();window.toast?.(window.SintetText.format('Сборка «%s» создаётся',build.name));state.scope='local';state.category='modpacks';configure();await load();}catch(e){q('#ws-build-create-status').textContent=error(e)}finally{submit.disabled=false}};
 for(const button of document.querySelectorAll('[data-close-build-manage]'))button.onclick=()=>{if(!sharedSettingsBusy())manageBuildDialog.close()};for(const button of document.querySelectorAll('[data-close-build-delete]'))button.onclick=()=>deleteBuildDialog.close();
@@ -1054,7 +1206,19 @@ function renderBuildMods(mods){
   row.append(avatar,info,toggle);area.append(row)
  }
 }
-async function refreshBuildMods(){if(!activeBuild)return;q('#ws-build-manage-status').textContent='Загружаю моды…';try{const mods=await api.LocalWorkshop(activeBuild.id,'mods');if(!manageBuildDialog.open||!activeBuild)return;renderBuildMods(mods);q('#ws-build-manage-status').textContent=''}catch(e){q('#ws-build-manage-status').textContent=error(e)}}
+let buildModsRequest=0;
+async function refreshBuildMods(){
+ if(!activeBuild)return;
+ const id=activeBuild.id,request=++buildModsRequest,area=q('#ws-build-mods');
+ const current=()=>manageBuildDialog.open&&activeBuild?.id===id&&request===buildModsRequest;
+ q('#ws-build-manage-status').textContent='';
+ const finish=showWorkshopLoading(area,'compact',{count:4});
+ try{
+  const mods=await api.LocalWorkshop(id,'mods');
+  if(current())renderBuildMods(mods||[]);
+ }catch(e){if(current())q('#ws-build-manage-status').textContent=error(e)}
+ finally{finish()}
+}
 q('#ws-build-mod-search').oninput=()=>void refreshBuildMods();
 async function loadManageVersions(){try{const result=await api.ListVersions(),releases=(result.versions||[]).filter(v=>v.type==='release').map(v=>({value:v.id,label:v.id}));options(q('#ws-manage-game'),releases,activeBuild.game);await loadManageLoaderVersions()}catch(e){q('#ws-build-manage-status').textContent=error(e)}}
 async function loadManageLoaderVersions(){if(!activeBuild)return;const loader=q('#ws-manage-loader').value,versionLabel=q('#ws-manage-loader-version-label');versionLabel.hidden=loader==='vanilla';if(loader==='vanilla'){options(q('#ws-manage-loader-version'),[]);q('#ws-build-apply-variant').disabled=false;return}try{const versions=await api.LoaderVersions(q('#ws-manage-game').value,loader);options(q('#ws-manage-loader-version'),versions.map(v=>({value:v,label:v})),activeBuild.loader===loader?activeBuild.loaderVersion:versions?.[0]);q('#ws-build-apply-variant').disabled=!versions?.length}catch(e){options(q('#ws-manage-loader-version'),[]);q('#ws-build-apply-variant').disabled=true;q('#ws-build-manage-status').textContent=error(e)}}
@@ -1103,6 +1267,8 @@ function configureSharedBuildSettings(shared){
  q('#ws-build-tab-access').hidden=!shared&&!canShareBuild(activeBuild);
  q('#ws-build-name-input').disabled=external;
  q('#ws-build-save').hidden=unprepared;
+ q('#ws-build-export-pack').hidden=unprepared||!activeBuild.id;
+ q('#ws-build-export-pack').disabled=exportingPack||!activeBuild.installed||!!activeBuild.installing;
 }
 sharedBuildSettings(shared=>{
  const build=shared.localProfile||{id:'',name:shared.name,icon:'grass',game:shared.game,loader:shared.loader,loaderVersion:shared.loader_version};
@@ -1185,6 +1351,7 @@ q('#ws-filter-snapshots').onchange=()=>{const old=state.filters.game;state.snaps
 q('#ws-filter-reset').onclick=()=>{state.filters={game:'',loader:'',resolution:'',topic:'',sort:'downloads'};for(const key of ['game','loader','resolution','topic','sort']){q('#ws-filter-'+key).value=state.filters[key];window.SintetUI?.select.refresh(q('#ws-filter-'+key))};remember();void load()};
 q('#workshop-nav').addEventListener('click',()=>{if(api)void load()});
 function showOfflineInstall(){
+ clearWorkshopLoading(q('#ws-dependencies'));
  q('#ws-mod-install').disabled=true;
  q('#ws-mod-status').textContent=window.SintetNetwork.message;
 }
@@ -1235,14 +1402,14 @@ async function selectModSource(item){
  q('#ws-mod-install').textContent=item.kind==='modpacks'?'Установить сборку':'Установить';
  q('#ws-with-deps').checked=true;
  q('#ws-deps-option').hidden=true;
- q('#ws-dependencies').textContent='Выбери версию';
  q('#ws-mod-title').textContent=item.name;
  q('#ws-mod-author').textContent=item.author||names[item.provider];
  showCatalogDescription(q('#ws-mod-description'),item.description||'');
  renderModInfo(item);
  q('#ws-supported').open=false;
  image(q('#ws-mod-icon'),item.name,item.icon);
- q('#ws-mod-status').textContent='Загрузка информации…';
+ q('#ws-mod-status').textContent='';
+ const finish=showWorkshopLoading(q('#ws-dependencies'),'lines',{count:1});
  q('#ws-mod-size').textContent='–';
  q('#ws-install-path').textContent='Выбери сборку';
  for(const id of ['game','loader','version','target'])options(q('#ws-mod-'+id),[]);
@@ -1268,6 +1435,7 @@ async function selectModSource(item){
   options(q('#ws-mod-loader'),project.loaders.map(v=>({value:v,label:names[v]||v})),selectedLoader);
   await loadModVersions(request);
  }catch(e){if(request===state.modal)q('#ws-mod-status').textContent=error(e)}
+ finally{finish()}
 }
 function fillModInstallTargets(game,loader){
  const eligible=installationTargets(modDialogTargets,project,game,loader);
@@ -1284,9 +1452,9 @@ async function loadModVersions(modal=state.modal){
  state.planRequest++;
  plan=null;
  q('#ws-mod-install').disabled=true;
- q('#ws-mod-status').textContent='Поиск совместимых файлов…';
+ q('#ws-mod-status').textContent='';
  options(q('#ws-mod-version'),[]);
- q('#ws-dependencies').textContent='Проверка…';
+ const finish=showWorkshopLoading(q('#ws-dependencies'),'lines',{count:1});
  const shader=project.kind==='shaders',resource=isZipPack(project.kind),pack=project.kind==='modpacks';
  const game=q('#ws-mod-game').value,loader=resource?'':q('#ws-mod-loader').value;
  const target=pack?null:fillModInstallTargets(game,loader);
@@ -1307,19 +1475,22 @@ async function loadModVersions(modal=state.modal){
    q('#ws-mod-status').textContent=error(e);
    q('#ws-dependencies').textContent='–';
   }
- }
+ }finally{finish()}
 }
 async function preparePlan(modal=state.modal){
  if(window.SintetNetwork.offline){showOfflineInstall();return}
  if(project?.kind==='modpacks'){
-  const request=++state.planRequest;if(plan?.kind==='modpacks')void api.DiscardCatalogPack(plan.id).catch(()=>{});plan=null;q('#ws-mod-install').disabled=true;q('#ws-mod-install').textContent='Установить сборку';q('#ws-mod-status').textContent='Читаем манифест сборки…';
+  const request=++state.planRequest;if(plan?.kind==='modpacks')void api.DiscardCatalogPack(plan.id).catch(()=>{});plan=null;q('#ws-mod-install').disabled=true;q('#ws-mod-install').textContent='Установить сборку';q('#ws-mod-status').textContent='';
+  const finish=showWorkshopLoading(q('#ws-dependencies'),'lines',{count:1});
   try{const version=q('#ws-mod-version').value;if(!version)throw Error('Выбери версию сборки');const result=await api.PrepareCatalogPack(project.provider,project.id,version);if(request!==state.planRequest||modal!==state.modal){void api.DiscardCatalogPack(result.id).catch(()=>{});return}const targets=await api.CatalogPackTargets(result.id);if(request!==state.planRequest||modal!==state.modal){void api.DiscardCatalogPack(result.id).catch(()=>{});return}plan={...result,kind:'modpacks'};options(q('#ws-mod-target'),[{value:'__new__',label:'＋ Создать новую сборку'},...(targets||[]).map(target=>({value:target.id,label:target.name}))],'__new__');q('#ws-mod-size').textContent=size(plan.bytes);q('#ws-dependencies').replaceChildren(node('strong','',plan.game+' · '+(names[plan.loader]||plan.loader)+(plan.loaderVersion?' '+plan.loaderVersion:'')),node('p','',plan.files+' файлов'));for(const warning of plan.warnings||[])q('#ws-dependencies').append(node('p','ws-requirement-warning',warning));updatePackTarget();q('#ws-mod-install').disabled=false;
-  }catch(e){if(request===state.planRequest&&modal===state.modal){q('#ws-mod-status').textContent=error(e);q('#ws-dependencies').textContent='–'}}return
+  }catch(e){if(request===state.planRequest&&modal===state.modal){q('#ws-mod-status').textContent=error(e);q('#ws-dependencies').textContent='–'}}finally{finish()}
+  return
  }
 
- const request=++state.planRequest;plan=null;q('#ws-mod-install').disabled=true;q('#ws-mod-status').textContent='Проверка зависимостей…';q('#ws-deps-option').hidden=true;
+ const request=++state.planRequest;plan=null;q('#ws-mod-install').disabled=true;q('#ws-mod-status').textContent='';q('#ws-deps-option').hidden=true;
+ const finish=showWorkshopLoading(q('#ws-dependencies'),'lines',{count:1});
  try{const version=q('#ws-mod-version').value,target=q('#ws-mod-target').value;if(!version||!target)throw Error('Выбери файл и установленную сборку');const result=await (project.kind==='shaders'?api.PrepareShader(project.provider,project.id,version,target):project.kind==='resources'?api.PrepareResource(project.provider,project.id,version,target):api.PrepareMod(project.provider,project.id,version,target));if(request!==state.planRequest||modal!==state.modal)return;plan=result;q('#ws-install-path').textContent=plan.target.sharedId?plan.target.name+' · Общая сборка':[plan.target.directory,contentFolder(plan.kind)].join(String.fromCharCode(92));const dependencies=plan.entries.slice(1);q('#ws-dependencies').replaceChildren(...dependencies.map(entry=>{const row=node('div','ws-dependency');row.append(node('strong','',entry.project.name),node('span','',entry.installed?'Установлен':entry.version.name));return row}));if(!dependencies.length&&!plan.warnings?.length)q('#ws-dependencies').textContent=project.kind==='resources'?'Связанные паки не требуются':'Дополнительные моды не нужны';for(const warning of plan.warnings||[])q('#ws-dependencies').append(node('p','ws-requirement-warning',warning));q('#ws-deps-option').hidden=!dependencies.some(d=>!d.installed);q('#ws-mod-size').textContent=size(plan.entries.filter(e=>!e.installed).reduce((total,e)=>total+e.version.size,0));updateInstallButton();q('#ws-mod-status').textContent=dependencies.some(d=>!d.installed)?(project.kind==='resources'?'Нужны связанные паки. Можно установить их вместе или скачать только выбранный пак.':'Нужны дополнительные моды. Можно установить их вместе или скачать только выбранный мод.'):plan.entries[0].installed?'Этот файл уже есть в сборке.':plan.target.sharedId?'Готово к добавлению в общую сборку':'Готово к установке';
- }catch(e){if(request===state.planRequest&&modal===state.modal){q('#ws-mod-status').textContent=error(e);q('#ws-dependencies').textContent='Не удалось проверить зависимости'}}
+ }catch(e){if(request===state.planRequest&&modal===state.modal){q('#ws-mod-status').textContent=error(e);q('#ws-dependencies').textContent='Не удалось проверить зависимости'}}finally{finish()}
 }
 function updatePackTarget(){if(project?.kind!=='modpacks'||!plan)return;const id=q('#ws-mod-target').value,newBuild=id==='__new__';q('#ws-pack-name-row').hidden=!newBuild;const target=modDialogTargets.find(t=>t.id===id);q('#ws-install-path').textContent=newBuild?'Отдельная папка в instances':target?.directory||'Выбранная сборка';q('#ws-mod-install').textContent=newBuild?'Создать и установить':'Установить в сборку';q('#ws-mod-status').textContent=newBuild?'Готово к установке':'Моды и заменяемые конфиги уйдут в резервную копию. Миры сохранятся.'}
 function updateInstallButton(){if(window.SintetNetwork.offline){showOfflineInstall();return}if(!plan)return;const entries=q('#ws-with-deps').checked?plan.entries:plan.entries.slice(0,1);q('#ws-mod-install').disabled=!entries.some(e=>!e.installed);q('#ws-mod-install').textContent=entries.every(e=>e.installed)?(plan.target.sharedId?'В сборке':'Установлено'):(plan.target.sharedId?'Добавить в сборку':'Установить');if(!q('#ws-with-deps').checked&&plan.entries.slice(1).some(e=>!e.installed))q('#ws-mod-status').textContent='Без обязательных зависимостей мод может не запуститься.'}
@@ -1402,10 +1573,16 @@ async function pollInstall(){
   q('#ws-download-progress').value=status.percent||0;
   if(previousBusy&&!status.busy){
    if(status.error){
+    importedBuildID='';
     message(status.error);
     window.toast?.(status.error);
    }else{
     if(lastInstallKind==='modpacks'){
+     if(importedBuildID){
+      state.target=importedBuildID;
+      importedBuildID='';
+      remember();
+     }
      window.dispatchEvent(new Event('sintet:builds'));
      await refreshTargets();
     }
@@ -1437,7 +1614,7 @@ window.addEventListener('sintet:network',event=>{
 let sharedModListReading=false;
 async function refreshSharedModList(){
  const context=localContext();
- if(!context?.shared||sharedModListReading||localBusy||bulkBusy||document.hidden||q('#workshop').classList.contains('hidden'))return;
+ if(!context?.shared||workshopLoading(list)||sharedModListReading||localBusy||bulkBusy||document.hidden||q('#workshop').classList.contains('hidden'))return;
  sharedModListReading=true;
  const request=state.request;
  try{
@@ -1458,7 +1635,11 @@ async function refreshSharedModList(){
 }
 setInterval(refreshSharedModList,3500);
 window.addEventListener('sintet:shared-mods',refreshSharedModList);
-window.SintetWorkshop={refresh:load,openThemes(){
+window.SintetWorkshop={refresh:load,showTourSection(scope,category){
+ if(state.scope===scope&&state.category===category)return;
+ state.scope=scope;
+ switchCategory(category);
+},openThemes(){
  state.scope='local';
  state.category='themes';
  state.query='';

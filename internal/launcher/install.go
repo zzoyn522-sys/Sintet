@@ -260,7 +260,7 @@ func (s *Service) install(ctx context.Context, id, base, kind, loaderVersion, ja
 				return e
 			}
 		} else {
-			child, e = s.installForge(ctx, kind, loaderVersion, java)
+			child, e = s.installForge(ctx, base, kind, loaderVersion, java)
 			if e != nil {
 				return e
 			}
@@ -457,12 +457,15 @@ func (s *Service) prepare(ctx context.Context, r *Receipt) error {
 	}
 	return nil
 }
-func (s *Service) installForge(ctx context.Context, kind, version, java string) (Profile, error) {
+func (s *Service) installForge(ctx context.Context, base, kind, version, java string) (Profile, error) {
 	group := "https://maven.minecraftforge.net/net/minecraftforge/forge/"
 	artifact := "forge"
 	if kind == "neoforge" {
 		group = "https://maven.neoforged.net/releases/net/neoforged/neoforge/"
 		artifact = "neoforge"
+	} else if !strings.HasPrefix(version, base+"-") {
+		// Imported builds can store the loader version without the Minecraft prefix.
+		version = base + "-" + version
 	}
 	url := group + version + "/" + artifact + "-" + version + "-installer.jar"
 	sha, e := fetch(ctx, s.HTTP, url+".sha1")

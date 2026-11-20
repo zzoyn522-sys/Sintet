@@ -14,11 +14,16 @@ using System.Windows.Media.Imaging;
 namespace SintetSetup {
  public static class Entry {
   [STAThread] public static int Main(string[] args){
+   bool silent=Array.IndexOf(args,"--silent")>=0;
    bool headless=args.Length>0&&(args[0]=="--verify"||args[0]=="--test-install"||args[0].StartsWith("--preview"));
    try{
+    if(args.Length==1&&args[0]=="--silent"){
+     Engine.Install(new InstallOptions{Directory=Engine.InstalledPath,Desktop=false,UseBundledVersion=true},delegate(int p,string message){});
+     return 0;
+    }
     if(args.Length>0&&args[0]=="--verify"){Engine.VerifyPayload();File.WriteAllText(args[1],"Payload and WebView2 checksums passed");return 0;}
     if(args.Length>0&&args[0]=="--test-install"){
-     var options=new InstallOptions{Directory=args[1],Integrate=false};Engine.Install(options,delegate(int p,string message){});
+     var options=new InstallOptions{Directory=args[1],Integrate=false,UseBundledVersion=true};Engine.Install(options,delegate(int p,string message){});
      if(Engine.Hash(Path.Combine(args[1],"Sintet-launcher.exe"))!=Engine.ReadMarker(args[1]).LauncherHash)throw new Exception("Extraction checksum failed");
      // Exercise replacement and uninstallation while preserving unrelated files.
      Engine.Install(options,delegate(int p,string message){});Engine.VerifyShortcut(args[1]);File.WriteAllText(Path.Combine(args[1],"keep-me.txt"),"User file");
@@ -32,18 +37,27 @@ namespace SintetSetup {
      string root=Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);Engine.ReadMarker(root);
      string temp=Path.Combine(Path.GetTempPath(),"Sintet-uninstall-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temp);
      string copy=Path.Combine(temp,"Sintet-Uninstall.exe");File.Copy(Assembly.GetExecutingAssembly().Location,copy);
-     Process.Start(new ProcessStartInfo(copy,"--remove \""+root+"\""){UseShellExecute=false});return 0;
+     Process.Start(new ProcessStartInfo(copy,"--remove \""+root+"\""+(silent?" --silent "+Process.GetCurrentProcess().Id:"")){UseShellExecute=false});return 0;
     }
-    if(args.Length==2&&args[0]=="--remove"){
+    if((args.Length==2||silent&&args.Length==4)&&args[0]=="--remove"){
      remove=Engine.Normalize(args[1]);var marker=Engine.ReadMarker(remove);
      if(marker.UninstallerHash!=Engine.Hash(Assembly.GetExecutingAssembly().Location))throw new IOException(SetupLanguage.T("Версия программы удаления не совпадает с установленной."));
+     if(silent){
+      int parentId=int.Parse(args[3]);
+      try{using(var parent=Process.GetProcessById(parentId)){if(!parent.WaitForExit(5000))throw new IOException("The uninstaller is still running.");}}
+      catch(ArgumentException){}
+      Engine.Uninstall(remove,true,false,delegate(int p,string message){});
+      return 0;
+     }
     }
     var application=new Application();var ui=new SetupWindow(remove);
     if(args.Length>0&&args[0].StartsWith("--preview")){ui.RenderPreview(args[1],args[0]);return 0;}
     application.Run(ui.Window);return 0;
    }catch(Exception error){
     if(headless){if(args.Length>1)File.WriteAllText(args[args.Length-1]+".error",error.ToString());}
-    else MessageBox.Show(error.Message,"Sintet",MessageBoxButton.OK,MessageBoxImage.Information);
+    else if(silent){
+     try{File.WriteAllText(Path.Combine(Path.GetTempPath(),"Sintet-Setup.error.log"),error.Message);}catch(IOException){}catch(UnauthorizedAccessException){}
+    }else MessageBox.Show(error.Message,"Sintet",MessageBoxButton.OK,MessageBoxImage.Information);
     return 1;
    }
   }

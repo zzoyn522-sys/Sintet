@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -166,22 +167,42 @@ func readJSON(path string, v any) error {
 func newHTTP() *http.Client {
 	return &http.Client{Timeout: 5 * time.Minute, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, MaxIdleConns: 80, MaxIdleConnsPerHost: 24, IdleConnTimeout: 60 * time.Second, ResponseHeaderTimeout: 35 * time.Second}}
 }
-func request(ctx context.Context, c *http.Client, url string) (*http.Response, error) {
-	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://127.0.0.1:") {
-		return nil, fmt.Errorf("небезопасный URL")
+func allowedDownloadURL(address *url.URL, allowLocal bool) bool {
+	if address.User != nil || address.Hostname() == "" {
+		return false
 	}
-	r, e := http.NewRequestWithContext(ctx, "GET", url, nil)
+	return address.Scheme == "https" || (allowLocal && address.Scheme == "http" &&
+		address.Hostname() == "127.0.0.1" && address.Port() != "")
+}
+func request(ctx context.Context, c *http.Client, address string) (*http.Response, error) {
+	r, e := http.NewRequestWithContext(ctx, "GET", address, nil)
 	if e != nil {
 		return nil, e
 	}
+	if !allowedDownloadURL(r.URL, true) {
+		return nil, fmt.Errorf("небезопасный URL")
+	}
+	client := *c
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if !allowedDownloadURL(next.URL, via[len(via)-1].URL.Scheme == "http") {
+			return fmt.Errorf("небезопасный URL")
+		}
+		if c.CheckRedirect != nil {
+			return c.CheckRedirect(next, via)
+		}
+		if len(via) >= 10 {
+			return fmt.Errorf("слишком много перенаправлений")
+		}
+		return nil
+	}
 	r.Header.Set("User-Agent", "Sintet/0.7 (Minecraft launcher)")
-	resp, e := c.Do(r)
+	resp, e := client.Do(r)
 	if e != nil {
 		return nil, e
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, url)
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, address)
 	}
 	return resp, nil
 }
@@ -191,7 +212,15 @@ func fetch(ctx context.Context, c *http.Client, url string) ([]byte, error) {
 		return nil, e
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	const metadataLimit = 32 << 20
+	data, err := io.ReadAll(io.LimitReader(resp.Body, metadataLimit+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > metadataLimit {
+		return nil, fmt.Errorf("ответ сервера превышает допустимый размер")
+	}
+	return data, nil
 }
 func jsonURL(ctx context.Context, c *http.Client, url string, v any) error {
 	data, e := fetch(ctx, c, url)

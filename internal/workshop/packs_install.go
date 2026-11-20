@@ -17,7 +17,7 @@ import (
 	"sintet/internal/accountfiles"
 )
 
-func (m *Manager) StartPack(ctx context.Context, id string, target Target, finish func(context.Context, PackPlan, func(string, float64)) error) error {
+func (m *Manager) StartPack(ctx context.Context, id string, target Target, finish func(context.Context, PackPlan, func(string, float64)) error, cleanup ...func() error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state.Busy {
@@ -47,8 +47,13 @@ func (m *Manager) StartPack(ctx context.Context, id string, target Target, finis
 		if err == nil && finish != nil {
 			err = finish(run, p, progress)
 		}
-		if run.Err() != nil {
-			err = errors.New("установка сборки отменена")
+		if err != nil {
+			if run.Err() != nil {
+				err = errors.New("установка сборки отменена")
+			}
+			for _, remove := range cleanup {
+				err = errors.Join(err, remove())
+			}
 		}
 		m.mu.Lock()
 		defer m.mu.Unlock()

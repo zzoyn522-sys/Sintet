@@ -1,7 +1,46 @@
 (() => {
+ Object.assign(window.SintetLanguageCatalog,{"Discord Rich Presence":["Discord Rich Presence","Discord Rich Presence","Discord Rich Presence","Discord Rich Presence","Discord Rich Presence"],"Показывать активность в Discord":["Show activity in Discord","Показывать активность в Discord","Показувати активність у Discord","Mostrar atividade no Discord","Mostrar actividad en Discord"]});
  const q=s=>document.querySelector(s);let api,config,saving=false,hotkey="Shift + Tab";
  const message=text=>q('#settings-status').textContent=text;
- const fields=['interface-language','game-directory','instance-mode','game-width','game-height','fullscreen','java-mode','java-path','ram','memory-mb','auto-memory','game-start-action','close-action','minimize-to-tray','start-with-windows','start-in-tray','workshop-language','hide-overlay','show-snapshots','show-pre-releases','show-release-candidates','show-experimental','show-old-versions'];
+
+ const settingsScroll=q('main');
+ const settingsNav=q('.launcher-settings-nav');
+ const sections=[...settingsNav.querySelectorAll('a')].map(link=>({link,section:q(link.hash)}));
+ const selectSection=selected=>{
+  for(const {link,section} of sections){
+   if(section===selected)link.setAttribute('aria-current','location');
+   else link.removeAttribute('aria-current');
+  }
+ };
+ let sectionFrame=0;
+ function updateSection(){
+  if(sectionFrame)return;
+  sectionFrame=requestAnimationFrame(()=>{
+   sectionFrame=0;
+   if(!settingsNav.getClientRects().length)return;
+   const edge=settingsNav.getBoundingClientRect().top+6;
+   let current=sections[0].section;
+   for(const {section} of sections){
+    if(section.getBoundingClientRect().top>edge)break;
+    current=section;
+   }
+   if(settingsScroll.scrollHeight-settingsScroll.clientHeight-settingsScroll.scrollTop<2)current=sections.at(-1).section;
+   selectSection(current);
+  });
+ }
+ for(const {link,section} of sections)link.addEventListener('click',event=>{
+  event.preventDefault();
+  section.focus({preventScroll:true});
+  section.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+  selectSection(section);
+ });
+ settingsScroll.addEventListener('scroll',updateSection,{passive:true});
+ window.addEventListener('resize',updateSection);
+ q('#settings-nav').addEventListener('click',updateSection);
+ q('#settings-tab-launcher').addEventListener('click',updateSection);
+ updateSection();
+
+ const fields=['interface-language','game-directory','instance-mode','game-width','game-height','fullscreen','java-mode','java-path','ram','memory-mb','auto-memory','game-start-action','close-action','minimize-to-tray','start-with-windows','start-in-tray','workshop-language','hide-overlay','discord-presence','show-snapshots','show-pre-releases','show-release-candidates','show-experimental','show-old-versions'];
  const versionOptions={snapshots:'show-snapshots',preReleases:'show-pre-releases',releaseCandidates:'show-release-candidates',experimentalVersions:'show-experimental',oldVersions:'show-old-versions'};
  const languageCodes=['ru','uk','en','de','fr','es','it','pt','pt-BR','pl','cs','sk','ro','hu','nl','da','sv','no','fi','et','lv','lt','el','bg','sr','hr','tr','ar','he','fa','hi','bn','id','ms','th','vi','ja','ko','zh-CN','zh-TW'];
  const languageSelect=q('#workshop-language');
@@ -66,9 +105,9 @@
  const maxMemory=()=>Math.max(1024,Math.min(131072,Math.floor((config?.systemMemoryMB||8192)/256)*256));
  function memory(){const auto=q('#auto-memory').checked;let value=Number(q('#memory-mb').value)||4096;if(auto)value=Math.max(1024,Math.min(4096,Math.floor((config?.systemMemoryMB||8192)/3/256)*256));q('#ram').disabled=auto;q('#memory-mb').disabled=auto;if(auto)q('#memory-mb').value=value;q('#ram').value=value;q('#ram-value').textContent=window.SintetLanguage.formatSize(value/1024,'gigabyte',value%1024?1:0,config?.interfaceLanguage)+(auto?' · '+window.SintetText.translate('Автоматически'):'')}
  function javaMode(){const auto=q('#java-mode').value==='auto';q('#java-path').disabled=auto;q('#browse-java').disabled=auto;q('#check-java').disabled=auto;q('#java-info').textContent=auto?'Java загружается и выбирается по требованиям версии Minecraft':'Укажите java.exe подходящей версии. Проверка совместимости выполняется перед запуском.'}
- function fill(settings){fillGamePreferences(settings.gamePreferences);q('#hide-overlay').checked=settings.overlayEnabled===false;for(const [field,id] of Object.entries(versionOptions))q('#'+id).checked=!!settings[field];q('#interface-language').value=settings.interfaceLanguage||'';window.SintetUI?.select.refresh(q('#interface-language'));q('#game-directory').value=settings.gameDirectory;q('#instance-mode').value=settings.instanceMode;q('#game-width').value=settings.width;q('#game-height').value=settings.height;q('#fullscreen').checked=settings.fullscreen;q('#java-mode').value=settings.javaPath?'custom':'auto';q('#java-path').value=settings.javaPath;q('#memory-mb').value=settings.memoryMB;q('#auto-memory').checked=settings.autoMemory;q('#game-start-action').value=settings.gameStartAction||'tray';q('#close-action').value=settings.closeAction||'quit';q('#minimize-to-tray').checked=!!settings.minimizeToTray;q('#start-with-windows').checked=!!settings.startWithWindows;q('#start-in-tray').checked=!!settings.startInTray;hotkey=settings.overlayHotkey||'Shift + Tab';q('#overlay-hotkey').value=hotkey;q('#apply-overlay-font').checked=settings.applyOverlayFont!==false;languageSelect.value=settings.workshopLanguage||'';window.SintetUI?.select.refresh(languageSelect);behavior();q('#ram').max=maxMemory();q('#memory-mb').max=maxMemory();javaMode();memory();window.SintetUI?.select.refresh(q('#instance-mode'));window.SintetUI?.select.refresh(q('#java-mode'));window.SintetUI?.select.refresh(q('#game-start-action'));window.SintetUI?.select.refresh(q('#close-action'))}
+ function fill(settings){fillGamePreferences(settings.gamePreferences);q('#hide-overlay').checked=settings.overlayEnabled===false;q('#discord-presence').checked=settings.discordPresence!==false;for(const [field,id] of Object.entries(versionOptions))q('#'+id).checked=!!settings[field];q('#interface-language').value=settings.interfaceLanguage||'';window.SintetUI?.select.refresh(q('#interface-language'));q('#game-directory').value=settings.gameDirectory;q('#instance-mode').value=settings.instanceMode;q('#game-width').value=settings.width;q('#game-height').value=settings.height;q('#fullscreen').checked=settings.fullscreen;q('#java-mode').value=settings.javaPath?'custom':'auto';q('#java-path').value=settings.javaPath;q('#memory-mb').value=settings.memoryMB;q('#auto-memory').checked=settings.autoMemory;q('#game-start-action').value=settings.gameStartAction||'tray';q('#close-action').value=settings.closeAction||'quit';q('#minimize-to-tray').checked=!!settings.minimizeToTray;q('#start-with-windows').checked=!!settings.startWithWindows;q('#start-in-tray').checked=!!settings.startInTray;hotkey=settings.overlayHotkey||'Shift + Tab';q('#overlay-hotkey').value=hotkey;q('#apply-overlay-font').checked=settings.applyOverlayFont!==false;languageSelect.value=settings.workshopLanguage||'';window.SintetUI?.select.refresh(languageSelect);behavior();q('#ram').max=maxMemory();q('#memory-mb').max=maxMemory();javaMode();memory();window.SintetUI?.select.refresh(q('#instance-mode'));window.SintetUI?.select.refresh(q('#java-mode'));window.SintetUI?.select.refresh(q('#game-start-action'));window.SintetUI?.select.refresh(q('#close-action'))}
  function behavior(){const enabled=q('#start-with-windows').checked;q('#start-in-tray').disabled=!enabled;q('#start-in-tray-label').classList.toggle('disabled',!enabled);q('#window-behavior-note').textContent=q('#game-start-action').value==='quit'?'Minecraft продолжит работать. Друзья и P2P отключатся после закрытия Sintet.':'Из трея можно открыть Sintet или завершить работу.'}
- function read(){return {gamePreferences:readGamePreferences(),interfaceLanguage:q('#interface-language').value,overlayEnabled:!q('#hide-overlay').checked,gameDirectory:q('#game-directory').value.trim(),instanceMode:q('#instance-mode').value,width:Number(q('#game-width').value),height:Number(q('#game-height').value),fullscreen:q('#fullscreen').checked,javaPath:q('#java-mode').value==='auto'?'':q('#java-path').value.trim(),memoryMB:Number(q('#memory-mb').value),autoMemory:q('#auto-memory').checked,autoClose:false,gameStartAction:q('#game-start-action').value,closeAction:q('#close-action').value,minimizeToTray:q('#minimize-to-tray').checked,startWithWindows:q('#start-with-windows').checked,startInTray:q('#start-in-tray').checked,overlayHotkey:hotkey,applyOverlayFont:q('#apply-overlay-font').checked,workshopLanguage:languageSelect.value,...Object.fromEntries(Object.entries(versionOptions).map(([field,id])=>[field,q('#'+id).checked])),onlyInstalled:!!config.settings.onlyInstalled}}
+ function read(){return {gamePreferences:readGamePreferences(),interfaceLanguage:q('#interface-language').value,overlayEnabled:!q('#hide-overlay').checked,discordPresence:q('#discord-presence').checked,gameDirectory:q('#game-directory').value.trim(),instanceMode:q('#instance-mode').value,width:Number(q('#game-width').value),height:Number(q('#game-height').value),fullscreen:q('#fullscreen').checked,javaPath:q('#java-mode').value==='auto'?'':q('#java-path').value.trim(),memoryMB:Number(q('#memory-mb').value),autoMemory:q('#auto-memory').checked,autoClose:false,gameStartAction:q('#game-start-action').value,closeAction:q('#close-action').value,minimizeToTray:q('#minimize-to-tray').checked,startWithWindows:q('#start-with-windows').checked,startInTray:q('#start-in-tray').checked,overlayHotkey:hotkey,applyOverlayFont:q('#apply-overlay-font').checked,workshopLanguage:languageSelect.value,...Object.fromEntries(Object.entries(versionOptions).map(([field,id])=>[field,q('#'+id).checked])),onlyInstalled:!!config.settings.onlyInstalled}}
  function publish(previous){window.SintetSettings.config=config;q('#home-ram').textContent=window.SintetLanguage.formatSize(config.effectiveMemoryMB/1024,'gigabyte',config.effectiveMemoryMB%1024?1:0,config.interfaceLanguage);window.dispatchEvent(new CustomEvent('sintet:settings',{detail:{config,rootChanged:previous!==undefined&&previous!==config.settings.gameDirectory}}));memory();q('#memory-system').textContent=window.SintetText.format('В системе %s',window.SintetLanguage.formatSize(config.systemMemoryMB/1024,'gigabyte',1))}
  window.SintetSettings={config:null,ready:null};
  window.SintetSettings.ready=(async()=>{for(let i=0;i<100&&!window.go?.main?.App;i++)await new Promise(r=>setTimeout(r,100));api=window.go?.main?.App;if(!api){message('Запустите Sintet через Start.bat');return}try{config=await api.GetSettings();fill(config.settings);q('#save-settings').disabled=false;message(config.warning||'Настройки сохранены');publish();refreshCache()}catch(error){message(String(error))}})();

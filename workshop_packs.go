@@ -81,6 +81,9 @@ func (a *App) InstallCatalogPack(planID, targetID, name string) (WorkshopBuild, 
 	}
 	var build WorkshopBuild
 	newBuild := targetID == ""
+	if plan.LocalArchive && !newBuild {
+		return build, errors.New("импорт .mrpack создаёт отдельную сборку")
+	}
 	if newBuild {
 		if len(store.Builds) >= 500 {
 			return build, errors.New("достигнут лимит сборок")
@@ -121,7 +124,7 @@ func (a *App) InstallCatalogPack(planID, targetID, name string) (WorkshopBuild, 
 		}
 	}
 	directory := filepath.Join(service.Root, "instances", build.ID)
-	if newBuild {
+	if newBuild && !plan.LocalArchive {
 		if err = os.MkdirAll(directory, 0700); err != nil {
 			return build, err
 		}
@@ -137,9 +140,29 @@ func (a *App) InstallCatalogPack(planID, targetID, name string) (WorkshopBuild, 
 		ctx = context.Background()
 	}
 	target := workshop.Target{ID: build.ID, Name: build.Name, Directory: directory, Game: build.Game, Loader: build.Loader}
+	var cleanup []func() error
+	if plan.LocalArchive {
+		if err := os.Mkdir(directory, 0700); err != nil {
+			if !os.IsNotExist(err) {
+				return build, err
+			}
+			if err = os.MkdirAll(filepath.Dir(directory), 0700); err != nil {
+				return build, err
+			}
+			if err = os.Mkdir(directory, 0700); err != nil {
+				return build, err
+			}
+		}
+		cleanup = append(cleanup, func() error { return removeIncompletePack(service.Root, build.ID) })
+	}
 	err = a.workshop.StartPack(ctx, planID, target, func(ctx context.Context, p workshop.PackPlan, progress func(string, float64)) error {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if p.LocalArchive {
+			if err := a.writeWorkshopBuildManifest(service.Root, build); err != nil {
+				return err
+			}
 		}
 		identity, identityErr := service.ProfileIdentity(build.ID)
 		needsBase := !service.Installed(build.ID) || identityErr != nil || identity.Base != p.Game || identity.Loader != p.Loader || !sameLoaderVersion(p.Game, p.Loader, identity.LoaderVersion, p.LoaderVersion)
@@ -178,6 +201,13 @@ func (a *App) InstallCatalogPack(planID, targetID, name string) (WorkshopBuild, 
 				if e != nil {
 					return e
 				}
+				if p.LocalArchive {
+					if len(store.Builds) >= 500 {
+						return errors.New("достигнут лимит сборок")
+					}
+					store.Builds = append(store.Builds, build)
+					return a.saveWorkshopBuilds(store)
+				}
 				for i := range store.Builds {
 					if store.Builds[i].ID == build.ID {
 						store.Builds[i].Game = p.Game
@@ -192,9 +222,27 @@ func (a *App) InstallCatalogPack(planID, targetID, name string) (WorkshopBuild, 
 				return errors.New("сборка назначения не найдена")
 			}
 		}
-	})
+	}, cleanup...)
 	if err != nil {
+		for _, remove := range cleanup {
+			err = errors.Join(err, remove())
+		}
 		return build, err
 	}
 	return build, nil
+}
+
+func removeIncompletePack(root, id string) error {
+	dir, err := os.OpenRoot(root)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	result := dir.RemoveAll(filepath.Join("instances", id))
+	for _, name := range []string{"installed", "profiles"} {
+		if err := dir.Remove(filepath.Join(".sintet", name, id+".json")); err != nil && !os.IsNotExist(err) {
+			result = errors.Join(result, err)
+		}
+	}
+	return result
 }

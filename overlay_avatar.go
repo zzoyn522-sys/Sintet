@@ -65,6 +65,10 @@ func (a *App) overlayAvatar(account *identity.Account) string {
 }
 
 func overlayAvatarPNG(data []byte, skin bool) (string, error) {
+	return overlayPNG(data, skin, 36)
+}
+
+func overlayPNG(data []byte, skin bool, size int) (string, error) {
 	config, err := png.DecodeConfig(bytes.NewReader(data))
 	if err != nil || config.Width < 1 || config.Height < 1 || config.Width > 512 || config.Height > 512 {
 		return "", fmt.Errorf("invalid overlay image")
@@ -82,10 +86,10 @@ func overlayAvatarPNG(data []byte, skin bool) (string, error) {
 		draw.Draw(head, head.Bounds(), source, image.Pt(40, 8), draw.Over)
 		source = head
 	}
-	output := image.NewNRGBA(image.Rect(0, 0, 36, 36))
-	for y := 0; y < 36; y++ {
-		for x := 0; x < 36; x++ {
-			output.Set(x, y, source.At(x*source.Bounds().Dx()/36, y*source.Bounds().Dy()/36))
+	output := image.NewNRGBA(image.Rect(0, 0, size, size))
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			output.Set(x, y, source.At(x*source.Bounds().Dx()/size, y*source.Bounds().Dy()/size))
 		}
 	}
 	return hex.EncodeToString(output.Pix), nil

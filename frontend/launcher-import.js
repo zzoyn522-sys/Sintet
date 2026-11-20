@@ -177,6 +177,7 @@
   await window.SintetSettings.ready;
   app=window.go?.main?.App;
   if(!app?.LauncherImportOffer){resolveOnboarding();return}
+  await window.SintetTour?.finished;
   automatic=await app.LauncherImportOffer();
   if(!automatic){openButton.disabled=false;resolveOnboarding();return}
   if(dialog.open)return;

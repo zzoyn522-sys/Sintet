@@ -29,11 +29,13 @@ import (
 )
 
 type socialAccount struct {
-	AvatarDigest string `json:"avatarDigest,omitempty"`
-	AvatarURL    string `json:"avatarUrl,omitempty"`
-	ID           string `json:"id"`
-	Username     string `json:"username"`
-	Handle       string `json:"handle,omitempty"`
+	Badges       []string `json:"badges,omitempty"`
+	Provider     string   `json:"provider,omitempty"`
+	AvatarDigest string   `json:"avatarDigest,omitempty"`
+	AvatarURL    string   `json:"avatarUrl,omitempty"`
+	ID           string   `json:"id"`
+	Username     string   `json:"username"`
+	Handle       string   `json:"handle,omitempty"`
 }
 type socialPresence struct {
 	Status   string          `json:"status"`
@@ -57,12 +59,14 @@ type socialInvite struct {
 	Account *socialAccount `json:"account"`
 }
 type socialRoom struct {
-	Capacity int    `json:"capacity,omitempty"`
-	Code     string `json:"code"`
-	Host     string `json:"host"`
-	Version  string `json:"version"`
-	PackName string `json:"pack_name,omitempty"`
-	Loader   string `json:"loader,omitempty"`
+	DiscordPartyID string `json:"discord_party_id,omitempty"`
+	MixedLogin     bool   `json:"mixed_login,omitempty"`
+	Capacity       int    `json:"capacity,omitempty"`
+	Code           string `json:"code"`
+	Host           string `json:"host"`
+	Version        string `json:"version"`
+	PackName       string `json:"pack_name,omitempty"`
+	Loader         string `json:"loader,omitempty"`
 }
 
 const manualLobbyProfile = "sintet:manual"
@@ -71,23 +75,27 @@ const maximumLobbyCapacity = 150
 func (r *socialRoom) manual() bool { return r != nil && r.Version == manualLobbyProfile }
 
 type socialPeer struct {
-	Rejection string                     `json:"rejection,omitempty"`
-	ID        string                     `json:"id"`
-	Guest     string                     `json:"guest"`
-	Offer     *webrtc.SessionDescription `json:"offer"`
-	Answer    *webrtc.SessionDescription `json:"answer"`
+	GameProfile *lobbyGameProfile          `json:"gameProfile,omitempty"`
+	Rejection   string                     `json:"rejection,omitempty"`
+	ID          string                     `json:"id"`
+	Guest       string                     `json:"guest"`
+	Offer       *webrtc.SessionDescription `json:"offer"`
+	Answer      *webrtc.SessionDescription `json:"answer"`
 }
 type socialMember struct {
-	AvatarDigest string `json:"avatarDigest,omitempty"`
-	AvatarURL    string `json:"avatarUrl,omitempty"`
-	ID           string `json:"id"`
-	Username     string `json:"username"`
-	Handle       string `json:"handle,omitempty"`
-	Leader       bool   `json:"leader"`
-	Preparation  string `json:"preparation,omitempty"`
-	Percent      int    `json:"percent,omitempty"`
+	Badges       []string `json:"badges,omitempty"`
+	Provider     string   `json:"provider,omitempty"`
+	AvatarDigest string   `json:"avatarDigest,omitempty"`
+	AvatarURL    string   `json:"avatarUrl,omitempty"`
+	ID           string   `json:"id"`
+	Username     string   `json:"username"`
+	Handle       string   `json:"handle,omitempty"`
+	Leader       bool     `json:"leader"`
+	Preparation  string   `json:"preparation,omitempty"`
+	Percent      int      `json:"percent,omitempty"`
 }
 type socialRemote struct {
+	Self         *socialAccount  `json:"self,omitempty"`
 	ResumeLobby  bool            `json:"resumeLobby,omitempty"`
 	RelayEnabled bool            `json:"relayEnabled,omitempty"`
 	Privacy      presencePrivacy `json:"privacy"`
@@ -99,17 +107,21 @@ type socialRemote struct {
 }
 
 type socialState struct {
-	LobbyTURNUsage *turnUsageView   `json:"lobbyTurnUsage,omitempty"`
-	TURNActive     bool             `json:"turnActive,omitempty"`
-	TURNUsage      *turnUsageView   `json:"turnUsage,omitempty"`
-	TURNNotice     int64            `json:"turnNotice,omitempty"`
-	PreGameLobby   bool             `json:"preGameLobby"`
-	Pack           *packStatus      `json:"pack,omitempty"`
-	Quality        *p2p.LinkQuality `json:"quality,omitempty"`
-	NetworkPeers   []socialLink     `json:"networkPeers,omitempty"`
-	Leader         bool             `json:"leader"`
-	Offline        bool             `json:"offline"`
-	Reconnecting   bool             `json:"reconnecting"`
+	DiscordJoinNotice int64            `json:"discordJoinNotice,omitempty"`
+	DiscordJoinError  string           `json:"discordJoinError,omitempty"`
+	LobbyProvider     string           `json:"lobbyProvider,omitempty"`
+	LobbyProfile      *socialAccount   `json:"lobbyProfile,omitempty"`
+	LobbyTURNUsage    *turnUsageView   `json:"lobbyTurnUsage,omitempty"`
+	TURNActive        bool             `json:"turnActive,omitempty"`
+	TURNUsage         *turnUsageView   `json:"turnUsage,omitempty"`
+	TURNNotice        int64            `json:"turnNotice,omitempty"`
+	PreGameLobby      bool             `json:"preGameLobby"`
+	Pack              *packStatus      `json:"pack,omitempty"`
+	Quality           *p2p.LinkQuality `json:"quality,omitempty"`
+	NetworkPeers      []socialLink     `json:"networkPeers,omitempty"`
+	Leader            bool             `json:"leader"`
+	Offline           bool             `json:"offline"`
+	Reconnecting      bool             `json:"reconnecting"`
 	socialRemote
 	Enabled        bool   `json:"enabled"`
 	Busy           bool   `json:"busy"`
@@ -134,7 +146,9 @@ type socialState struct {
 }
 
 type socialLink struct {
-	Name string `json:"name"`
+	Badges   []string `json:"badges,omitempty"`
+	Name     string   `json:"name"`
+	Provider string   `json:"provider,omitempty"`
 	p2p.LinkQuality
 }
 type socialManager struct {
@@ -173,6 +187,8 @@ type socialManager struct {
 	actions                           sync.Mutex
 	state                             socialState
 	client                            *identity.Client
+	externalSlot                      string
+	externalRetry                     time.Time
 	account                           string
 	peers                             map[string]*p2p.Peer
 	epoch                             uint64
@@ -180,6 +196,8 @@ type socialManager struct {
 	roomCancel                        context.CancelFunc
 	address, secret                   string
 	bridgeSeen                        time.Time
+	bridgeMixedSeen                   time.Time
+	lobbyAdmissions                   map[int]*lobbyGameAdmission
 	gameCommand                       uint64
 	gameCommandPort                   int
 	gameCommandUntil                  time.Time
@@ -189,7 +207,10 @@ type socialManager struct {
 	server                            *http.Server
 	syncFailures                      int
 	sharedMusicCover                  string
+	lastPresence                      presencePublication
 	privacyRevision                   uint64
+	lastBadgeRefresh                  time.Time
+	overlayBadges                     overlayBadgeCatalog
 }
 
 func newSocialManager(app *App, ctx context.Context) *socialManager {
@@ -202,6 +223,15 @@ func (m *socialManager) snapshot() socialState {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	state := m.state
+	if m.client != nil {
+		if own := m.client.SavedAccount(); own != nil {
+			state.LobbyProfile = &socialAccount{ID: own.ID, Username: own.Username, Handle: own.Handle, Provider: state.LobbyProvider, AvatarURL: own.AvatarURL}
+			if state.Self != nil && state.Self.ID == own.ID {
+				state.LobbyProfile.Badges = state.Self.Badges
+			}
+		}
+	}
+	state.Self = nil
 	state.PreGameLobby = true
 	state.Members = append([]socialMember(nil), state.Members...)
 	// UI and overlay snapshots need membership IDs only. SDP stays in signaling.
@@ -265,17 +295,21 @@ func (m *socialManager) snapshot() socialState {
 		if state.Room != nil && (state.Leader || id == m.guest) {
 			quality := peer.Quality()
 			name, memberID := state.HostName, state.Room.Host
+			provider := ""
+			var badges []string
 			if state.Leader {
 				name = "Гость"
 				memberID = guests[id]
 			}
 			if i, ok := byMember[memberID]; ok && (!state.Leader || !state.Members[i].Leader) {
 				name = state.Members[i].Username
+				provider = state.Members[i].Provider
+				badges = state.Members[i].Badges
 			}
 			if name == "" {
 				name = "Хост"
 			}
-			state.NetworkPeers = append(state.NetworkPeers, socialLink{Name: name, LinkQuality: quality})
+			state.NetworkPeers = append(state.NetworkPeers, socialLink{Name: name, Provider: provider, Badges: badges, LinkQuality: quality})
 			if state.Quality == nil {
 				state.Quality = &quality
 			} else {
@@ -399,8 +433,9 @@ func (m *socialManager) sendDiagnostic(event string, err error) {
 	}
 	m.mu.Lock()
 	client := m.client
+	external := m.state.LobbyProvider != "" && m.state.LobbyProvider != "sintet"
 	m.mu.Unlock()
-	if client == nil {
+	if client == nil || external {
 		return
 	}
 	code, ice, connection := "none", "", ""
@@ -440,7 +475,7 @@ func (m *socialManager) request(ctx context.Context, method, path string, body, 
 	client := m.client
 	m.mu.Unlock()
 	if client == nil {
-		return errors.New("войдите через Sintet ID, чтобы добавить друзей")
+		return errors.New("сессия лобби ещё не открыта")
 	}
 	call, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -452,10 +487,21 @@ func (m *socialManager) post(ctx context.Context, body, out any) error {
 func (m *socialManager) identity() {
 	m.identityMu.Lock()
 	defer m.identityMu.Unlock()
+	m.refreshLobbyIdentity()
+}
+
+func (m *socialManager) refreshLobbyIdentity() {
 	m.app.authMu.Lock()
 	var client *identity.Client
-	var id string
-	if slot := m.app.profiles.find(m.app.profiles.active); slot != nil && slot.Provider == "sintet" {
+	var id, provider string
+	active := m.app.profiles.active
+	slot := m.app.profiles.find(active)
+	if active == defaultProfile {
+		provider = "local"
+	} else if slot != nil {
+		provider = slot.Provider
+	}
+	if slot != nil && slot.Provider == "sintet" {
 		client = slot.sintet
 		if account := client.SavedAccount(); account != nil {
 			id = account.ID
@@ -463,7 +509,12 @@ func (m *socialManager) identity() {
 	}
 	m.app.authMu.Unlock()
 	m.mu.Lock()
-	changed := m.account != id
+	if provider != "sintet" && provider != "" && m.externalSlot == active && m.client != nil {
+		client, id = m.client, m.account
+	} else {
+		m.externalSlot = ""
+	}
+	changed := m.account != id || m.state.LobbyProvider != provider
 	m.mu.Unlock()
 	if changed {
 		m.disconnect()
@@ -471,11 +522,13 @@ func (m *socialManager) identity() {
 		m.state = socialState{socialRemote: socialRemote{Friends: []socialFriend{}, Invites: []socialInvite{}}}
 		m.account = id
 		m.syncFailures = 0
+		m.externalRetry = time.Time{}
 		m.mu.Unlock()
 	}
 	m.mu.Lock()
 	m.client = client
-	m.state.Enabled = id != ""
+	m.state.LobbyProvider = provider
+	m.state.Enabled = id != "" || provider != "" && provider != "sintet"
 	m.mu.Unlock()
 }
 
@@ -506,6 +559,9 @@ func detectedLANPort(log string) int {
 var gameEventPattern = regexp.MustCompile(`(?i)` + lanPortEvent + `|Stopping server|Starting integrated minecraft server`)
 
 func (m *socialManager) resetGameLog() {
+	m.mu.Lock()
+	m.bridgeMixedSeen = time.Time{}
+	m.mu.Unlock()
 	m.gameMu.Lock()
 	m.observedPort = 0
 	m.observedWorld = false
@@ -573,6 +629,18 @@ func (m *socialManager) run() {
 	go m.pollSocial()
 	for {
 		m.identity()
+		m.mu.Lock()
+		client, provider, retry := m.client, m.state.LobbyProvider, m.externalRetry
+		m.mu.Unlock()
+		if provider != "" && provider != "sintet" && time.Now().After(retry) &&
+			(client == nil || time.Until(client.LobbySessionExpires()) <= 5*time.Minute) {
+			if _, err := m.lobbyClient(m.ctx); err != nil {
+				m.logError(err)
+				m.mu.Lock()
+				m.externalRetry = time.Now().Add(time.Minute)
+				m.mu.Unlock()
+			}
+		}
 		if m.snapshot().Enabled {
 			activity, version, port := m.gameActivity()
 			before := m.snapshot()
@@ -581,7 +649,7 @@ func (m *socialManager) run() {
 			}
 			m.mu.Lock()
 			m.state.LANPort = port
-			if activity.Mode != "launcher" && activity.accountID != m.account {
+			if activity.Mode != "launcher" && provider == "sintet" && activity.accountID != m.account {
 				activity, version = socialActivity{Mode: "launcher"}, ""
 			}
 			status := activity.legacyStatus()
@@ -609,7 +677,7 @@ func (m *socialManager) run() {
 func (m *socialManager) pollSocial() {
 	for m.ctx.Err() == nil {
 		m.mu.Lock()
-		enabled := m.state.Enabled
+		enabled := m.client != nil
 		hosting := m.state.Room != nil && m.state.Room.Host == m.account
 		m.mu.Unlock()
 		if enabled {
@@ -639,7 +707,7 @@ func (m *socialManager) refresh() {
 	var remote socialRemote
 	ctx, cancel := context.WithTimeout(m.ctx, 6*time.Second)
 	defer cancel()
-	if err := m.request(ctx, "GET", "/api/social", nil, &remote); err != nil {
+	if err := m.request(ctx, "GET", "/api/social?profileBadges=1", nil, &remote); err != nil {
 		m.syncFailure(epoch, err)
 		return
 	}
@@ -653,6 +721,9 @@ func (m *socialManager) refresh() {
 	if m.account != account || m.epoch != epoch {
 		m.mu.Unlock()
 		return
+	}
+	if remote.Self != nil && remote.Self.ID == account && remote.Self.Handle != "" && m.client != nil {
+		m.client.SetLobbyHandle(remote.Self.Handle)
 	}
 	for i := range remote.Friends {
 		if person := remote.Friends[i].Account; person != nil {
@@ -801,6 +872,11 @@ func (m *socialManager) answer(remote socialPeer, port int, epoch uint64) {
 		return
 	}
 	m.peers[remote.ID] = peer
+	if m.mixedPeerLocked(remote) {
+		peer.SetHostDialer(func(ctx context.Context, port int) (net.Conn, func(), error) {
+			return m.dialMixedLobby(ctx, remote, peer, epoch, port)
+		})
+	}
 	if m.state.WorldReady {
 		peer.SetHostPort(m.state.LANPort)
 	}
@@ -937,7 +1013,7 @@ func (m *socialManager) host(ctx context.Context, profiles ...string) error {
 		Room *socialRoom `json:"room"`
 	}
 	if err := m.post(ctx, map[string]any{"action": "room-create", "version": selection.version,
-		"pack_name": selection.name, "loader": selection.loader}, &result); err != nil {
+		"pack_name": selection.name, "loader": selection.loader, "mixed_login": true}, &result); err != nil {
 		return err
 	}
 	if result.Room == nil || result.Room.manual() != (selection.profile == manualLobbyProfile) {
@@ -1062,6 +1138,8 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 	if resumePeer != "" {
 		join["action"] = "room-reconnect"
 		join["peer"] = resumePeer
+	} else if strings.HasPrefix(code, discordInvitePrefix) {
+		join = map[string]any{"action": "discord-join", "secret": code}
 	}
 	if err := m.post(connect, join, &result); err != nil {
 		if connect.Err() != nil || identity.TemporaryServiceError(err) {
@@ -1079,7 +1157,7 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 		answerPoll = time.Second
 	}
 	// room-join already replaces the guest's previous peer in the same room.
-	if previousGuest != "" && previousGuest != result.Peer.ID && (previousRoom == nil || previousRoom.Code != code) {
+	if previousGuest != "" && previousGuest != result.Peer.ID && (previousRoom == nil || previousRoom.Code != result.Room.Code) {
 		leave, cancelLeave := context.WithTimeout(connect, 2*time.Second)
 		_ = m.post(leave, map[string]any{"action": "peer-leave", "peer": previousGuest}, nil)
 		cancelLeave()
@@ -1197,7 +1275,13 @@ func (m *socialManager) joinOnce(ctx context.Context, code, resumePeer string, r
 	link, cancelLink := context.WithTimeout(ctx, tunnelBudget)
 	defer cancelLink()
 	traceResult = "tunnel_failed"
-	port, err := peer.Listen(link)
+	var port int
+	provider := m.snapshot().LobbyProvider
+	if provider != "" && provider != "sintet" || result.Room.MixedLogin {
+		port, err = peer.ListenLocal(link)
+	} else {
+		port, err = peer.Listen(link)
+	}
 	if err != nil {
 		return fmt.Errorf("%w: открытие P2P-туннеля: %w", errDirectTunnel, err)
 	}
@@ -1295,7 +1379,13 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 	}
 	m.identity()
 	if !m.snapshot().Enabled {
-		return errors.New("войдите через Sintet ID")
+		return errors.New("выберите профиль для лобби")
+	}
+	switch action {
+	case "host", "join", "request", "friend-accept", "friend-remove", "invite", "invite-accept", "invite-decline", "discord-join":
+		if _, err := m.lobbyClient(ctx); err != nil {
+			return err
+		}
 	}
 	m.mu.Lock()
 	syncing := m.packCancel != nil
@@ -1395,6 +1485,14 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 		if err == nil {
 			err = m.post(ctx, map[string]any{"action": "invite", "target": target}, nil)
 		}
+	case "discord-join":
+		if m.app.State().Busy {
+			return errors.New("дождитесь завершения текущего запуска или установки")
+		}
+		if m.snapshot().Room != nil {
+			return errors.New("сначала выйди из текущего лобби")
+		}
+		err = m.joinRoom(ctx, target, true)
 	case "invite-accept", "invite-decline":
 		if action == "invite-accept" && m.app.State().Busy {
 			return errors.New("дождитесь завершения текущего запуска или установки")
@@ -1413,7 +1511,7 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 	}
 	if err != nil {
 		m.mu.Lock()
-		if (action == "join" || action == "invite-accept" || action == "reconnect-lobby") && m.guestPort == 0 {
+		if (action == "join" || action == "invite-accept" || action == "discord-join" || action == "reconnect-lobby") && m.guestPort == 0 {
 			m.state.Status = "Не удалось подключиться"
 		}
 		m.mu.Unlock()
@@ -1423,12 +1521,12 @@ func (m *socialManager) action(ctx context.Context, action, target string) error
 		if action == "host" || action == "join" || action == "close" {
 			m.sendDiagnostic(action, nil)
 		}
-		if action == "invite-accept" {
+		if action == "invite-accept" || action == "discord-join" {
 			m.sendDiagnostic("connected", nil)
 		}
 	}
 	if err == nil {
-		if action == "join" || action == "invite-accept" || action == "reconnect-lobby" {
+		if action == "join" || action == "invite-accept" || action == "discord-join" || action == "reconnect-lobby" {
 			go m.refresh()
 		} else {
 			m.refresh()
@@ -1445,6 +1543,23 @@ func (a *App) FriendsState() socialState {
 	state.GameRunning = a.State().Running
 	return state
 }
+
+// RefreshProfileBadges refreshes the signed-in social snapshot after a catalog signal.
+func (a *App) RefreshProfileBadges() socialState {
+	if m := a.social; m != nil {
+		m.mu.Lock()
+		refresh := m.client != nil && time.Since(m.lastBadgeRefresh) >= time.Second
+		if refresh {
+			m.lastBadgeRefresh = time.Now()
+		}
+		m.mu.Unlock()
+		if refresh {
+			m.refresh()
+		}
+	}
+	return a.FriendsState()
+}
+
 func (a *App) FriendsAction(action, target string) error {
 	if a.social == nil {
 		return errors.New("сервис запускается")
@@ -1454,6 +1569,9 @@ func (a *App) FriendsAction(action, target string) error {
 func (a *App) FriendsSearch(query string) ([]socialAccount, error) {
 	if a.social == nil {
 		return nil, errors.New("сервис запускается")
+	}
+	if _, err := a.social.lobbyClient(a.social.ctx); err != nil {
+		return nil, err
 	}
 	var reply struct {
 		Accounts []socialAccount `json:"accounts"`
@@ -1485,6 +1603,10 @@ func (m *socialManager) startIPC() error {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
+		if r.Method == "GET" && r.URL.Path == "/badges" {
+			json.NewEncoder(w).Encode(m.overlayBadges.read(m.ctx, r.URL.Query().Get("revision")))
+			return
+		}
 		if r.Method == "GET" && r.URL.Path == "/avatar" {
 			id := r.URL.Query().Get("id")
 			address := ""
@@ -1518,6 +1640,17 @@ func (m *socialManager) startIPC() error {
 			json.NewEncoder(w).Encode(map[string]string{"pixels": pixels})
 			return
 		}
+		if r.Method == "GET" && r.URL.Path == "/game/lobby-login" {
+			port, _ := strconv.Atoi(r.URL.Query().Get("port"))
+			id := m.consumeLobbyAdmission(port, r.URL.Query().Get("name"))
+			if id == "" {
+				http.Error(w, "denied", http.StatusForbidden)
+				return
+			}
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprint(w, id)
+			return
+		}
 		if r.Method == "GET" && (r.URL.Path == "/game/command" || r.URL.Path == "/game/presence") {
 			m.observeBridgeActivity(r.Header)
 			if r.URL.Path == "/game/presence" {
@@ -1526,6 +1659,10 @@ func (m *socialManager) startIPC() error {
 			}
 			id, port := m.pollGameCommand(r.Header.Get("X-Sintet-Join-Ready") == "1")
 			m.mu.Lock()
+			m.bridgeMixedSeen = time.Time{}
+			if r.Header.Get("X-Sintet-Mixed-Ready") == "1" {
+				m.bridgeMixedSeen = time.Now()
+			}
 			if room := m.state.Room; room != nil && room.Host == m.account && room.Capacity > 8 {
 				w.Header().Set("X-Sintet-Lobby-Capacity", strconv.Itoa(room.Capacity))
 			}

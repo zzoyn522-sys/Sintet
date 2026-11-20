@@ -39,6 +39,7 @@ public final class SintetBridge {
  private static boolean activityFieldsResolved;
  private static final AtomicBoolean worldProbePending = new AtomicBoolean();
  private static volatile boolean worldProbeDisabled, joinReady;
+ private static volatile boolean mixedLobbyReady;
  private static volatile int lobbyCapacity=8;
  private static volatile LegacyCapacity legacyCapacity;
  private static final class LegacyCapacity {
@@ -59,7 +60,7 @@ public final class SintetBridge {
  private static void loadMappings(){
   String path=System.getenv("SINTET_BRIDGE_MAPPINGS");
   if(path==null||path.isEmpty())return;
-  java.util.List<String> names=Arrays.asList(CLIENT,LEVEL,SCREEN,TITLE,PAUSE,CONNECT,ADDRESS,SERVER,SERVER+"$Type",INTEGRATED,PLAYER_LIST);
+  java.util.List<String> names=Arrays.asList(CLIENT,LEVEL,SCREEN,TITLE,PAUSE,CONNECT,ADDRESS,SERVER,SERVER+"$Type",INTEGRATED,PLAYER_LIST,MixedLobbyLogin.LISTENER);
   try(BufferedReader reader=Files.newBufferedReader(Paths.get(path),StandardCharsets.UTF_8)){
    String owner="";
    for(String line;(line=reader.readLine())!=null;){
@@ -106,6 +107,7 @@ public final class SintetBridge {
     activityFieldsResolved=true;
    }
    joinReady=false;
+   mixedLobbyReady=false;
    if(levelField==null)return;
    if(levelField.get(game)==null){
     activity=new Activity("menu",null,null);
@@ -121,6 +123,11 @@ public final class SintetBridge {
    }
    Object localServer=integratedServerField==null?null:integratedServerField.get(game);
    updateLegacyCapacity(localServer);
+   if(localServer!=null) {
+    String listener = gameClass.getName().equals("net.minecraft.class_310") ? "net.minecraft.class_3248"
+      : obfuscated(gameClass) ? mappings.get(MixedLobbyLogin.LISTENER) : MixedLobbyLogin.LISTENER;
+    mixedLobbyReady=MixedLobbyLogin.available(gameClass.getClassLoader(),listener);
+   }
    if(localServer!=null){activity=new Activity("singleplayer",null,null);return;}
    try {
     Object server=currentServer(game);
@@ -216,6 +223,10 @@ public final class SintetBridge {
   loadMappings();
   inst.addTransformer(new ClassFileTransformer(){
    @Override public byte[] transform(ClassLoader loader,String name,Class<?> original,ProtectionDomain domain,byte[] code){
+    if(MixedLobbyLogin.matches(name)){
+     try{return MixedLobbyLogin.patch(loader,name,code);}
+     catch(RuntimeException|LinkageError ignored){return null;}
+    }
     if(name==null||!matches(name.replace('/','.'),INTEGRATED,"net.minecraft.class_1132")&&
        !name.equals("net/minecraft/server/integrated/IntegratedServer"))return null;
     try{return GameLobbyLimit.patch(code,fields.get(INTEGRATED+"#getMaxPlayers()"));}
@@ -228,6 +239,7 @@ public final class SintetBridge {
   HttpURLConnection c=(HttpURLConnection)new URL("http://"+endpoint+path).openConnection(java.net.Proxy.NO_PROXY);
   c.setConnectTimeout(1500);c.setReadTimeout(2000);c.setInstanceFollowRedirects(false);c.setRequestProperty("Authorization","Bearer "+secret);
   if(path.equals("/game/command")&&joinReady)c.setRequestProperty("X-Sintet-Join-Ready","1");
+  if(path.equals("/game/command")&&mixedLobbyReady)c.setRequestProperty("X-Sintet-Mixed-Ready","1");
   Activity current=activity;
   if((path.equals("/game/command")||path.equals("/game/presence"))&&current!=null){
    c.setRequestProperty("X-Sintet-World",current.mode.equals("menu")?"0":"1");
@@ -249,6 +261,27 @@ public final class SintetBridge {
    ByteArrayOutputStream out=new ByteArrayOutputStream();try(InputStream in=c.getInputStream()){byte[] b=new byte[256];int n;while((n=in.read(b))!=-1){out.write(b,0,n);if(out.size()>4096)throw new IOException("IPC response too large");}}
    return new String(out.toByteArray(),StandardCharsets.UTF_8);
   }finally{c.disconnect();}
+ }
+ static String lobbyAdmission(int port,String name) {
+  try {
+   String response=request("/game/lobby-login?port="+port+"&name="+name,null).trim();
+   return response.matches("[a-f0-9-]{36}")?response:"denied";
+  } catch(Exception error) { return "denied"; }
+ }
+ static void openLoginPackage(Class<?> listener) throws ReflectiveOperationException {
+  Method getModule;
+  try { getModule=Class.class.getMethod("getModule"); }
+  catch(NoSuchMethodException java8) { return; }
+  Object source=getModule.invoke(listener), target=getModule.invoke(SintetBridge.class);
+  if(source.equals(target))return;
+  Class<?> module=getModule.getReturnType();
+  String name=listener.getPackage()==null?"":listener.getPackage().getName();
+  if((Boolean)module.getMethod("isOpen",String.class,module).invoke(source,name,target))return;
+  java.util.Set<?> emptySet=java.util.Collections.emptySet();
+  Map<?,?> emptyMap=java.util.Collections.emptyMap();
+  Map<?,?> opens=java.util.Collections.singletonMap(name,java.util.Collections.singleton(target));
+  Instrumentation.class.getMethod("redefineModule",module,java.util.Set.class,Map.class,Map.class,java.util.Set.class,Map.class)
+    .invoke(instrumentation,source,emptySet,emptyMap,opens,emptySet,emptyMap);
  }
  private static Class<?> minecraft(){
   if(gameClass!=null)return gameClass;
