@@ -123,7 +123,7 @@ func (a *App) startup(ctx context.Context) {
 	if updateHealthMarker != "" {
 		_ = os.WriteFile(updateHealthMarker, []byte("ok"), 0600)
 	}
-	go refreshLauncherShortcutIcon()
+	go refreshLauncherInstallation()
 	if err := workshop.RecoverSintedotInstances(a.service.Root); err != nil {
 		a.mu.Lock()
 		a.warning = "Не удалось восстановить транзакцию Sintedot: " + err.Error()

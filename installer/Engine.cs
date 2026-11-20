@@ -66,10 +66,9 @@ namespace SintetSetup {
    if(!Environment.Is64BitOperatingSystem||Environment.OSVersion.Version.Major<10)throw new IOException(SetupLanguage.T("Для этой сборки нужна 64-битная Windows 10 или 11."));
    string root=Normalize(options.Directory);Directory.CreateDirectory(root);
    string existingMarker=Path.Combine(root,"install.xml");
+   Version installedVersion=null;
    if(File.Exists(existingMarker)){
-    var existing=ReadMarker(root);Version installedVersion,bundledVersion;
-    if(options.UseBundledVersion&&Version.TryParse(existing.Version,out installedVersion)&&Version.TryParse(Package.Version,out bundledVersion)&&installedVersion>bundledVersion)
-     throw new IOException("A newer version of Sintet is already installed.");
+    Version.TryParse(ReadMarker(root).Version,out installedVersion);
    }
    else foreach(string name in new[]{"Sintet-launcher.exe","Sintet.ico","Uninstall.exe"})if(File.Exists(Path.Combine(root,name)))throw new IOException(SetupLanguage.T("В этой папке уже есть файлы с такими именами. Выбери другую папку для Sintet."));
    string probe=Path.Combine(root,".sintet-write-"+Guid.NewGuid().ToString("N"));
@@ -78,11 +77,13 @@ namespace SintetSetup {
    progress(4,SetupLanguage.T("Проверяем компоненты"));
    if(options.Integrate&&!HasWebView())InstallWebView(progress);
    DownloadedRelease remote=options.UseBundledVersion?null:DownloadLatestLauncher(root,progress);
-   progress(60,SetupLanguage.T("Подготавливаем лаунчер"));
    string exe=Path.Combine(root,"Sintet-launcher.exe"),temporary=Path.Combine(root,".sintet-"+Guid.NewGuid().ToString("N")+".tmp");
    try {
-    string releaseVersion=Package.Version;
-    if(remote!=null){File.Move(remote.Path,temporary);releaseVersion=remote.Version;progress(88,SetupLanguage.T("Проверенная версия Sintet готова"));}
+    string releaseVersion=remote==null?Package.Version:remote.Version;
+    if(installedVersion!=null&&installedVersion>new Version(releaseVersion))
+     throw new IOException(SetupLanguage.T("A newer version of Sintet is already installed."));
+    progress(60,SetupLanguage.T("Подготавливаем лаунчер"));
+    if(remote!=null){File.Move(remote.Path,temporary);progress(88,SetupLanguage.T("Проверенная версия Sintet готова"));}
     else {
      using(var compressed=Resource("payload"))using(var input=new GZipStream(compressed,CompressionMode.Decompress))using(var output=new FileStream(temporary,FileMode.CreateNew,FileAccess.Write,FileShare.None,65536,FileOptions.WriteThrough)) {
       byte[] buffer=new byte[65536];int count;long copied=0;
