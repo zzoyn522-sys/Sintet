@@ -111,7 +111,22 @@ html[data-panel-shadow] #workshop .ws-main {
 html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-resource-card,.ws-build-card,.ws-empty,.ws-skeleton:not(.ws-skeleton--lines)) {
   box-shadow: var(--panel-shadow);
 }
-.ws-sidebar .ws-categories {min-height:0;overflow-y:auto;scrollbar-width:thin}
+.ws-sidebar .ws-categories {
+  min-height: 0;
+  overflow: hidden auto;
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  padding-inline-end: 3px;
+}
+.ws-sidebar .ws-categories::-webkit-scrollbar { width: 3px; }
+.ws-sidebar .ws-categories::-webkit-scrollbar-track { background: transparent; }
+.ws-sidebar .ws-categories::-webkit-scrollbar-button { display: none; }
+.ws-sidebar .ws-categories::-webkit-scrollbar-thumb {
+  background: #ffffff26;
+  border: 0;
+  border-radius: 3px;
+}
+.ws-sidebar .ws-categories::-webkit-scrollbar-thumb:hover { background: #ffffff55; }
 .ws-sidebar .ws-category {flex-shrink:0}
 .ws-translation-controls {display:flex;align-items:center;gap:8px;margin:8px 0 12px;color:#aaa}
 .ws-translation-controls:empty {display:none}
@@ -375,7 +390,7 @@ html[data-panel-shadow] #workshop :is(.ws-sidebar,.ws-toolbar,.ws-filters,.ws-re
 .ws-build-mod-search svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 .ws-build-mod-search input:focus-visible { outline: none; }
 .ws-build-mod-search input { width: 100%; min-width: 0; border: 0; background: transparent; color: #eee; font: inherit; font-size: 12px; }
-.ws-build-mod-search:has(input:focus-visible) { outline: 1px solid var(--focus-ring,#a0a0a0); outline-offset: -1px; }
+
 .ws-build-dropzone {
   --wails-drop-target: drop;
   flex-shrink: 0;
@@ -579,7 +594,7 @@ html[data-launcher-panels] .ws-theme-gallery>footer,html[data-launcher-panels] .
 .ws-bulk-toolbar button svg { width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
 .ws-bulk-toolbar #ws-bulk-clear { min-width:36px; padding:0; font-size:20px; line-height:1; color:#bbb; }
 #workshop [data-bulk-selected] { outline:2px solid #699bff; outline-offset:-2px; }
-#workshop [data-bulk-selected]:focus-visible { outline:2px solid #9cbdff; outline-offset:-2px; }
+
 #ws-bulk-delete-list { max-height:145px; margin:12px 0 0; padding:0 0 0 18px; overflow:auto; font-size:13px; color:#ccc; }
 #ws-bulk-delete-list li { padding:3px 0; overflow-wrap:anywhere; }
 .ws-source-badges { display:flex; align-items:center; flex-wrap:wrap; gap:4px; }
@@ -1308,3 +1323,112 @@ html[data-compact-layout] #workshop :is(.ws-skeleton--mod,.ws-skeleton--theme){m
 }
 #ws-pack-import-status:empty {display:none}
 #ws-pack-import-status {font-size:12px; color:#efaaaa; overflow-wrap:anywhere}
+
+.shader-language-label {margin-top:14px!important}
+.ws-dialog.ws-shader-options {
+ width:min(810px,calc(100vw - 32px)); max-height:calc(100vh - 40px);
+ --shader-surface:var(--launcher-surface,#171717);
+ --shader-bar:var(--launcher-bar,#141414);
+ --shader-muted:var(--custom-muted,#a6a6a6);
+ --shader-ink:var(--custom-text,#ededed);
+ --shader-row:color-mix(in srgb,var(--shader-ink) 5%,transparent);
+ --shader-active:color-mix(in srgb,var(--launcher-accent,var(--shader-ink)) 13%,transparent);
+ padding:0; background:var(--shader-surface); border:1px solid transparent; border-radius:16px;
+ color:var(--shader-ink); font-size:calc(13px * var(--text-scale,1)); line-height:1.45;
+}
+html[data-launcher-panels] .ws-dialog.ws-shader-options {
+ background-color:color-mix(in srgb,var(--shader-surface) var(--launcher-opacity,100%),transparent);
+ backdrop-filter:blur(var(--launcher-blur,0px));
+ border-radius:var(--launcher-radius,16px);
+}
+html[data-launcher-panels] .ws-shader-options::backdrop {backdrop-filter:none}
+html[data-panel-borders] .ws-shader-options {
+ outline:var(--border-width) solid rgb(255 255 255 / var(--border-opacity));
+ outline-offset:-1px;
+}
+html:not([data-panel-borders],[data-launcher-panels]) .ws-dialog.ws-shader-options {border-color:#303030}
+html[data-panel-shadow] .ws-dialog.ws-shader-options {box-shadow:var(--panel-shadow)}
+.ws-shader-options[open] {display:flex; flex-direction:column}
+.ws-shader-options :is(button,input,select) {font-family:inherit}
+.ws-shader-options > header {padding:19px 54px 15px 20px}
+.ws-shader-options > header h2 {font-size:calc(19px * var(--text-scale,1)); font-weight:var(--text-weight,650); margin:0 0 2px}
+.ws-shader-options > header p,.ws-shader-options #ws-shader-status {color:var(--shader-muted); margin:0; font-size:calc(12px * var(--text-scale,1))}
+.ws-shader-options #ws-shader-status:not(:empty) {padding:12px 20px}
+.ws-shader-options #ws-shader-status:empty {display:none}
+.ws-shader-tools:not([hidden]) {display:flex; align-items:center; gap:12px; padding:0 20px 16px}
+.ws-shader-tools input {flex:1; min-width:0; height:36px; background:var(--shader-row); color:var(--shader-ink); border-color:transparent; border-radius:var(--button-radius,8px)}
+.ws-shader-tools label:not([hidden]) {display:flex; align-items:center; gap:8px; color:var(--shader-muted)}
+.ws-shader-tools .s-select {width:142px}
+.ws-shader-options .s-select-trigger {min-height:34px; border-radius:var(--button-radius,8px); font-size:calc(12px * var(--text-scale,1))}
+.ws-shader-layout:not([hidden]) {min-height:0; display:grid; grid-template-columns:minmax(128px,27%) minmax(0,1fr); border-top:1px solid #ffffff0c}
+#ws-shader-sections,.ws-shader-groups {min-height:0; max-height:min(51vh,460px); overflow:auto; scrollbar-width:thin; scrollbar-color:#444 transparent}
+#ws-shader-sections {padding:9px; background:color-mix(in srgb,var(--shader-bar) 25%,transparent); border-right:1px solid #ffffff0c}
+#ws-shader-sections button {
+ display:flex; justify-content:space-between; align-items:center; gap:8px; width:100%;
+ min-height:34px; padding:6px 8px; color:var(--shader-muted); text-align:left; font-size:calc(12px * var(--text-scale,1)); line-height:1.35; border-radius:var(--button-radius,7px);
+}
+#ws-shader-sections button:hover {background:var(--shader-row); color:var(--shader-ink)}
+#ws-shader-sections button[data-selected] {background:var(--shader-active); color:var(--shader-ink)}
+.ws-shader-nav-label {min-width:0; overflow-wrap:anywhere}
+.ws-shader-count {flex:none; color:var(--shader-muted); font-size:10px; font-variant-numeric:tabular-nums}
+.ws-shader-groups {padding:15px 20px}
+.ws-shader-breadcrumb {margin:0 0 3px; color:var(--shader-muted); font-size:calc(11px * var(--text-scale,1)); overflow-wrap:anywhere}
+.ws-shader-groups h3 {font-size:calc(16px * var(--text-scale,1)); font-weight:var(--text-weight,650); margin:0 0 10px; overflow-wrap:anywhere}
+.ws-shader-groups > section + section:not([hidden]) {margin-top:17px}
+.ws-shader-option:not([hidden]),.ws-shader-option.check-label:not([hidden]) {
+ display:grid !important; grid-template-columns:minmax(0,1fr) minmax(88px,31%); align-items:center;
+ gap:10px; padding:9px 10px; background:var(--shader-row); border-radius:var(--button-radius,8px);
+}
+.ws-shader-option + .ws-shader-option {margin-top:4px}
+.ws-shader-option[hidden] {display:none !important}
+.ws-shader-option strong,.ws-shader-option small {display:block; overflow-wrap:anywhere}
+.ws-shader-option strong {font-size:calc(13px * var(--text-scale,1)); font-weight:var(--text-weight,600); color:var(--shader-ink)}
+.ws-shader-option small {font-size:calc(11px * var(--text-scale,1)); color:var(--shader-muted); margin-top:3px; line-height:1.45}
+.ws-shader-option select,.ws-shader-option .s-select {width:100%; min-width:0}
+.ws-shader-option input[type=checkbox] {justify-self:end}
+.ws-shader-slider {display:flex; align-items:center; gap:8px}
+.ws-shader-slider input {width:100%; min-width:0; accent-color:var(--launcher-accent,#ededed)}
+.ws-shader-slider output {min-width:3ch; max-width:45%; overflow-wrap:anywhere; text-align:right}
+.ws-shader-options > footer {
+ display:flex; align-items:center; justify-content:flex-end; gap:8px; flex:none;
+ padding:11px 20px; background:transparent; border-top:1px solid #ffffff10;
+}
+.ws-shader-options > footer button {height:34px; border-radius:var(--button-radius,8px)}
+#ws-shader-preparation:not([hidden]) {display:flex; align-items:center; gap:14px; padding:0 20px 18px}
+#ws-shader-progress {flex:1; min-width:0; height:7px; accent-color:var(--launcher-accent,#ededed)}
+.ws-shader-note:not([hidden]) {padding:8px 12px; margin:4px 20px 10px; color:#c9b991; background:#28251e; border-radius:var(--button-radius,8px); font-size:calc(12px * var(--text-scale,1))}
+.ws-shader-option:focus-within {background:var(--shader-active)}
+#ws-shader-sections button[data-selected] {box-shadow:inset 2px 0 var(--launcher-accent,#ededed)}
+.ws-shader-groups h3 {padding:3px 0 7px}
+
+.ws-shader-options :is(.s-select-trigger,.soft-button) {background:var(--shader-row); color:var(--shader-ink)}
+.ws-shader-options :is(.s-select-trigger,.soft-button):hover:not(:disabled) {background:var(--shader-active)}
+html[data-compact-layout] .ws-shader-option:not([hidden]) {padding-block:6px}
+html[data-compact-layout] #ws-shader-sections button {min-height:28px}
+html[data-launcher-accent] .ws-shader-options > footer .primary {
+ background:var(--launcher-accent);
+ color:var(--launcher-accent-text);
+}
+html[data-launcher-accent] .ws-shader-options > footer .primary:not(:disabled):hover {
+ background:var(--launcher-accent);
+}
+
+#ws-mod-media{display:grid;gap:10px;margin-bottom:18px}
+#ws-mod-media[hidden]{display:none}
+.ws-project-links{display:flex;gap:6px;flex-wrap:wrap}
+.ws-project-link{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;font-size:12px;background:var(--launcher-panel-button-bg,#292929);color:inherit}
+.ws-project-link:hover{filter:brightness(1.2)}
+.ws-project-link img{width:16px;height:16px}
+.ws-project-link-arrow{opacity:.6}
+.ws-project-media-heading{margin:2px 0 0;font-size:13px;font-weight:650}
+.ws-project-shots{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:7px}
+.ws-project-shots button{overflow:hidden;border-radius:8px;padding:0;background:#242424}
+.ws-project-shots img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;transition:transform .18s ease}
+.ws-project-shots button:hover img{transform:scale(1.06)}
+.ws-project-lightbox{width:max-content;max-width:calc(100vw - 45px);padding:16px}
+.ws-project-lightbox>img{display:block;max-width:100%;max-height:calc(100vh - 118px);border-radius:9px;object-fit:contain}
+.ws-project-lightbox .account-close{z-index:1}
+.ws-project-image-controls{display:flex;justify-content:center;align-items:center;gap:10px}
+.ws-project-image-controls:empty{display:none}
+.ws-project-image-arrow{width:32px;height:32px;margin-top:8px;border-radius:8px;background:#ffffff12;font-size:20px;color:inherit}
+.ws-project-image-count{min-width:40px;margin-top:8px;text-align:center;font-size:12px;color:inherit}

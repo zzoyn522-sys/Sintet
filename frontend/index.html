@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sintet</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="components/select.css"><link rel="stylesheet" href="mods.css"><link rel="stylesheet" href="account.css"><link rel="stylesheet" href="skin-wardrobe.css"><link rel="stylesheet" href="launcher.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="atmosphere.css"><link rel="stylesheet" href="news.css"><link rel="stylesheet" href="appearance.css"><link rel="stylesheet" href="workshop.css"><link rel="stylesheet" href="social.css"><link rel="stylesheet" href="presence.css"><link rel="stylesheet" href="updates.css"><link rel="stylesheet" href="support.css"><link rel="stylesheet" href="launcher-import.css"><link rel="stylesheet" href="background-experiment.css"><link rel="stylesheet" href="sintedot.css"><link rel="stylesheet" href="launcher-tour.css"></head><body>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sintet</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="components/select.css"><link rel="stylesheet" href="mods.css"><link rel="stylesheet" href="account.css"><link rel="stylesheet" href="skin-wardrobe.css"><link rel="stylesheet" href="launcher.css"><link rel="stylesheet" href="settings.css"><link rel="stylesheet" href="atmosphere.css"><link rel="stylesheet" href="news.css"><link rel="stylesheet" href="appearance.css"><link rel="stylesheet" href="components/color-picker.css"><link rel="stylesheet" href="workshop.css"><link rel="stylesheet" href="social.css"><link rel="stylesheet" href="presence.css"><link rel="stylesheet" href="screenshots.css"><link rel="stylesheet" href="updates.css"><link rel="stylesheet" href="support.css"><link rel="stylesheet" href="launcher-import.css"><link rel="stylesheet" href="background-experiment.css"><link rel="stylesheet" href="sintedot.css"><link rel="stylesheet" href="launcher-tour.css"></head><body>
 <div class="appearance-atmosphere" aria-hidden="true"><div class="appearance-vignette"></div><div class="appearance-grain"></div></div>
-<div id="appearance-background" aria-hidden="true" hidden><img alt="" hidden><video muted loop playsinline hidden></video><canvas hidden></canvas><div class="appearance-media-edges" hidden></div></div>
+<div id="appearance-background" aria-hidden="true" hidden><img alt="" hidden><video muted loop playsinline hidden></video><canvas hidden></canvas><canvas class="appearance-effects-canvas" aria-hidden="true"></canvas><div class="appearance-media-edges" hidden></div></div>
 
-<header class="titlebar"><div class="titlebar-community"><span class="brand"><img src="assets/brand/sintet-light.svg" alt="Sintet" class="launcher-brand"></span><div class="community-actions"><button type="button" id="friends-toggle" class="community-button friends-toggle" popovertarget="friends-panel" aria-label="Друзья" title="Друзья" aria-expanded="false" aria-controls="friends-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg></button><button type="button" id="community-discord" class="community-button discord-button" aria-label="Открыть Discord Sintet" title="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.6a19.8 19.8 0 0 0-4.9-1.5l-.6 1.2a18.3 18.3 0 0 0-5.6 0l-.6-1.2a19.9 19.9 0 0 0-4.9 1.5C.6 9.2-.2 13.7.2 18.2a20 20 0 0 0 6 3l1.2-2a13 13 0 0 1-1.9-.9l.5-.4a14 14 0 0 0 12 0l.5.4a13 13 0 0 1-1.9.9l1.2 2a20 20 0 0 0 6-3c.5-5.2-.8-9.6-3.5-13.6ZM8.1 15.5c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.1 1.1 2.1 2.4-.9 2.4-2.1 2.4Zm7.8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.1 1.1 2.1 2.4-.9 2.4-2.1 2.4Z"/></svg></button><button type="button" id="community-telegram" class="community-button telegram-button" aria-label="Открыть Telegram Sintet" title="Telegram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 3.4 18.2 20c-.3 1.2-.9 1.5-1.9.9l-5.2-3.8-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.3L17.7 6c.4-.4-.1-.6-.6-.3L5.1 13.3 0 11.7c-1.1-.4-1.1-1.1.2-1.6L20.1 2.4c.9-.3 1.7.2 1.5 1Z" transform="translate(1 0) scale(.94)"/></svg></button></div></div><button type="button" id="update-button" class="update-button" aria-label="Доступно обновление Sintet" title="Доступно обновление Sintet" hidden><svg class="update-bubble" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+<div class="launcher-chrome"><header class="titlebar"><div class="titlebar-community"><span class="brand"><img src="assets/brand/sintet-light.svg" alt="Sintet" class="launcher-brand"></span><div class="community-actions"><button type="button" id="friends-toggle" class="community-button friends-toggle" popovertarget="friends-panel" aria-label="Друзья" title="Друзья" aria-expanded="false" aria-controls="friends-panel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg></button><button type="button" id="community-discord" class="community-button discord-button" aria-label="Открыть Discord Sintet" title="Discord"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.3 4.6a19.8 19.8 0 0 0-4.9-1.5l-.6 1.2a18.3 18.3 0 0 0-5.6 0l-.6-1.2a19.9 19.9 0 0 0-4.9 1.5C.6 9.2-.2 13.7.2 18.2a20 20 0 0 0 6 3l1.2-2a13 13 0 0 1-1.9-.9l.5-.4a14 14 0 0 0 12 0l.5.4a13 13 0 0 1-1.9.9l1.2 2a20 20 0 0 0 6-3c.5-5.2-.8-9.6-3.5-13.6ZM8.1 15.5c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.1 1.1 2.1 2.4-.9 2.4-2.1 2.4Zm7.8 0c-1.2 0-2.1-1.1-2.1-2.4s.9-2.4 2.1-2.4 2.1 1.1 2.1 2.4-.9 2.4-2.1 2.4Z"/></svg></button><button type="button" id="community-telegram" class="community-button telegram-button" aria-label="Открыть Telegram Sintet" title="Telegram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.6 3.4 18.2 20c-.3 1.2-.9 1.5-1.9.9l-5.2-3.8-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.3L17.7 6c.4-.4-.1-.6-.6-.3L5.1 13.3 0 11.7c-1.1-.4-1.1-1.1.2-1.6L20.1 2.4c.9-.3 1.7.2 1.5 1Z" transform="translate(1 0) scale(.94)"/></svg></button></div></div><button type="button" id="update-button" class="update-button" aria-label="Доступно обновление Sintet" title="Доступно обновление Sintet" hidden><svg class="update-bubble" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
   <defs>
     <path id="update-bubble-shape" d="M20 3.8C29 2.8 36.3 9.9 36 19.4C35.9 28.8 30.6 36.2 21.3 36.3C12 37.1 4 31.3 3.7 21.8C2.5 12.2 10.5 4.4 20 3.8Z"/>
     <linearGradient id="update-bubble-blue" x2=".85" y2="1">
@@ -22,7 +22,8 @@
     </g>
   </g>
   <path class="update-download-icon" d="M20 11.5v12m-5-4.5 5 5 5-5m-12 6v3.5h14V25"/>
-</svg><span id="update-percent" aria-hidden="true"></span></button><button type="button" id="wardrobe-toggle" popovertarget="skin-wardrobe" aria-controls="skin-wardrobe" aria-haspopup="dialog" aria-expanded="false" aria-label="Скин и плащ" title="Скин и плащ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 4 6l-2 5 4 2 1-2v9h10v-9l1 2 4-2-2-5-4-2a4 4 0 0 1-8 0Z"/></svg></button><button type="button" class="header-profile" id="account-button" aria-haspopup="dialog" aria-controls="account-dialog" aria-label="Открыть профиль"><span class="avatar" id="avatar"><img src="assets/brand/default-avatar.webp" alt=""></span><span id="profile-name">Player</span><svg class="account-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m5 6 3 3 3-3"/></svg></button><div class="window-actions"><button id="minimize" aria-label="Свернуть">−</button><button id="close" aria-label="Закрыть">×</button></div></header>
+</svg><span id="update-percent" aria-hidden="true"></span></button><button type="button" id="screenshots-toggle" aria-controls="screenshots" aria-pressed="false" aria-label="Скриншоты"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5"/><circle cx="15.5" cy="8.5" r="1"/></svg></button><button type="button" id="wardrobe-toggle" popovertarget="skin-wardrobe" aria-controls="skin-wardrobe" aria-haspopup="dialog" aria-expanded="false" aria-label="Скин и плащ" title="Скин и плащ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4 4 6l-2 5 4 2 1-2v9h10v-9l1 2 4-2-2-5-4-2a4 4 0 0 1-8 0Z"/></svg></button><button type="button" class="header-profile" id="account-button" aria-haspopup="dialog" aria-controls="account-dialog" aria-label="Открыть профиль"><span class="avatar" id="avatar"><img src="assets/brand/default-avatar.webp" alt=""></span><span id="profile-name">Player</span><svg class="account-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m5 6 3 3 3-3"/></svg></button><div class="window-actions"><button id="minimize" aria-label="Свернуть">−</button><button id="close" aria-label="Закрыть">×</button></div></header>
+<nav class="top-navigation" aria-label="Навигация"><button class="nav" data-page="settings" id="settings-nav"><svg viewBox="0 0 20 20"><path d="M3 6h14M3 14h14"/><circle cx="7" cy="6" r="2"/><circle cx="13" cy="14" r="2"/></svg>Настройки</button><button class="nav active" data-page="home"><svg viewBox="0 0 20 20"><path d="m7 4 9 6-9 6Z"/></svg>Играть</button><button class="nav" id="workshop-nav" data-page="workshop"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="5" height="5"/><rect x="12" y="3" width="5" height="5"/><rect x="3" y="12" width="5" height="5"/><rect x="12" y="12" width="5" height="5"/></svg>Мастерская</button></nav></div>
 <section id="skin-wardrobe" popover="auto" role="dialog" aria-labelledby="wardrobe-title">
   <header class="wardrobe-header">
     <h2 id="wardrobe-title">Скин и плащ</h2>
@@ -40,7 +41,7 @@
     <div id="wardrobe-skins-section" class="wardrobe-section" hidden>
       <div class="wardrobe-row">
         <h3>Скин</h3>
-        <div class="wardrobe-model-type"><select id="wardrobe-skin-type" data-native-select aria-label="Тип модели"><option value="default">Обычная</option><option value="slim">Тонкая</option></select><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg></div>
+        <div class="wardrobe-model-type"><select id="wardrobe-skin-type" data-compact-select aria-label="Тип модели"><option value="default">Обычная</option><option value="slim">Тонкая</option></select></div>
         <button type="button" id="wardrobe-upload" class="wardrobe-action"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3m-3 3 3-3 3 3M3 10v3h10v-3"/></svg><span>Загрузить PNG</span></button>
       </div>
       <div id="wardrobe-skins" class="wardrobe-cards" role="group" aria-label="Сохранённые скины"></div>
@@ -54,11 +55,57 @@
     </div>
   </div>
 </section>
-<section id="friends-panel" class="friends-panel" popover="auto" aria-labelledby="friends-title"><header><div><span class="friends-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg></span><h2 id="friends-title">Друзья</h2><span class="friends-count" id="friends-count">0</span></div><button type="button" class="friends-close" popovertarget="friends-panel" popovertargetaction="hide" aria-label="Закрыть друзей">×</button></header><div id="friends-list" class="friends-list"><div class="friends-empty"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="16" r="7"/><path d="M7 41v-4a13 13 0 0 1 26 0v4m3-29a7 7 0 0 1 0 13m3 5a11 11 0 0 1 4 8"/></svg><strong>Пока нет друзей</strong><span>Список друзей появится здесь</span></div></div><footer><button type="button" id="friends-create-lobby" class="friends-create-lobby"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>Создать лобби<span>Скоро</span></button><p>P2P-соединение · в разработке</p></footer></section><nav class="top-navigation" aria-label="Навигация"><button class="nav" data-page="settings" id="settings-nav"><svg viewBox="0 0 20 20"><path d="M3 6h14M3 14h14"/><circle cx="7" cy="6" r="2"/><circle cx="13" cy="14" r="2"/></svg>Настройки</button><button class="nav active" data-page="home"><svg viewBox="0 0 20 20"><path d="m7 4 9 6-9 6Z"/></svg>Играть</button><button class="nav" id="workshop-nav" data-page="workshop"><svg viewBox="0 0 20 20"><rect x="3" y="3" width="5" height="5"/><rect x="12" y="3" width="5" height="5"/><rect x="3" y="12" width="5" height="5"/><rect x="12" y="12" width="5" height="5"/></svg>Мастерская</button></nav>
+<section id="friends-panel" class="friends-panel" popover="auto" aria-labelledby="friends-title"><header><div><span class="friends-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a5 5 0 0 1 3 4v2"/></svg></span><h2 id="friends-title">Друзья</h2><span class="friends-count" id="friends-count">0</span></div><button type="button" class="friends-close" popovertarget="friends-panel" popovertargetaction="hide" aria-label="Закрыть друзей">×</button></header><div id="friends-list" class="friends-list"><div class="friends-empty"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="20" cy="16" r="7"/><path d="M7 41v-4a13 13 0 0 1 26 0v4m3-29a7 7 0 0 1 0 13m3 5a11 11 0 0 1 4 8"/></svg><strong>Пока нет друзей</strong><span>Список друзей появится здесь</span></div></div><footer><button type="button" id="friends-create-lobby" class="friends-create-lobby"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>Создать лобби<span>Скоро</span></button><p>P2P-соединение · в разработке</p></footer></section>
 <div class="background-preview-wave" aria-hidden="true">
   <canvas></canvas>
 </div>
-<main><section id="home" class="page home"><div class="workspace" id="play-workspace">
+<main><section id="screenshots" class="page hidden" aria-labelledby="screenshots-heading">
+ <header class="shots-heading">
+  <h1 id="screenshots-heading">Скриншоты</h1>
+  <button type="button" id="shots-refresh" class="shots-icon" aria-label="Обновить"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 7.3a6.4 6.4 0 1 0 .3 5.1M16.4 3.6v4.1h-4.1"/></svg></button>
+ </header>
+ <div class="shots-toolbar">
+  <label class="shots-search-field">
+   <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>
+   <input type="search" id="shots-search" placeholder="Поиск по имени" aria-label="Поиск по имени" autocomplete="off">
+  </label>
+  <select id="shots-profile" aria-label="Сборка"><option value="">Все сборки</option></select>
+  <select id="shots-sort" aria-label="Сортировка"><option value="recent">Сначала новые</option><option value="old">Сначала старые</option><option value="name">По имени</option></select>
+ </div>
+ <p class="shots-status" id="shots-status" role="status"></p>
+ <div id="shots-grid"></div>
+ <button type="button" id="shots-more" class="soft-button" hidden>Показать ещё</button>
+</section>
+<dialog id="shots-detail" aria-labelledby="shots-name">
+ <header class="shots-view-header">
+  <div><h2 id="shots-name" data-no-translate></h2><p id="shots-meta"></p></div>
+  <button type="button" id="shots-close" class="shots-icon" aria-label="Закрыть" autofocus>×</button>
+ </header>
+ <div class="shots-image">
+  <button type="button" id="shots-prev" class="shots-icon" aria-label="Предыдущий снимок">‹</button>
+  <img id="shots-preview" alt="">
+  <button type="button" id="shots-next" class="shots-icon" aria-label="Следующий снимок">›</button>
+ </div>
+ <footer class="shots-view-footer">
+  <p id="shots-view-feedback" role="status"></p>
+  <div class="shots-actions">
+   <button type="button" id="shots-copy" class="primary">Копировать</button>
+   <button type="button" id="shots-folder" class="soft-button">Открыть папку</button>
+   <button type="button" id="shots-menu" class="shots-icon" aria-label="Действия со снимком" aria-haspopup="menu" aria-expanded="false" aria-controls="shots-context">•••</button>
+  </div>
+ </footer>
+ <form id="shots-rename-form" hidden>
+  <label for="shots-new-name">Новое имя</label><input id="shots-new-name" maxlength="120" required autocomplete="off">
+  <button type="submit" class="primary">Сохранить</button><button type="button" id="shots-rename-cancel" class="soft-button">Отмена</button>
+ </form>
+</dialog>
+<div id="shots-context" popover="manual" role="menu" aria-label="Действия со снимком">
+ <button type="button" id="shots-context-copy" role="menuitem" tabindex="-1"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="9" height="9" rx="2"/><path d="M12 4H6a2 2 0 0 0-2 2v6"/></svg><span>Копировать</span></button>
+ <button type="button" id="shots-rename" role="menuitem" tabindex="-1"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 12 7.8-7.8 3 3L8 15l-4 1 1-4Zm6-6 3 3"/></svg><span>Переименовать</span></button>
+ <button type="button" id="shots-open" role="menuitem" tabindex="-1"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4h6v6m0-6-7 7m4 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h3"/></svg><span>Открыть</span></button>
+ <button type="button" id="shots-trash" role="menuitem" tabindex="-1"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2m2 0-.7 10H6.7L6 6m3 3v4m2-4v4"/></svg><span>Удалить</span></button>
+</div>
+<section id="home" class="page home"><div class="workspace" id="play-workspace">
 <button type="button" id="news-toggle" class="news-toggle" aria-expanded="true" aria-controls="minecraft-news" aria-label="Свернуть новости" title="Свернуть новости"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 5-5 5 5 5"/></svg><span>Новости</span></button>
 <section class="minecraft-panel news-panel" id="minecraft-news" aria-label="Новости Minecraft" tabindex="0">
   <div class="news-photo" id="news-photo" aria-hidden="true"></div>
@@ -211,7 +258,14 @@
   <h2>Перевод описаний</h2>
   <label for="workshop-language">Язык описаний в мастерской</label>
   <select id="workshop-language"><option value="">Оригинал</option></select>
-  <p class="preference-hint">Для перевода публичные описания отправляются в MyMemory. Если сервис недоступен, будет показан оригинал.</p>
+  <label for="shader-language" class="shader-language-label">Язык настроек шейдеров</label>
+  <select id="shader-language">
+   <option value="">Как в лаунчере</option><option value="original">Оригинал</option>
+   <option value="en">English</option><option value="ru">Русский</option><option value="uk">Українська</option>
+   <option value="pt">Português</option><option value="es">Español</option>
+  </select>
+  <p class="preference-hint">Лаунчер переводит недостающие названия и описания. При сбое MyMemory используется Lingva Translate. Готовые переводы сохраняются.</p>
+  <p class="preference-hint">Публичные описания переводятся через MyMemory. При сбое лаунчер пробует Lingva Translate.</p>
 </article>
   </section>
 </div><div class="settings-actions"><span id="settings-status" role="status">Настройки загружаются…</span><button id="reset-settings" type="button" class="soft-button">По умолчанию</button><button id="save-settings" type="submit" class="primary" disabled>Сохранить</button></div></div>
@@ -241,7 +295,7 @@
         <div id="appearance-slots" class="appearance-slots" aria-label="Слоты оформлений"></div>
       </section>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-style" role="tabpanel" aria-labelledby="appearance-tab-style" hidden>
-        <h2>Стиль</h2>
+        <div class="appearance-section-heading"><h2>Стиль</h2><button type="button" class="soft-button" data-reset-pane="style">Сбросить вкладку</button></div>
         <div class="appearance-fields">
           <div><label for="appearance-theme">Палитра</label><select id="appearance-theme" name="theme"><option value="original">Графит</option><option value="slate">Сланец</option><option value="midnight">Полночь</option><option value="warm">Тёплый тёмный</option></select></div>
           <div><label for="appearance-font">Шрифт</label><select id="appearance-font" name="font"><option value="default">Inter</option><option value="segoe">Segoe UI</option><option value="arial">Arial</option><option value="georgia">Georgia</option><option value="mono">Cascadia Mono</option><option value="verdana">Verdana</option><option value="calibri">Calibri</option><option value="custom" disabled>Свой шрифт</option></select></div>
@@ -269,7 +323,7 @@
         </details>
       </article>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-nav" role="tabpanel" aria-labelledby="appearance-tab-nav" hidden>
-        <div class="appearance-section-heading"><h2>Верхняя панель</h2><button type="button" class="soft-button" data-reset-colors="nav">Сбросить</button></div>
+        <div class="appearance-section-heading"><h2>Верхняя панель</h2><button type="button" class="soft-button" data-reset-pane="nav">Сбросить вкладку</button></div>
         <div class="appearance-element-colors">
           <label><input type="color" name="navColor">Фон панели</label>
           <label><input type="color" name="navText">Текст и иконки</label>
@@ -290,15 +344,21 @@
         </details>
       </article>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-profile" role="tabpanel" aria-labelledby="appearance-tab-profile" hidden>
-        <div class="appearance-section-heading"><h2>Профиль</h2><button type="button" class="soft-button" data-reset-colors="profile">Из палитры</button></div>
+        <div class="appearance-section-heading"><h2>Профиль</h2><button type="button" class="soft-button" data-reset-pane="profile">Сбросить вкладку</button></div>
         <div class="appearance-element-colors">
           <label><input type="color" name="profileColor">Фон профиля</label>
           <label><input type="color" name="profileText">Текст</label>
           <label><input type="color" name="profileControl">Кнопки и плашки</label>
+
         </div>
+          <label class="check-label"><input type="checkbox" name="profileGradientOff"> Убрать градиент профиля</label>
       </article>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-background" role="tabpanel" aria-labelledby="appearance-tab-background">
-        <div class="appearance-section-heading"><h2>Волна</h2><label class="check-label appearance-switch"><input type="checkbox" name="waveEnabled" checked> Показывать волну</label></div>
+        <div class="appearance-section-heading"><div class="appearance-heading-title"><h2>Фон и глубина</h2><label class="check-label appearance-switch"><input type="checkbox" name="waveEnabled" checked> Показывать волну</label></div><button type="button" class="soft-button" data-reset-pane="background">Сбросить вкладку</button></div>
+        <div class="appearance-wave-color-field">
+          <label for="appearance-wave-style">Стиль волны</label>
+          <select id="appearance-wave-style" name="waveStyle"><option value="smooth">Плавная</option><option value="pixel">Пиксельная</option></select>
+        </div>
         <div class="appearance-wave-color-field">
           <label for="appearance-wave-color">Цвет волны</label>
           <div class="appearance-color-value"><input type="color" id="appearance-wave-color" name="waveColor" value="#ffffff"><output for="appearance-wave-color" id="appearance-wave-color-value">#FFFFFF</output></div>
@@ -312,6 +372,33 @@
         </div>
         <label class="appearance-range" for="appearance-motionSpeed"><span>Скорость анимации</span><output for="appearance-motionSpeed"></output><input id="appearance-motionSpeed" name="motionSpeed" type="range" min="10" max="100" value="50"></label>
         <label class="check-label appearance-switch appearance-animation"><input type="checkbox" name="animate" checked> Анимация фона</label>
+        <details class="appearance-media-filters appearance-depth-controls">
+          <summary>Мягкие блики</summary>
+          <div class="appearance-panel-options">
+            <label class="check-label"><input type="checkbox" name="glintsEnabled"> Показывать блики</label>
+          </div>
+          <label class="appearance-effects-color"><span>Цвет бликов</span><input type="color" name="glintColor" value="#a9c7ff"></label>
+          <label class="appearance-range"><span>Количество</span><output></output><input name="glintCount" type="range" min="0" max="8" value="5"></label>
+          <label class="appearance-range"><span>Размер свечения</span><output></output><input name="glintSize" type="range" min="20" max="220" value="110"></label>
+          <label class="appearance-range"><span>Яркость</span><output></output><input name="glintStrength" type="range" min="0" max="100" value="24"></label>
+          <label class="appearance-range"><span>Скорость движения</span><output></output><input name="glintSpeed" type="range" min="0" max="100" value="22"></label>
+        </details>
+        <details class="appearance-media-filters appearance-depth-controls">
+          <summary>Плавающие частицы</summary>
+          <div class="appearance-panel-options">
+            <label class="check-label"><input type="checkbox" name="particlesEnabled" checked> Показывать частицы</label>
+          </div>
+          <label class="appearance-effects-color"><span>Цвет частиц</span><input type="color" name="particleColor" value="#e1ebff"></label>
+          <label class="appearance-range"><span>Количество</span><output></output><input name="particleCount" type="range" min="0" max="180" value="54"></label>
+          <label class="appearance-range"><span>Минимальный размер</span><output></output><input name="particleMinSize" type="range" min="1" max="16" value="1"></label>
+          <label class="appearance-range"><span>Максимальный размер</span><output></output><input name="particleMaxSize" type="range" min="1" max="32" value="4"></label>
+          <label class="appearance-range"><span>Непрозрачность</span><output></output><input name="particleOpacity" type="range" min="0" max="100" value="36"></label>
+          <label class="appearance-range"><span>Плавное затухание</span><output></output><input name="particleFade" type="range" min="0" max="100" value="100"></label>
+          <label class="appearance-range"><span>Движение влево / вправо</span><output></output><input name="particleSpeedX" type="range" min="-100" max="100" value="-18"></label>
+          <label class="appearance-range"><span>Движение вверх / вниз</span><output></output><input name="particleSpeedY" type="range" min="-100" max="100" value="0"></label>
+          <label class="appearance-range"><span>Глубина и разброс размеров</span><output></output><input name="particleDepth" type="range" min="0" max="100" value="70"></label>
+          <p class="preference-hint">Отрицательное значение задаёт движение влево или вверх, положительное – вправо или вниз. Чем выше глубина, тем заметнее разница в размерах и затухании.</p>
+        </details>
         <details class="appearance-media-filters">
         <summary>Изображение или видео</summary>
         <div class="appearance-file"><button type="button" id="appearance-choose" class="soft-button">Выбрать файл</button><button type="button" id="appearance-remove" class="soft-button" disabled>Убрать фон</button><span id="appearance-file-label"></span></div>
@@ -344,14 +431,14 @@
         </details>
       </article>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-overlay" role="tabpanel" aria-labelledby="appearance-tab-overlay" hidden>
-        <h2>Оверлей Minecraft</h2>
+        <div class="appearance-section-heading"><h2>Оверлей Minecraft</h2><button type="button" class="soft-button" data-reset-pane="overlay">Сбросить вкладку</button></div>
         <p class="preference-hint">Оформление сохраняется в .sldcfg и применяется при следующем запуске игры.</p>
         <div class="overlay-preview-actions">
          <button type="button" class="soft-button" id="overlay-preview-open">Открыть оверлей</button>
          <button type="button" class="soft-button" id="overlay-preview-expand">Развернуть на весь экран</button>
         </div>
         <div class="overlay-preview-stage">
-         <canvas id="overlay-preview-canvas" width="704" height="396" tabindex="0" aria-label="Интерактивный предпросмотр оверлея"></canvas>
+         <canvas id="overlay-preview-canvas" width="704" height="396" role="img" aria-label="Предпросмотр оверлея"></canvas>
          <span id="overlay-preview-status" role="status"></span>
         </div>
         <div class="behavior-grid overlay-style-controls">
@@ -372,7 +459,7 @@
         <label class="appearance-range"><span>Затемнение игры</span><output></output><input type="range" min="0" max="100" name="overlayDim"></label>
       </article>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-panels" role="tabpanel" aria-labelledby="appearance-tab-panels" hidden>
-        <h2>Панели</h2>
+        <div class="appearance-section-heading"><h2>Панели</h2><button type="button" class="soft-button" data-reset-pane="panels">Сбросить вкладку</button></div>
         <div class="appearance-panel-options">
           <label class="check-label"><input type="checkbox" name="compact"> Компактный вид</label>
           <label class="check-label"><input type="checkbox" name="borders"> Контуры панелей</label>
@@ -393,7 +480,7 @@
     </div>
     <div class="settings-actions">
       <span id="appearance-status" role="status">Оформление загружается…</span>
-      <button id="appearance-reset" type="button" class="soft-button" disabled>По умолчанию</button>
+      <button id="appearance-reset" type="button" class="soft-button" disabled>Сбросить всё</button>
       <button id="appearance-save" type="submit" class="primary" disabled>Сохранить</button>
     </div>
   </form>
@@ -567,7 +654,28 @@
    <dl id="ws-local-info"></dl>
   </section>
  </div>
- <footer><span id="ws-local-state" class="ws-local-state"></span><button type="button" id="ws-local-detail-delete" class="danger">Удалить из сборки</button></footer>
+ <footer><span id="ws-local-state" class="ws-local-state"></span><button type="button" id="ws-local-shader-options" class="soft-button" hidden>Настроить шейдер</button><button type="button" id="ws-local-detail-delete" class="danger">Удалить из сборки</button></footer>
+</dialog>
+<dialog id="ws-shader-options" class="ws-dialog ws-shader-options" aria-labelledby="ws-shader-title">
+ <header><div><h2 id="ws-shader-title">Настройки шейдера</h2><p id="ws-shader-pack"></p></div><button type="button" id="ws-shader-close" class="account-close" aria-label="Закрыть">×</button></header>
+ <div class="ws-shader-tools" hidden>
+  <input type="search" id="ws-shader-search" placeholder="Найти параметр" aria-label="Найти параметр" autocomplete="off">
+  <label id="ws-shader-preset-label">Пресет <select id="ws-shader-preset" aria-label="Пресет" data-compact-select></select></label>
+ </div>
+ <div class="ws-shader-layout" hidden>
+  <nav id="ws-shader-sections" aria-label="Разделы настроек шейдера"></nav>
+  <div class="ws-shader-groups"></div>
+ </div>
+ <p id="ws-shader-status" role="status"></p>
+ <div id="ws-shader-preparation" hidden>
+  <progress id="ws-shader-progress" aria-label="Перевод настроек шейдера"></progress>
+  <button type="button" id="ws-shader-skip-translation" class="soft-button">Открыть сейчас</button>
+ </div>
+ <p id="ws-shader-translation-note" class="ws-shader-note" hidden></p>
+ <footer>
+  <button type="button" id="ws-shader-reset" class="soft-button" disabled>По умолчанию</button>
+  <button type="button" id="ws-shader-save" class="primary" disabled>Сохранить</button>
+ </footer>
 </dialog>
 <dialog id="ws-local-delete-dialog" class="ws-dialog ws-build-delete-dialog" aria-labelledby="ws-local-delete-title">
  <h2 id="ws-local-delete-title">Удалить файл из сборки?</h2>
@@ -583,8 +691,9 @@
 <dialog id="mod-install-dialog" class="ws-dialog" aria-labelledby="ws-mod-title">
  <button type="button" class="account-close" id="ws-mod-close" aria-label="Закрыть установку мода">×</button>
  <div class="ws-mod-header"><div id="ws-mod-icon" class="mod-avatar"></div><div><h1 id="ws-mod-title"></h1><span id="ws-mod-author"></span></div><div id="ws-mod-sources" class="ws-mod-sources" role="group" aria-label="Источник установки" hidden></div></div>
- <div class="ws-mod-columns"><section class="ws-mod-info"><div id="ws-resource-preview" class="ws-resource-preview" hidden><img id="ws-pack-cover" alt="Превью ресурс-пака" draggable="false" referrerpolicy="no-referrer"></div><h2 id="ws-info-heading" class="ws-info-heading">О моде</h2><p id="ws-mod-description"></p><dl><dt>Источник</dt><dd id="ws-mod-source"></dd><dt>Minecraft</dt><dd id="ws-mod-games"></dd><dt id="ws-content-type-label">Загрузчики</dt><dd id="ws-mod-loaders"></dd><dt>Скачиваний</dt><dd id="ws-mod-downloads">–</dd><dt>Размер</dt><dd id="ws-mod-size">–</dd></dl><details id="ws-supported" class="ws-supported"><summary>Поддерживаемые версии <span id="ws-supported-count"></span></summary><div id="ws-supported-list"></div></details><p id="ws-content-hint" class="ws-hint">Файлы проверяются по контрольной сумме перед установкой.</p></section>
+ <div class="ws-mod-columns"><section class="ws-mod-info"><div id="ws-resource-preview" class="ws-resource-preview" hidden><img id="ws-pack-cover" alt="Превью ресурс-пака" draggable="false" referrerpolicy="no-referrer"></div><h2 id="ws-info-heading" class="ws-info-heading">О моде</h2><p id="ws-mod-description"></p><div id="ws-mod-media" hidden></div><dl><dt>Источник</dt><dd id="ws-mod-source"></dd><dt>Minecraft</dt><dd id="ws-mod-games"></dd><dt id="ws-content-type-label">Загрузчики</dt><dd id="ws-mod-loaders"></dd><dt>Скачиваний</dt><dd id="ws-mod-downloads">–</dd><dt>Размер</dt><dd id="ws-mod-size">–</dd></dl><details id="ws-supported" class="ws-supported"><summary>Поддерживаемые версии <span id="ws-supported-count"></span></summary><div id="ws-supported-list"></div></details><p id="ws-content-hint" class="ws-hint">Файлы проверяются по контрольной сумме перед установкой.</p></section>
  <section class="ws-mod-controls"><label>Версия Minecraft<select id="ws-mod-game" aria-label="Версия Minecraft для мода"></select></label><label>Загрузчик<select id="ws-mod-loader" aria-label="Загрузчик мода"></select></label><label>Версия мода<select id="ws-mod-version" aria-label="Версия мода"></select></label><label>Установить в сборку<select id="ws-mod-target" aria-label="Сборка для установки мода"></select></label>
+ <label id="ws-mod-world-row" hidden>Установить в мир<select id="ws-mod-world"></select></label>
  <label id="ws-pack-name-row" hidden>Название новой сборки<input id="ws-pack-name" type="text" minlength="2" maxlength="40" autocomplete="off" spellcheck="false"></label><div id="ws-install-destination" class="ws-install-destination"><span>Папка установки</span><div id="ws-install-path"></div></div><div id="ws-requirements"><h3 id="ws-requirements-title">Зависимости</h3><div id="ws-dependencies"></div><label id="ws-deps-option" class="ws-deps-option" hidden><input type="checkbox" id="ws-with-deps" checked>Установить недостающие зависимости</label></div></section></div>
  <div id="ws-mod-status" role="status" class="ws-mod-status"></div><footer><button type="button" id="ws-mod-cancel">Отмена</button><button type="button" id="ws-mod-install" class="primary" disabled>Установить</button></footer>
 </dialog>
@@ -620,7 +729,7 @@
     <progress id="sintedot-footer-progress" max="100" aria-label="Прогресс Sintedot" hidden></progress>
   </div>
   <button type="button" id="open-logs" aria-haspopup="dialog">Журнал игры</button>
-</footer><div class="toast" id="toast" role="status"></div><dialog id="account-dialog" class="account-dialog" aria-labelledby="account-title"><button type="button" class="account-close" id="account-close" aria-label="Закрыть профиль">×</button><div id="account-dialog-content"><div class="account-identity"><div id="account-stack" class="account-stack" aria-label="Аккаунты"><button type="button" id="account-stack-toggle" class="account-stack-toggle" aria-label="Развернуть аккаунты" aria-expanded="false" aria-controls="account-choices"><span class="account-avatar" id="account-avatar"><img src="assets/brand/default-avatar.webp" alt=""></span></button><div id="account-choices" class="account-choices"></div></div><h1 id="account-title">Player</h1><button type="button" id="account-handle" class="account-handle" hidden></button><div id="account-id" class="account-id" hidden><code id="account-id-value"></code><button type="button" id="account-id-copy" title="Скопировать ID" aria-label="Скопировать ID">⧉</button></div><span id="account-profile-kind">Локальный профиль</span><span id="account-microsoft-brand" class="microsoft-wordmark" hidden><img src="assets/brand/microsoft.svg" alt="">Microsoft</span><div class="account-brand-line"><img id="account-identity-brand" class="account-identity-brand" src="assets/brand/sintet-id-light.svg" alt="Sintet ID" hidden><button type="button" id="account-web-settings" class="account-web-settings" title="Открыть настройки Sintet ID" aria-label="Открыть настройки Sintet ID в браузере" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h6v6m0-6-9 9m8-1v6H5V6h6"/></svg></button></div></div>
+</footer><div class="toast" id="toast"><span id="toast-message" role="status"></span><button type="button" id="toast-action" hidden inert></button></div><dialog id="account-dialog" class="account-dialog" aria-labelledby="account-title"><button type="button" class="account-close" id="account-close" aria-label="Закрыть профиль">×</button><div id="account-dialog-content"><div class="account-identity"><div id="account-stack" class="account-stack" aria-label="Аккаунты"><button type="button" id="account-stack-toggle" class="account-stack-toggle" aria-label="Развернуть аккаунты" aria-expanded="false" aria-controls="account-choices"><span class="account-avatar" id="account-avatar"><img src="assets/brand/default-avatar.webp" alt=""></span></button><div id="account-choices" class="account-choices"></div></div><h1 id="account-title">Player</h1><button type="button" id="account-handle" class="account-handle" hidden></button><div id="account-id" class="account-id" hidden><code id="account-id-value"></code><button type="button" id="account-id-copy" title="Скопировать ID" aria-label="Скопировать ID">⧉</button></div><span id="account-profile-kind">Локальный профиль</span><span id="account-microsoft-brand" class="microsoft-wordmark" hidden><img src="assets/brand/microsoft.svg" alt="">Microsoft</span><div class="account-brand-line"><img id="account-identity-brand" class="account-identity-brand" src="assets/brand/sintet-id-light.svg" alt="Sintet ID" hidden><button type="button" id="account-web-settings" class="account-web-settings" title="Открыть настройки Sintet ID" aria-label="Открыть настройки Sintet ID в браузере" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5h6v6m0-6-9 9m8-1v6H5V6h6"/></svg></button></div></div>
 <button id="account-lobby-avatar" class="account-lobby-avatar" type="button" title="Аватар можно менять раз в 24 часа" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.4 3.6a2 2 0 0 1 2.8 0l1.2 1.2a2 2 0 0 1 0 2.8L9 19l-4 1 1-4Z"/><path d="m14.8 5.2 4 4"/></svg><span>Изменить аватарку</span></button>
 <dl id="account-activity" class="account-activity" aria-label="Время в игре и лаунчере" hidden>
  <div><dt>В Minecraft</dt><dd id="account-time-minecraft">–</dd></div>
@@ -628,6 +737,25 @@
 </dl>
 <div id="account-email" class="account-email" hidden><span>Почта</span><strong id="account-email-value"></strong></div>
 <section id="account-provider-details" class="account-provider-details" hidden><span class="provider-section-label">Источник скинов</span><div class="provider-source"><img id="account-skin-logo" src="assets/brand/sintet-id-icon-light.svg" alt=""><div><strong id="account-skin-provider">Sintet ID</strong><span id="account-skin-description"></span></div><span class="provider-bound">Аккаунт</span></div></section><div class="account-status" id="account-status" role="status">Пока только выбор в интерфейсе.</div><button type="button" class="account-done" id="account-done">Готово</button></div></dialog>
+<dialog id="account-deletion-dialog" class="account-dialog account-deletion-dialog" aria-labelledby="account-deletion-title">
+ <div class="account-deletion-heading">
+  <span class="account-deletion-mark" aria-hidden="true"></span>
+  <img class="account-deletion-brand" src="assets/brand/sintet-id-light.svg" alt="Sintet ID">
+ </div>
+ <h1 id="account-deletion-title">Аккаунт Sintet ID удалён</h1>
+ <p class="account-deletion-user" data-no-translate></p>
+ <section class="account-deletion-reason" hidden>
+  <h2>Причина удаления</h2>
+  <p data-no-translate></p>
+ </section>
+ <p>Если это ошибка, свяжись с командой Sintet.</p>
+ <div class="account-deletion-links">
+  <button type="button" data-community="telegram">Telegram ↗</button>
+  <button type="button" data-community="discord">Discord ↗</button>
+ </div>
+ <p class="account-deletion-error" role="status"></p>
+ <button type="button" class="account-done" autofocus>Понятно</button>
+</dialog>
 <dialog id="account-add-dialog" class="account-dialog account-add-dialog" aria-labelledby="account-add-title">
   <button type="button" class="account-close" id="account-add-close" aria-label="Закрыть добавление аккаунта">×</button>
   <h1 id="account-add-title">Добавить аккаунт</h1>
@@ -707,4 +835,4 @@
     <footer class="tour-actions"><button type="button" class="tour-back" hidden>Назад</button><button type="button" class="tour-next" autofocus>Далее</button></footer>
   </div>
 </dialog>
-<script src="app.js"></script><script src="build-icon.js"></script><script src="network.js"></script><script src="account.js"></script><script src="profile-badge-live.js"></script><script src="account-switcher.js"></script><script src="identity.js"></script><script src="language-catalog.js"></script><script src="skin-wardrobe.js"></script><script src="interface-translation.js"></script><script src="language.js"></script><script src="settings.js"></script><script src="sintedot.js"></script><script src="launcher.js"></script><script src="news.js"></script><script type="module" src="workshop.js"></script><script src="social.js"></script><script src="updates.js"></script><script src="launcher-tour.js"></script><script src="launcher-import.js"></script><script src="support.js"></script><script src="components/select.js"></script><script src="appearance.js"></script></body></html>
+<script src="app.js"></script><script src="screenshots.js"></script><script src="build-icon.js"></script><script src="network.js"></script><script src="account.js"></script><script src="profile-badge-live.js"></script><script src="account-switcher.js"></script><script src="identity.js"></script><script src="language-catalog.js"></script><script src="skin-wardrobe.js"></script><script src="interface-translation.js"></script><script src="language.js"></script><script src="settings.js"></script><script src="sintedot.js"></script><script src="launcher.js"></script><script src="news.js"></script><script type="module" src="workshop.js"></script><script src="social.js"></script><script src="updates.js"></script><script src="launcher-tour.js"></script><script src="launcher-import.js"></script><script src="support.js"></script><script src="components/select.js"></script><script src="appearance.js"></script><script src="components/color-picker.js"></script></body></html>

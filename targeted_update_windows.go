@@ -82,7 +82,7 @@ func runTargetedBootstrap(allowedAccount string) error {
 	if err = accountfiles.Write(updater, prelaunchUpdater); err != nil {
 		return err
 	}
-	command := exec.Command(updater, "--update", target, launcherVersion, strconv.Itoa(os.Getpid()), manifest, releaseVersionLabel(launcherVersion, launcherChannel), prelaunchLanguage(app.profiles.root))
+	command := exec.Command(updater, "--update", target, launcherVersion, strconv.Itoa(os.Getpid()), manifest, currentReleaseLabel(), prelaunchLanguage(app.profiles.root))
 	command.Dir = root
 	return command.Start()
 }

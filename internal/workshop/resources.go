@@ -38,6 +38,16 @@ func isShaderArchive(archive *zip.Reader) bool {
 }
 
 func safeContentFilename(name, kind string) bool {
+	if isExtraContent(kind) {
+		if !safePackRelative(name) || strings.Contains(name, "/") {
+			return false
+		}
+		if kind == "plugins" {
+			return safeFilename(name)
+		}
+		return len(name) > 4 && len(name) < 200 && strings.HasSuffix(strings.ToLower(name), ".zip") &&
+			safePackRelative(name[:len(name)-4])
+	}
 	if kind == "modpacks" {
 		base := strings.TrimSuffix(strings.TrimSuffix(name, ".mrpack"), ".zip")
 		return base != name && safeFilename(base+".jar")

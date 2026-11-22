@@ -1,25 +1,3 @@
-Object.assign(window.SintetLanguageCatalog,{
- 'Скин и плащ':['Skin and cape','Скин и плащ','Скін і плащ','Skin e capa','Aspecto y capa'],
- 'Скин':['Skin','Скин','Скін','Skin','Aspecto'],
- 'Плащи':['Capes','Плащи','Плащі','Capas','Capas'],
- 'Загрузить PNG':['Upload PNG','Загрузить PNG','Завантажити PNG','Enviar PNG','Subir PNG'],
- 'Сохранённые скины':['Saved skins','Сохранённые скины','Збережені скіни','Skins salvas','Aspectos guardados'],
- 'Стандартный скин':['Default skin','Стандартный скин','Стандартний скін','Skin padrão','Aspecto predeterminado'],
- 'Скин %s':['Skin %s','Скин %s','Скін %s','Skin %s','Aspecto %s'],
- 'Без плаща':['No cape','Без плаща','Без плаща','Sem capa','Sin capa'],
- 'Мои плащи':['My capes','Мои плащи','Мої плащі','Minhas capas','Mis capas'],
- 'Свой плащ':['Custom cape','Свой плащ','Власний плащ','Capa personalizada','Capa personalizada'],
- '3D-модель скина':['3D skin model','3D-модель скина','3D-модель скіна','Modelo 3D da skin','Modelo 3D del aspecto'],
- 'Повернуть модель':['Turn the model','Повернуть модель','Повернути модель','Girar modelo','Girar modelo'],
- '3D-просмотр недоступен':['3D preview unavailable','3D-просмотр недоступен','3D-перегляд недоступний','Visualização 3D indisponível','Vista 3D no disponible'],
- 'Не удалось загрузить текстуру.':['Could not load the texture.','Не удалось загрузить текстуру.','Не вдалося завантажити текстуру.','Não foi possível carregar a textura.','No se pudo cargar la textura.'],
- 'Войдите через Sintet ID, чтобы менять скины и плащи.':['Sign in with Sintet ID to change skins and capes.','Войдите через Sintet ID, чтобы менять скины и плащи.','Увійдіть через Sintet ID, щоб змінювати скіни й плащі.','Entre com Sintet ID para alterar skins e capas.','Inicia sesión con Sintet ID para cambiar aspectos y capas.'],
- 'Не удалось открыть гардероб Sintet ID.':['Could not open the Sintet ID wardrobe.','Не удалось открыть гардероб Sintet ID.','Не вдалося відкрити гардероб Sintet ID.','Não foi possível abrir o guarda-roupa do Sintet ID.','No se pudo abrir el armario de Sintet ID.'],
- 'Выберите PNG 64 × 64 или 64 × 32 до 256 КБ.':['Choose a 64 × 64 or 64 × 32 PNG up to 256 KB.','Выберите PNG 64 × 64 или 64 × 32 до 256 КБ.','Виберіть PNG 64 × 64 або 64 × 32 до 256 КБ.','Escolha um PNG de 64 × 64 ou 64 × 32 até 256 KB.','Elige un PNG de 64 × 64 o 64 × 32 de hasta 256 KB.'],
- 'Тип модели':['Model type','Тип модели','Тип моделі','Tipo de modelo','Tipo de modelo'],
- 'Обычная':['Classic','Обычная','Звичайна','Clássico','Clásico'],
- 'Тонкая':['Slim','Тонкая','Вузька','Fino','Delgado']
-});
 
 (() => {
  const panel=document.querySelector('#skin-wardrobe');
@@ -215,6 +193,7 @@ Object.assign(window.SintetLanguageCatalog,{
   })));
   replaceCards(get('skins'),cards);
   get('skin-type').value=active.model==='slim'?'slim':'default';
+  window.SintetUI?.select.refresh(get('skin-type'));
  }
  function renderCapes(){
   const items=(showCatalog?capes.catalog:capes.capes)||[];

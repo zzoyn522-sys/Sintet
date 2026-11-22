@@ -48,7 +48,7 @@ var Topics = []Topic{
 }
 
 func (f SearchFilters) validate() error {
-	if f.Kind != "" && f.Kind != "mods" && !isZipPack(f.Kind) && f.Kind != "modpacks" {
+	if f.Kind != "" && f.Kind != "mods" && !isZipPack(f.Kind) && f.Kind != "modpacks" && !isExtraContent(f.Kind) {
 		return errors.New("неизвестный каталог")
 	}
 	if f.Resolution != "" && (f.Kind != "resources" || !contains([]string{"16x", "32x", "64x", "128x", "256x", "512x+"}, f.Resolution)) {
@@ -145,7 +145,7 @@ var PackTopics = []Topic{
 }
 
 func (f SearchFilters) topics() []Topic {
-	if f.Kind == "shaders" {
+	if f.Kind == "shaders" || isExtraContent(f.Kind) {
 		return nil
 	}
 	if f.Kind == "modpacks" {

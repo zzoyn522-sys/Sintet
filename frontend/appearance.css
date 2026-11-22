@@ -39,14 +39,14 @@ html[data-launcher-accent] .primary {
   color: var(--launcher-accent-text);
 }
 html[data-launcher-accent] .primary:hover:not(:disabled) {filter: brightness(.88)}
-html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.settings-actions,.appearance-editor-tabs) {
+html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.settings-actions,.appearance-editor-tabs,.launcher-settings-nav) {
   border-radius: var(--launcher-radius);
   backdrop-filter: blur(var(--launcher-blur));
 }
-html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.appearance-editor-tabs) {
+html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.appearance-editor-tabs,.launcher-settings-nav) {
   background-color: color-mix(in srgb,var(--launcher-surface,#191919) var(--launcher-opacity),transparent);
 }
-html[data-launcher-panels] :is(.panel-heading,.settings-actions,.titlebar,.top-navigation) {
+html[data-launcher-panels] :is(.panel-heading,.settings-actions,.launcher-chrome) {
   background-color: color-mix(in srgb,var(--launcher-bar,#101010) var(--launcher-opacity),transparent);
 }
 html[data-launcher-panels] #account-dialog {
@@ -107,6 +107,7 @@ html[data-launcher-theme="warm"] {background: #181210; --launcher-surface: #3025
 #appearance-form .appearance-swatches input {height: 31px; padding: 3px 5px; margin-bottom: 5px}
 .appearance-panel-options {display: flex; gap: 12px 18px; flex-wrap: wrap}
 #appearance-background :is(img,video,canvas) {object-position: var(--background-position,center)}
+#appearance-background > .appearance-effects-canvas {z-index: 1; object-fit: fill; object-position: center; filter: none; opacity: 1; transform: none}
 html[data-custom-canvas] {background-color: var(--custom-canvas)}
 html[data-custom-canvas] #appearance-background {background-color: var(--custom-canvas)}
 html[data-custom-panel] {--launcher-surface: var(--custom-panel)}
@@ -149,7 +150,7 @@ html[data-launcher-accent] :is(.badge,.mods-count,.news-counter) {
 }
 html[data-launcher-accent] .toggle.on {background-color: var(--launcher-accent)}
 html[data-custom-bar] {--launcher-bar: var(--custom-bar)}
-html[data-custom-muted] :is(.description,.preference-hint,.preference-card label:not(.check-label),.check-label,.current-game>div>span,.mod-info p,.top-navigation .nav:not(.active),.parameter-line,.news-card p,.app-footer,.settings-heading p,.appearance-editor-tabs button:not([aria-selected=true],:hover,:focus-visible)) {
+html[data-custom-muted] :is(.description,.preference-hint,.preference-card label:not(.check-label),.check-label,.current-game>div>span,.mod-info p,.top-navigation .nav:not(.active),.parameter-line,.news-card p,.app-footer,.settings-heading p,.appearance-editor-tabs button:not([aria-selected=true],:hover)) {
   color: var(--custom-muted) !important;
 }
 html[data-panel-shadow] :is(.minecraft-panel,.launch-settings,.rich-presence,.launchbar,.preference-card,.mod-card,.workshop-empty,.appearance-editor-tabs) {box-shadow: var(--panel-shadow)}
@@ -165,10 +166,9 @@ html[data-panel-shadow] #play-workspace {overflow-clip-margin: 24px}
 #appearance-form .s-select-trigger {height: 39px}
 #appearance-form .check-label {font-size: 13px !important}
 #appearance-form .preference-hint,
-#appearance-form #appearance-status {font-size: 12px; line-height: 1.5; color: #a6a6a6}
-#appearance-form :is(.soft-button,.settings-actions .primary) {height: 38px; font-size: 13px}
-#appearance-form .soft-button {background: #252525; color: #e0e0e0}
-#appearance-form .soft-button:hover:not(:disabled) {background: #333}
+#appearance-form .soft-button:not(.settings-actions .soft-button) {height: 38px; font-size: 13px}
+#appearance-form .soft-button:not(.settings-actions .soft-button) {background: #252525; color: #e0e0e0}
+#appearance-form .soft-button:hover:not(:disabled,.settings-actions .soft-button) {background: #333}
 #appearance-background :is(img,video,canvas){
   filter:blur(var(--media-blur,0px)) brightness(var(--media-brightness,1)) contrast(var(--media-contrast,1))
     sepia(var(--media-sepia,0)) hue-rotate(var(--media-hue,0deg)) saturate(var(--media-saturation,1)) grayscale(var(--media-grayscale,0));
@@ -181,7 +181,7 @@ html[data-panel-shadow] #play-workspace {overflow-clip-margin: 24px}
 .appearance-media-filters > summary::after {content: ''; flex: none; width: 6px; height: 6px; margin-right: 2px; border: solid #929292; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform .16s ease}
 .appearance-media-filters[open] {padding-bottom: 10px}
 .appearance-media-filters[open] > summary::after {transform: rotate(225deg)}
-html[data-text-scale] :is(.top-navigation .nav,.panel-body label,.parameter-line,.launchbar .primary,.current-game strong,.ws-action,.settings-actions button){font-size:calc(14px * var(--text-scale,1))}
+html[data-text-scale] :is(.top-navigation .nav,.panel-body label,.parameter-line,.launchbar .primary,.current-game strong,.ws-action){font-size:calc(14px * var(--text-scale,1))}
 html[data-text-scale] :is(.panel-heading,.preference-card h2,.settings-heading h1){font-size:calc(17px * var(--text-scale,1))}
 html[data-text-scale] .minecraft-panel h1{font-size:calc(42px * var(--text-scale,1))}
 html[data-text-weight] :is(button,input,label,.parameter-line,.current-game strong){font-weight:var(--text-weight,600)}
@@ -190,10 +190,16 @@ html[data-button-radius] :is(.nav,.primary,.soft-button,.ws-action,.settings-can
 .appearance-section-heading {display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:13px}
 #appearance-form .appearance-section-heading h2 {margin:0}
 #appearance-form .appearance-section-heading .soft-button {height:30px; padding:0 10px}
+.appearance-heading-title {display:flex; align-items:center; flex-wrap:wrap; gap:14px}
+.appearance-depth-controls {margin-top:12px}
+.appearance-depth-controls > .appearance-panel-options {margin:4px 0 8px}
+.appearance-effects-color {display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:38px; color:#cfcfcf; font-size:13px}
+#appearance-form .appearance-effects-color input {width:46px; height:30px; padding:3px; border:0; border-radius:7px; background:#ffffff0d}
+#appearance-form .appearance-depth-controls summary {font-size:13px}
 .appearance-element-colors {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px}
 #appearance-form .appearance-element-colors label {margin:0; min-width:0}
-#appearance-form .appearance-element-colors input {display:block; height:33px; margin-bottom:6px}
-#appearance-form .appearance-element-colors input:not([data-override]) {opacity:.76}
+#appearance-form .appearance-element-colors input[type=color] {display:block; height:33px; margin-bottom:6px}
+#appearance-form .appearance-element-colors input[type=color]:not([data-override]) {opacity:.76}
 #settings .overlay-font-switch {display:flex; align-items:center; gap:8px; color:#ddd; font-size:13px; margin:18px 0 0}
 #settings .overlay-font-switch input {
   appearance:none; position:relative; display:block; flex:none; box-sizing:border-box;
@@ -212,21 +218,23 @@ html[data-button-radius] :is(.nav,.primary,.soft-button,.ws-action,.settings-can
 }
 
 .appearance-editor {display: grid; grid-template-columns: 182px minmax(0,1fr); gap: 12px; align-items: start}
-.appearance-editor-tabs {display: grid; gap: 4px; padding: 7px; border-radius: 12px; background: #161616}
+:is(.appearance-editor-tabs,.launcher-settings-nav) {background: #161616}
+.appearance-editor-tabs {display: grid; gap: 4px; padding: 7px; border-radius: 12px}
 .appearance-editor-tabs button {display: flex; align-items: center; gap: 9px; padding: 9px; min-height: 38px; border-radius: 7px; text-align: left; color: #adadad; font-size: 13px; font-weight: 550; line-height: 1.2}
-.appearance-editor-tabs button:is(:hover,:focus-visible) {background: #242424; color: #fff}
+.appearance-editor-tabs button:hover {background: #242424; color: #fff}
 .appearance-editor-tabs button[aria-selected=true] {background: #2d2d2d; color: #f2f2f2}
-html[data-launcher-panels] .appearance-editor-tabs button:is(:hover,:focus-visible) {background: rgb(255 255 255 / .06)}
+html[data-launcher-panels] .appearance-editor-tabs button:hover {background: rgb(255 255 255 / .06)}
 html[data-launcher-panels] .appearance-editor-tabs button[aria-selected=true] {background: rgb(255 255 255 / .1)}
 html[data-text-scale] .appearance-editor-tabs button {font-size: calc(13px * var(--text-scale,1))}
 html[data-button-radius] .appearance-editor-tabs button {border-radius: var(--button-radius,7px)}
-html[data-custom-text] .appearance-editor-tabs button:is([aria-selected=true],:hover,:focus-visible) {color: var(--custom-text)}
+html[data-custom-text] .appearance-editor-tabs button:is([aria-selected=true],:hover) {color: var(--custom-text)}
 .appearance-editor-tabs svg {flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round}
 #appearance-form .appearance-editor-panel[hidden] {display: none}
 #appearance-form .appearance-editor-panel {padding: 18px 20px}
 #appearance-form .appearance-editor-panel h2 {font-size: 18px}
 .appearance-rows {margin-top: 10px}
 .appearance-wave-preview {display: block; width: 100%; height: 92px; margin: 3px 0 4px; border-radius: 9px; background: var(--custom-canvas,#0d0d0d)}
+.appearance-wave-preview[data-wave-style="pixel"],.background-preview-wave canvas[data-wave-style="pixel"] {image-rendering: pixelated}
 .appearance-wave-color-field {max-width: 260px}
 .appearance-color-value {display: flex; align-items: center; gap: 10px; height: 39px; padding: 0 10px; border-radius: 8px; background: #ffffff0e}
 #appearance-form .appearance-color-value input {width: 26px; height: 26px; padding: 0; border: 0; background: none}
@@ -272,7 +280,7 @@ html[data-custom-text] .appearance-editor-tabs button:is([aria-selected=true],:h
   #appearance-form .appearance-range {grid-template-columns: minmax(0,1fr) auto; grid-template-areas: 'name value' 'control control'; gap: 4px 12px; padding: 5px 0}
 }
 
-html[data-custom-nav] :is(.titlebar,.top-navigation) {
+html[data-custom-nav] .launcher-chrome {
   --nav-base:var(--nav-surface,var(--launcher-bar,#101010));
   background-color:var(--nav-base); color:var(--nav-auto-ink);
 }
@@ -291,9 +299,18 @@ html[data-custom-nav] .top-navigation .nav.active {
   color:var(--nav-selected-ink);
   background:var(--nav-selected,color-mix(in srgb,var(--nav-base) 82%,var(--nav-auto-ink)));
 }
-html[data-nav-glass] :is(.titlebar,.top-navigation) {
+.launcher-chrome {position:relative; isolation:isolate; background:#101010}
+.launcher-chrome :is(.titlebar,.top-navigation) {background:transparent; backdrop-filter:none}
+html[data-nav-glass] .launcher-chrome {background:transparent}
+html[data-nav-glass] .launcher-chrome::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
   background-color:color-mix(in srgb,var(--nav-surface,var(--launcher-bar,#101010)) var(--nav-opacity),transparent);
   backdrop-filter:blur(var(--nav-blur));
+  mask-image:linear-gradient(#000 calc(100% - min(12px,var(--nav-blur))),transparent);
 }
 html[data-nav-layout] main {height:calc(100vh - 84px - var(--nav-height,55px))}
 html[data-nav-layout] .top-navigation {
@@ -404,9 +421,7 @@ html[data-text-scale] #logs-dialog :where(pre,.journal-evidence code,.journal-ac
 }
 .overlay-preview-actions button {padding:9px 13px}
 .overlay-preview-stage {position:relative; overflow:hidden; margin:0 0 16px; border-radius:12px; background:#171717}
-#overlay-preview-canvas {display:block; width:100%; height:auto; transform:scaleY(-1); cursor:default; touch-action:none}
-.overlay-preview-stage:focus-within {outline:2px solid var(--accent,#ededed); outline-offset:2px}
-#overlay-preview-canvas:focus {outline:none}
+#overlay-preview-canvas {display:block; width:100%; height:auto; transform:scaleY(-1); pointer-events:none}
 #overlay-preview-status:not(:empty) {position:absolute; inset:0; display:grid; place-content:center; padding:14px; font-size:12px; color:var(--text-color,#ededed); background:#171717}
 .overlay-inherit-accent {display:flex; align-items:center; gap:8px; margin-bottom:14px}
 .overlay-style-controls {margin-bottom:15px}

@@ -1,0 +1,42 @@
+input[type=color] {appearance:none; border:0; border-radius:8px; background:#252525; cursor:pointer}
+input[type=color]::-webkit-color-swatch-wrapper {padding:0}
+input[type=color]::-webkit-color-swatch {border:0; border-radius:4px}
+#appearance-pane-profile > .check-label {margin-top:12px}
+.color-picker {
+ position:fixed; inset:auto; margin:0; box-sizing:border-box;
+ width:min(250px,calc(100vw - 16px)); max-height:calc(100vh - 16px);
+ overflow:auto; padding:10px; color:#eee; background:#191919;
+ border:1px solid #2d2d2d; border-radius:12px; box-shadow:0 12px 36px #0009;
+ font-size:12px;
+}
+.color-picker:popover-open {display:grid; grid-template-columns:minmax(0,1fr); gap:10px}
+.color-picker-plane {
+ position:relative; height:142px; border-radius:7px; overflow:hidden; cursor:crosshair; touch-action:none;
+ background:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,transparent),hsl(var(--hue) 100% 50%);
+}
+.color-picker-plane i {
+ position:absolute; left:clamp(6px,var(--x),calc(100% - 6px)); top:clamp(6px,var(--y),calc(100% - 6px));
+ width:12px; height:12px; transform:translate(-50%,-50%); border:2px solid #fff;
+ border-radius:50%; box-shadow:0 0 0 1px #0008; pointer-events:none;
+}
+.color-picker-toolbar,.color-picker-values,.color-picker-channels {display:flex; align-items:center; gap:7px; min-width:0}
+.color-picker .color-picker-dropper {
+ flex:none; width:28px; height:28px; display:grid; place-items:center;
+ border-radius:6px; background:#252525; color:inherit;
+}
+.color-picker .color-picker-dropper[hidden] {display:none}
+.color-picker-dropper svg {width:16px; height:16px}
+.color-picker-preview {flex:none; width:24px; height:24px; border-radius:50%; background:var(--picked); border:1px solid #ffffff28}
+.color-picker .color-picker-hue {
+ appearance:none; flex:1; width:0; min-width:0; height:9px; margin:0; padding:0; border:0; border-radius:8px;
+ background:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00); cursor:pointer;
+}
+.color-picker-hue::-webkit-slider-thumb {appearance:none; width:14px; height:14px; border:2px solid #fff; border-radius:50%; background:hsl(var(--hue) 100% 50%); box-shadow:0 1px 3px #000b}
+.color-picker-channels {flex:1}
+.color-picker .color-picker-channels input,.color-picker select {
+ box-sizing:border-box; height:29px; padding:0 4px; margin:0; border:1px solid #ffffff12;
+ border-radius:6px; background:#252525; color:inherit; font:inherit; text-align:center;
+}
+.color-picker .color-picker-channels input {flex:1; width:0; min-width:0; appearance:textfield}
+.color-picker select {flex:0 0 61px; width:61px; min-width:0; text-align:left; cursor:pointer; color-scheme:dark}
+.color-picker-channels input::-webkit-inner-spin-button,.color-picker-channels input::-webkit-outer-spin-button {appearance:none; margin:0}

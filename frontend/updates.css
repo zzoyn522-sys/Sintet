@@ -15,7 +15,7 @@
 .update-button[hidden] { display: none !important; }
 .update-button:disabled { cursor: progress; }
 .update-bubble { width: 38px; height: 38px; overflow: visible; }
-.update-button:focus-visible .update-bubble-base { stroke: #d9e4ff; stroke-width: 2; }
+
 .update-button:hover:not(:disabled) .update-bubble-fill { filter: brightness(1.13); }
 .update-bubble-base { fill: #243652; }
 .update-bubble-fill {

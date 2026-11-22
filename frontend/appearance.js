@@ -7,6 +7,8 @@
  const mediaControls = form.querySelector('[data-appearance-media]');
  const waveColorValue = form.querySelector('#appearance-wave-color-value');
  const waveNumbers = ['waveIntensity','waveAmplitude','waveTrail'];
+ const ambientNumberFields = ['glintCount','glintSize','glintStrength','glintSpeed','particleCount','particleMinSize','particleMaxSize','particleOpacity','particleFade','particleSpeedX','particleSpeedY','particleDepth'];
+ const ambientSwitchFields = ['glintsEnabled','particlesEnabled'];
  const status = document.querySelector('#appearance-status');
  const save = document.querySelector('#appearance-save');
  const reset = document.querySelector('#appearance-reset');
@@ -22,6 +24,7 @@
  const background = document.querySelector('#appearance-background');
  const image = background.querySelector('img');
  const video = background.querySelector('video');
+ const effectsCanvas = background.querySelector('.appearance-effects-canvas');
  const mediaEdges = background.querySelector('.appearance-media-edges');
  const edgeBlurControl = fields.videoEdgeBlur.closest('label');
  const videoBackground = /\.(mp4|webm)$/i;
@@ -39,7 +42,7 @@
  let draftBackground = '', draftFont = '', busy = false, shownBackground = '';
  let sourceFailed = false;
  let fontFailed = false, fontLoading = false, activeFont = '', fontFace;
- let waveSettings, waveLoad, renderWave;
+ let waveSettings, waveLoad, renderWave, effectsLoad, renderEffects, ambientSettings;
  const accents = [
   ['#b7ff47','Лайм'], ['#a88bff','Фиолетовый'], ['#ffe45e','Жёлтый'],
   ['#ff5277','Карминовый'], ['#6fd8ff','Ледяной синий'], ['#ededed','Белый'],
@@ -73,6 +76,18 @@
   navTabGap:['--nav-tab-gap','px'], navTextSize:['--nav-text-size','px'],
  };
  const navigationFields = Object.keys(navigationSliders);
+ const resetPaneFields = {
+  style:['theme','font','accent','canvasColor','panelColor','textColor','barColor','mutedColor','textScale','textWeight','buttonRadius','fontFile'],
+  nav:['navColor','navText','navActive','navOpacity','navBlur','navHeight','navTabWidth','navTabHeight','navTabRadius','navTabGap','navTextSize'],
+  profile:['profileColor','profileText','profileControl','profileGradientOff'],
+  background:['gradient','animate','background','backgroundEffect','waveColor','waveStyle','waveIntensity','waveAmplitude','waveTrail','waveOffset','motionSpeed',
+   'glintsEnabled','glintCount','glintSize','glintStrength','glintSpeed','glintColor','particlesEnabled','particleCount','particleMinSize','particleMaxSize',
+   'particleOpacity','particleFade','particleSpeedX','particleSpeedY','particleDepth','particleColor','fit','position','dim','backgroundBlur','videoEdgeBlur',
+   'backgroundSaturation','backgroundZoom','backgroundBrightness','backgroundContrast','backgroundHue','backgroundGrayscale','backgroundSepia','backgroundOpacity',
+   'vignette','grain','gradientStyle','gradientShape','gradientAngle','gradientOpacity','gradientStart','gradientMiddle','gradientEnd','gradientX','gradientY','gradientSize'],
+  overlay:['overlay'],
+  panels:['compact','borders','opacity','blur','radius','shadow','shadowStrength','borderWidth','borderOpacity'],
+ };
 
  function onColor(color) {
   const channels = color.slice(1).match(/../g).map(value => parseInt(value,16)/255);
@@ -173,8 +188,7 @@
  const previewContext=previewCanvas.getContext('2d',{alpha:false});
  const previewStatus=form.querySelector('#overlay-preview-status');
  let previewVisible=false,previewRunning=false,previewTimer,previewSignature,previewFrame='0',previewReader=false;
- const previewEvents=[];
- let sendingPreviewEvents=false;
+ let previewLanguage='';
 
  async function readPreviewFrames() {
   if(previewReader||!previewRunning)return;
@@ -210,7 +224,7 @@
     void readPreviewFrames();
    }
   } catch(error) {
-   if(mode===1||mode===2)previewStatus.textContent=error?.message||String(error);
+   if(mode===1||mode===2)previewStatus.textContent=String(error?.message||error).replace(/^Error:\s*/,'');
   }
  }
  function syncPreviewVisibility() {
@@ -225,53 +239,14 @@
   syncPreviewVisibility();
  }).observe(previewCanvas);
  document.addEventListener('visibilitychange',syncPreviewVisibility);
+ window.addEventListener('sintet:settings',event=>{
+  const language=event.detail.config.interfaceLanguage||'en';
+  if(previewLanguage===language)return;
+  previewLanguage=language;
+  if(previewRunning)void showOverlayPreview(0);
+ });
  form.querySelector('#overlay-preview-open').onclick=()=>void showOverlayPreview(1);
  form.querySelector('#overlay-preview-expand').onclick=()=>void showOverlayPreview(2);
- function sendPreviewEvent(kind,event,value=0) {
-  if(!api||!previewRunning)return;
-  const bounds=previewCanvas.getBoundingClientRect();
-  const x=Math.round((event.clientX-bounds.left)*previewCanvas.width/bounds.width)||0;
-  const y=Math.round((event.clientY-bounds.top)*previewCanvas.height/bounds.height)||0;
-  const input=[kind,x,y,value];
-  if(kind===0&&previewEvents.at(-1)?.[0]===0)previewEvents[previewEvents.length-1]=input;
-  else previewEvents.push(input);
-  if(!sendingPreviewEvents)void flushPreviewEvents();
- }
- async function flushPreviewEvents() {
-  sendingPreviewEvents=true;
-  try{
-   while(previewEvents.length&&previewRunning)await api.OverlayPreviewInput(previewEvents.splice(0,32));
-  }catch{previewEvents.length=0}
-  finally{sendingPreviewEvents=false}
- }
- previewCanvas.onpointermove=event=>sendPreviewEvent(0,event);
- previewCanvas.onpointerdown=event=>{
-  if(event.button!==0)return;
-  previewCanvas.focus({preventScroll:true});
-  previewCanvas.setPointerCapture(event.pointerId);
-  sendPreviewEvent(1,event);
- };
- previewCanvas.onpointerup=event=>sendPreviewEvent(2,event);
- previewCanvas.onpointerleave=event=>sendPreviewEvent(4,event);
- previewCanvas.onpointercancel=event=>sendPreviewEvent(4,event);
- previewCanvas.onblur=event=>sendPreviewEvent(4,event);
- previewCanvas.addEventListener('wheel',event=>{
-  event.preventDefault();
-  const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?120:1);
-  sendPreviewEvent(3,event,Math.trunc(Math.max(-480,Math.min(480,-delta))));
- },{passive:false});
- const previewKeys=['Backspace','Delete','ArrowLeft','ArrowRight','Home','End'];
- previewCanvas.addEventListener('keydown',event=>{
-  if(event.key==='F11'){event.preventDefault();void showOverlayPreview(2);return}
-  if(event.key==='Escape'){previewCanvas.blur();return}
-  const key=previewKeys.indexOf(event.key);
-  if(key!==-1){event.preventDefault();sendPreviewEvent(6,event,key)}
-  else if(/^\d$/.test(event.key))sendPreviewEvent(5,event,event.key.charCodeAt(0));
- });
- previewCanvas.addEventListener('keyup',event=>{
-  const key=previewKeys.indexOf(event.key);
-  if(key!==-1){event.preventDefault();sendPreviewEvent(7,event,key)}
- });
  function applyOverlay(overlay) {
   for(const [key,unit] of [['opacity','%'],['blur',' px'],['dim','%'],['scale','%'],['width',' px'],['rounding',' px']]){
    overlayField(key).previousElementSibling.value=(overlay[key]||overlayNumericDefaults[key]||0)+unit;
@@ -295,11 +270,15 @@
     if(field.type==='range')return [key,field.valueAsNumber===overlayNumericDefaults[key]?0:field.valueAsNumber];
     return [key,field.value];
    })),
+   profileGradientOff: fields.profileGradientOff.checked,
    theme: fields.theme.value, font: fields.font.value, accent: fields.accent.value,
    opacity: fields.opacity.valueAsNumber, blur: fields.blur.valueAsNumber,
    radius: fields.radius.valueAsNumber, dim: fields.dim.valueAsNumber,
    fit: fields.fit.value, gradient: fields.waveEnabled.checked, animate: fields.animate.checked,
-   backgroundEffect: 'wave', waveColor: fields.waveColor.value, waveOffset: fields.waveOffset.valueAsNumber,
+   backgroundEffect: 'wave', waveColor: fields.waveColor.value, waveStyle: fields.waveStyle.value, waveOffset: fields.waveOffset.valueAsNumber,
+   ...Object.fromEntries(ambientNumberFields.map(name=>[name,fields[name].valueAsNumber])),
+   ...Object.fromEntries(ambientSwitchFields.map(name=>[name,fields[name].checked])),
+   glintColor:fields.glintColor.value, particleColor:fields.particleColor.value,
    background: draftBackground, fontFile: draftFont,
    barColor: fields.barColor.value, mutedColor: fields.mutedColor.value,
    borderWidth: fields.borderWidth.valueAsNumber, borderOpacity: fields.borderOpacity.valueAsNumber,
@@ -341,6 +320,11 @@
   apply(settings);
  }
 
+ function hasAmbientEffects(settings) {
+  return (settings.glintsEnabled && settings.glintCount > 0 && settings.glintStrength > 0) ||
+   (settings.particlesEnabled && settings.particleCount > 0 && settings.particleOpacity > 0);
+ }
+
  function renderBackground(settings) {
   const name = settings.background;
   const animated = settings.animate && !motion.matches;
@@ -356,12 +340,12 @@
    video.load();
    if (name) (isVideo ? video : image).src = '/custom-background/' + encodeURIComponent(name);
   }
-  background.hidden = !name || sourceFailed;
+  background.hidden = (!name || sourceFailed) && !hasAmbientEffects(settings);
   image.hidden = !name || isVideo;
   video.hidden = !name || !isVideo;
   edgeBlurControl.hidden = !name;
   mediaControls.hidden = !name;
-  mediaEdges.hidden = background.hidden || !settings.videoEdgeBlur;
+  mediaEdges.hidden = !name || sourceFailed || !settings.videoEdgeBlur;
   background.toggleAttribute('data-media-contain', settings.fit === 'contain');
   background.style.setProperty('--media-edge-blur', (settings.videoEdgeBlur || 0) + 'px');
   background.style.setProperty('--media-offset-x', ({left:-.5,right:.5})[settings.position] || 0);
@@ -399,7 +383,7 @@
   if (root.dataset.backgroundExperiment) return;
   waveSettings = {
    enabled, animate: settings.animate && !window.SintetThemePreview,
-   color: settings.waveColor, intensity: settings.waveIntensity, amplitude: settings.waveAmplitude,
+   color: settings.waveColor, style: settings.waveStyle || defaults.waveStyle, intensity: settings.waveIntensity, amplitude: settings.waveAmplitude,
    trail: settings.waveTrail, speed: settings.motionSpeed, offset: settings.waveOffset,
   };
   if (renderWave) {
@@ -413,6 +397,29 @@
     console.error(error);
    });
   }
+ }
+
+ function applyAmbientEffects(settings) {
+  const config = {
+   glintsEnabled:!!settings.glintsEnabled, glintCount:settings.glintCount, glintSize:settings.glintSize,
+   glintStrength:settings.glintStrength, glintSpeed:settings.glintSpeed, glintColor:settings.glintColor,
+   particlesEnabled:!!settings.particlesEnabled, particleCount:settings.particleCount,
+   particleMinSize:settings.particleMinSize, particleMaxSize:settings.particleMaxSize,
+   particleOpacity:settings.particleOpacity, particleFade:settings.particleFade,
+   particleSpeedX:settings.particleSpeedX, particleSpeedY:settings.particleSpeedY,
+   particleDepth:settings.particleDepth, particleColor:settings.particleColor,
+   animate:settings.animate && !motion.matches && !window.SintetThemePreview,
+   speed:settings.motionSpeed,
+  };
+  ambientSettings = config;
+  const enabled = hasAmbientEffects(config);
+  if (renderEffects) renderEffects(config);
+  else if (enabled && !effectsLoad) effectsLoad = import('./background-effects.js').then(module => {
+   renderEffects = module.configureEffects(effectsCanvas, ambientSettings);
+  }).catch(error => {
+   effectsLoad = undefined;
+   console.error(error);
+  });
  }
 
  async function loadFont(name) {
@@ -444,6 +451,7 @@
  }
 
  function apply(settings) {
+  document.documentElement.toggleAttribute('data-profile-gradient-off', settings.profileGradientOff === true);
   applyOverlay(settings.overlay||defaults.overlay);
   const data = root.dataset;
   const style = root.style;
@@ -506,7 +514,7 @@
   style.setProperty('--launcher-blur', settings.blur + 'px');
   style.setProperty('--background-fit', settings.fit);
   style.setProperty('--background-dim', settings.dim / 100);
-  for (const [key, unit] of Object.entries({dim:'%', opacity:'%', blur:' px', radius:' px', vignette:'%', grain:'%', borderWidth:' px', borderOpacity:'%', shadowStrength:'%',textScale:'%',textWeight:'',buttonRadius:' px',backgroundBlur:' px',videoEdgeBlur:' px',backgroundSaturation:'%',backgroundZoom:'%',backgroundBrightness:'%',backgroundContrast:'%',backgroundHue:'°',backgroundGrayscale:'%',backgroundSepia:'%',backgroundOpacity:'%',motionSpeed:'%',waveOffset:' px'})) {
+  for (const [key, unit] of Object.entries({dim:'%', opacity:'%', blur:' px', radius:' px', vignette:'%', grain:'%', borderWidth:' px', borderOpacity:'%', shadowStrength:'%',textScale:'%',textWeight:'',buttonRadius:' px',backgroundBlur:' px',videoEdgeBlur:' px',backgroundSaturation:'%',backgroundZoom:'%',backgroundBrightness:'%',backgroundContrast:'%',backgroundHue:'°',backgroundGrayscale:'%',backgroundSepia:'%',backgroundOpacity:'%',motionSpeed:'%',waveOffset:' px',glintCount:'',glintSize:' px',glintStrength:'%',glintSpeed:'%',particleCount:'',particleMinSize:' px',particleMaxSize:' px',particleOpacity:'%',particleFade:'%',particleSpeedX:'%',particleSpeedY:'%',particleDepth:'%'})) {
    fields[key].previousElementSibling.value = settings[key] + unit;
   }
   for (const key of waveNumbers) fields[key].previousElementSibling.value = settings[key] + '%';
@@ -518,12 +526,13 @@
   fileLabel.textContent = settings.background ? settings.background.split('.').pop().toUpperCase() : 'Фон не выбран';
   remove.disabled = busy || !settings.background;
   renderBackground(settings);
+  applyAmbientEffects(settings);
  }
 
  function mediaError(event) {
   if (event.target.hidden || !event.target.hasAttribute('src')) return;
   sourceFailed = true;
-  background.hidden = true;
+  background.hidden = !hasAmbientEffects(read());
   if (event.target === video) fileLabel.textContent = 'Не удалось открыть видео';
   status.textContent = 'Этот файл фона не удалось открыть. Попробуй другой формат.';
   save.disabled = true;
@@ -559,18 +568,26 @@
  form.addEventListener('input', event => {
   if (!saved) return;
   if (sectionFields.includes(event.target.name)) event.target.setAttribute('data-override','');
+  const min = fields.particleMinSize;
+  const max = fields.particleMaxSize;
+  if (min.valueAsNumber > max.valueAsNumber) {
+   if (event.target === min) max.value = min.value;
+   if (event.target === max) min.value = max.value;
+  }
   apply(read());
   status.textContent = sourceFailed ? 'Этот файл фона не удалось открыть.' : 'Есть несохранённые изменения';
  });
- for (const button of form.querySelectorAll('[data-reset-colors]')) {
+ for (const button of form.querySelectorAll('[data-reset-pane]')) {
   button.onclick = () => {
    if (!saved || busy) return;
-   const section = button.dataset.resetColors;
-   for (const name of Object.keys(sectionColors[section])) fields[name].removeAttribute('data-override');
-   if (section === 'nav') {
-    for (const name of navigationFields) fields[name].value = defaults[name];
+   const section = button.dataset.resetPane;
+   const current = read();
+   const next = {...current};
+   for (const key of resetPaneFields[section] || []) {
+    if (key === 'overlay') next.overlay = {...defaults.overlay};
+    else next[key] = defaults[key];
    }
-   apply(read());
+   fill(next);
    status.textContent = 'Есть несохранённые изменения';
   };
  }
@@ -638,7 +655,7 @@
 
  async function refreshLibrary(forceApply = false) {
   const library = await api.GetAppearanceLibrary();
-  const changed = !saved || Object.keys(library.current).some(key => saved[key] !== library.current[key]);
+  const changed = JSON.stringify(saved) !== JSON.stringify(library.current);
   saved = library.current;
   slots = library.slots;
   activeSlot = library.activeSlot;
@@ -775,7 +792,7 @@
   try {
    defaults = await api.DefaultAppearance();
    await refreshLibrary(true);
-   await waveLoad;
+   await Promise.all([waveLoad,effectsLoad].filter(Boolean));
    setBusy(false);
    status.textContent = 'Изменения видны сразу';
   } catch (error) {

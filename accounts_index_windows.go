@@ -74,6 +74,7 @@ func newProfileRoster(root, base string) *profileRoster {
 }
 
 func (r *profileRoster) restoreIndex(index profileIndex) {
+	r.deletionNotices = index.DeletionNotices
 	for _, record := range index.Profiles {
 		if r.find(record.Key) != nil {
 			continue

@@ -78,6 +78,58 @@ func (a *App) TranslateWorkshopDescription(description, language string) (string
 func (a *App) ModVersions(provider, id, game, loader string) ([]workshop.Version, error) {
 	return a.workshop.Client.Versions(context.Background(), provider, id, game, loader)
 }
+func (a *App) WorkshopExtraVersions(provider, id, kind, game, platform string) ([]workshop.Version, error) {
+	return a.workshop.Client.ExtraContentVersions(context.Background(), provider, id, kind, game, platform)
+}
+func (a *App) WorkshopWorlds(targetID string) ([]string, error) {
+	a.mu.RLock()
+	target, err := a.workshopTarget(targetID)
+	a.mu.RUnlock()
+	if err != nil {
+		return nil, err
+	}
+	return workshop.LocalWorlds(target.Directory)
+}
+func (a *App) WorkshopLocalDataPacks(targetID string) ([]workshop.WorldContent, error) {
+	a.mu.RLock()
+	target, err := a.workshopTarget(targetID)
+	a.mu.RUnlock()
+	if err != nil {
+		return nil, err
+	}
+	return workshop.LocalWorldDataPacks(target.Directory)
+}
+func (a *App) PrepareWorkshopExtra(provider, project, version, kind, targetID, world, game, platform string) (workshop.Plan, error) {
+	if kind == "plugins" {
+		target := workshop.Target{Game: game, Loader: platform}
+		return a.workshop.PrepareExtraContent(context.Background(), provider, project, version, kind, target, "")
+	}
+	a.mu.RLock()
+	target, err := a.workshopTarget(targetID)
+	a.mu.RUnlock()
+	if err != nil {
+		return workshop.Plan{}, err
+	}
+	if target.Game != game {
+		return workshop.Plan{}, errors.New("выберите сборку с подходящей версией Minecraft")
+	}
+	return a.workshop.PrepareExtraContent(context.Background(), provider, project, version, kind, target, world)
+}
+func (a *App) InstallWorkshopPlugin(planID string) (bool, error) {
+	server, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{Title: "Выбери корневую папку сервера Minecraft"})
+	if err != nil || server == "" {
+		return false, err
+	}
+	a.contentMu.Lock()
+	defer a.contentMu.Unlock()
+	if a.workshopBusy() {
+		return false, errors.New("дождитесь окончания установки")
+	}
+	if err := a.workshop.StartPlugin(a.ctx, planID, server); err != nil {
+		return false, err
+	}
+	return true, nil
+}
 func (a *App) ResourceVersions(provider, id, game string) ([]workshop.Version, error) {
 	return a.workshop.Client.ResourceVersions(context.Background(), provider, id, game)
 }
@@ -452,7 +504,7 @@ func (a *App) changeLocalWorkshop(targetID string, change func(workshop.Target) 
 	return change(target)
 }
 func (a *App) OpenWorkshopFolder(targetID, kind string) error {
-	if kind != "mods" && kind != "resourcepacks" && kind != "shaderpacks" {
+	if kind != "mods" && kind != "resourcepacks" && kind != "shaderpacks" && kind != "saves" {
 		return errors.New("неизвестная папка")
 	}
 	if id, ok := strings.CutPrefix(targetID, sharedWorkshopPrefix); ok && sharedUUID(id) && kind == "mods" {
@@ -482,6 +534,18 @@ func (a *App) OpenWorkshopFolder(targetID, kind string) error {
 		return err
 	}
 	return exec.Command("explorer.exe", dir).Start()
+}
+
+func (a *App) OpenWorkshopAuthorLink(raw string) error {
+	if a.ctx == nil || len(raw) > 500 {
+		return errors.New("неверная ссылка проекта")
+	}
+	address, err := url.Parse(raw)
+	if err != nil || (address.Scheme != "https" && address.Scheme != "http") || address.User != nil || address.Hostname() == "" {
+		return errors.New("неверная ссылка проекта")
+	}
+	runtime.BrowserOpenURL(a.ctx, address.String())
+	return nil
 }
 
 func (a *App) OpenWorkshopProject(provider, id string) error {

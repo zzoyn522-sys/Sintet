@@ -156,15 +156,19 @@ func (a *App) startup(ctx context.Context) {
 	go a.watchCatalogThemes(syncCtx)
 	go a.watchOverlay(syncCtx)
 	go func() {
-		a.syncSavedProfiles(syncCtx)
+		a.syncSavedProfiles(syncCtx, true)
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
+		savedTicker := time.NewTicker(2 * time.Minute)
+		defer savedTicker.Stop()
 		for {
 			select {
 			case <-syncCtx.Done():
 				return
 			case <-ticker.C:
 				a.syncActiveProfile(syncCtx)
+			case <-savedTicker.C:
+				a.syncSavedProfiles(syncCtx, false)
 			case <-a.profileRefresh:
 				a.syncActiveProfile(syncCtx)
 			}
@@ -318,6 +322,7 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 				verified, token, err = slot.sintet.SavedAccount(), "", nil
 			}
 			if err != nil {
+				a.handleDeletedAccount(slot, err)
 				return err
 			}
 			if verified == nil {

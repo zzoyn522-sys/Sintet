@@ -87,10 +87,16 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: #494949 transparent;
-  padding: 12px 14px;
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+  scrollbar-gutter: stable both-edges;
+  padding: 12px 11px;
 }
+.presence-feed::-webkit-scrollbar {width: 3px}
+.presence-feed::-webkit-scrollbar-track {background: transparent}
+.presence-feed::-webkit-scrollbar-button {display: none}
+.presence-feed::-webkit-scrollbar-thumb {background: #ffffff36; border-radius: 4px}
+.presence-feed::-webkit-scrollbar-thumb:hover {background: #ffffff60}
 .presence-friends {display: grid; gap: 7px}
 .presence-friends .presence-friend {
   min-height: 58px;

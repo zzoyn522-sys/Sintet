@@ -17,23 +17,32 @@ import (
 	"time"
 )
 
+type ProjectLink struct {
+	Type string `json:"type"`
+	URL  string `json:"url"`
+	Icon string `json:"icon,omitempty"`
+}
+
 type Project struct {
-	Downloads   int64    `json:"downloads"`
-	Kind        string   `json:"kind"`
-	Preview     string   `json:"preview"`
-	Tags        []string `json:"tags"`
-	ID          string   `json:"id"`
-	Provider    string   `json:"provider"`
-	Name        string   `json:"name"`
-	Slug        string   `json:"slug,omitempty"`
-	CreatedAt   string   `json:"createdAt,omitempty"`
-	UpdatedAt   string   `json:"updatedAt,omitempty"`
-	Description string   `json:"description"`
-	Icon        string   `json:"icon"`
-	Author      string   `json:"author"`
-	URL         string   `json:"url"`
-	Games       []string `json:"games"`
-	Loaders     []string `json:"loaders"`
+	Links       []ProjectLink `json:"links,omitempty"`
+	Screenshots []string      `json:"screenshots,omitempty"`
+	Downloads   int64         `json:"downloads"`
+	Kind        string        `json:"kind"`
+	Preview     string        `json:"preview"`
+	Tags        []string      `json:"tags"`
+	ID          string        `json:"id"`
+	Provider    string        `json:"provider"`
+	Name        string        `json:"name"`
+	Slug        string        `json:"slug,omitempty"`
+	CreatedAt   string        `json:"createdAt,omitempty"`
+	UpdatedAt   string        `json:"updatedAt,omitempty"`
+	Description string        `json:"description"`
+	Icon        string        `json:"icon"`
+	Author      string        `json:"author"`
+	URL         string        `json:"url"`
+	Games       []string      `json:"games"`
+	Loaders     []string      `json:"loaders"`
+	Platforms   []string      `json:"platforms,omitempty"`
 }
 type Dependency struct {
 	Project string `json:"project"`
@@ -41,6 +50,7 @@ type Dependency struct {
 	Kind    string `json:"kind"`
 }
 type Version struct {
+	platforms             []string
 	Published             time.Time    `json:"-"`
 	Kind                  string       `json:"kind"`
 	Release               string       `json:"release"`
@@ -68,6 +78,7 @@ type SearchResult struct {
 type Client struct {
 	translationMu                     sync.Mutex
 	translationBlockedUntil           time.Time
+	lingvaBlockedUntil                time.Time
 	categoryMu                        sync.Mutex
 	categoryIDs                       map[string]int
 	HTTP                              *http.Client
@@ -217,15 +228,20 @@ type mrProject struct {
 }
 
 func (p mrProject) project() Project {
-	kind, route := "mods", "mod"
-	if p.Type == "modpack" {
-		kind, route = "modpacks", "modpack"
-	}
-	if p.Type == "resourcepack" {
-		kind, route = "resources", "resourcepack"
-	}
-	if p.Type == "shader" {
-		kind, route = "shaders", "shader"
+	kind, route := "mods", p.Type
+	switch p.Type {
+	case "modpack":
+		kind = "modpacks"
+	case "resourcepack":
+		kind = "resources"
+	case "shader":
+		kind = "shaders"
+	case "datapack":
+		kind = "datapacks"
+	case "plugin":
+		kind = "plugins"
+	default:
+		route = "mod"
 	}
 	preview := p.IconURL
 	for i, g := range p.Gallery {
@@ -236,7 +252,7 @@ func (p mrProject) project() Project {
 			}
 		}
 	}
-	return Project{Downloads: p.Downloads, Kind: kind, Preview: preview, Tags: p.Categories, ID: p.ID, Provider: "modrinth", Slug: p.Slug, Name: p.Title, Description: p.Description, Icon: p.IconURL, URL: "https://modrinth.com/" + route + "/" + p.Slug, Games: Games(p.GameVersions), Loaders: Loaders(p.Loaders)}
+	return Project{Downloads: p.Downloads, Kind: kind, Preview: preview, Tags: p.Categories, ID: p.ID, Provider: "modrinth", Slug: p.Slug, Name: p.Title, Description: p.Description, Icon: p.IconURL, URL: "https://modrinth.com/" + route + "/" + p.Slug, Games: Games(p.GameVersions), Loaders: Loaders(p.Loaders), Platforms: p.Loaders}
 }
 
 type cfFile struct {
@@ -338,6 +354,9 @@ func (p cfProject) project() Project {
 	if p.ClassID == 6552 {
 		kind = "shaders"
 	}
+	if p.ClassID == 17 {
+		kind = "worlds"
+	}
 	preview := p.Logo.URL
 	if len(p.Screenshots) > 0 {
 		preview = p.Screenshots[0].Thumbnail
@@ -358,6 +377,9 @@ func (c *Client) SearchFiltered(ctx context.Context, provider, query string, off
 	result := SearchResult{Items: []Project{}}
 	if err := filters.validate(); err != nil {
 		return result, err
+	}
+	if isExtraContent(filters.Kind) && provider != extraContentProvider(filters.Kind) {
+		return result, errors.New("источник не поддерживает эту категорию")
 	}
 	if provider == "sintedmods" {
 		q := url.Values{"kind": {filters.Kind}, "q": {query}, "offset": {strconv.Itoa(offset)}, "game": {filters.Game}, "loader": {filters.Loader}, "topic": {filters.Topic}, "sort": {filters.Sort}, "resolution": {filters.Resolution}}
@@ -392,6 +414,9 @@ func (c *Client) SearchFiltered(ctx context.Context, provider, query string, off
 		}
 		if filters.Kind == "shaders" {
 			facets = [][]string{{"project_type:shader"}}
+		}
+		if filters.Kind == "datapacks" || filters.Kind == "plugins" {
+			facets = [][]string{{"project_type:" + strings.TrimSuffix(filters.Kind, "s")}}
 		}
 		if filters.Game != "" {
 			facets = append(facets, []string{"versions:" + filters.Game})
@@ -437,6 +462,9 @@ func (c *Client) SearchFiltered(ctx context.Context, provider, query string, off
 			if filters.Kind == "shaders" {
 				kind, route = "shaders", "shader"
 			}
+			if filters.Kind == "datapacks" || filters.Kind == "plugins" {
+				kind, route = filters.Kind, strings.TrimSuffix(filters.Kind, "s")
+			}
 			preview := hit.Icon
 			if len(hit.Gallery) > 0 {
 				preview = hit.Gallery[0]
@@ -458,6 +486,10 @@ func (c *Client) SearchFiltered(ctx context.Context, provider, query string, off
 		}
 		if filters.Kind == "shaders" {
 			class = "6552"
+			q.Set("classId", class)
+		}
+		if filters.Kind == "worlds" {
+			class = "17"
 			q.Set("classId", class)
 		}
 		if filters.Game != "" {
@@ -582,6 +614,7 @@ type mrVersion struct {
 
 func (v mrVersion) version() Version {
 	result := Version{Release: v.Release, ID: v.ID, Project: v.ProjectID, Name: v.Name, Games: Games(v.Games), Loaders: Loaders(v.Loaders), Dependencies: []Dependency{}}
+	result.platforms = v.Loaders
 	result.Published = v.Published
 	for _, f := range v.Files {
 		if result.Filename == "" || f.Primary {

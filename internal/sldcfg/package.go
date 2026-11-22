@@ -36,7 +36,9 @@ const (
 	draftMagicV9    = "SLD9"
 	draftMagicV10   = "SLDA"
 	draftMagicV11   = "SLDB"
-	Version         = 11
+	draftMagicV12   = "SLDC"
+	draftMagicV13   = "SLDD"
+	Version         = 13
 	Extension       = ".sldcfg"
 	headerSize      = 74
 	signatureOffset = 6
@@ -95,6 +97,10 @@ func MarshalDraft(p Package) ([]byte, error) {
 		magic = draftMagicV10
 	case 11:
 		magic = draftMagicV11
+	case 12:
+		magic = draftMagicV12
+	case 13:
+		magic = draftMagicV13
 	}
 	return append([]byte(magic), plain...), nil
 }
@@ -126,6 +132,10 @@ func OpenDraft(data []byte) (Package, error) {
 		return decode(data[4:], 10)
 	case draftMagicV11:
 		return decode(data[4:], 11)
+	case draftMagicV12:
+		return decode(data[4:], 12)
+	case draftMagicV13:
+		return decode(data[4:], 13)
 	default:
 		return Package{}, errors.New("Некорректный черновик оформления")
 	}
@@ -249,6 +259,19 @@ func ValidCreatorVersion(value string) bool { return creatorVersionPattern.Match
 
 func packageVersion(p Package) int {
 	settings, defaults := p.Settings, Default()
+	if settings.WaveStyle != defaults.WaveStyle {
+		return 13
+	}
+	if settings.GlintsEnabled != defaults.GlintsEnabled || settings.GlintCount != defaults.GlintCount ||
+		settings.GlintSize != defaults.GlintSize || settings.GlintStrength != defaults.GlintStrength ||
+		settings.GlintSpeed != defaults.GlintSpeed || settings.GlintColor != defaults.GlintColor ||
+		settings.ParticlesEnabled != defaults.ParticlesEnabled || settings.ParticleCount != defaults.ParticleCount ||
+		settings.ParticleMinSize != defaults.ParticleMinSize || settings.ParticleMaxSize != defaults.ParticleMaxSize ||
+		settings.ParticleOpacity != defaults.ParticleOpacity || settings.ParticleFade != defaults.ParticleFade ||
+		settings.ParticleSpeedX != defaults.ParticleSpeedX || settings.ParticleSpeedY != defaults.ParticleSpeedY ||
+		settings.ParticleDepth != defaults.ParticleDepth || settings.ParticleColor != defaults.ParticleColor {
+		return 12
+	}
 	o := settings.Overlay
 	if o.Position == "bottom" || o.Scale != 0 || o.Width != 0 || o.Rounding != 0 || o.UseLauncherAccent {
 		return 11
@@ -365,6 +388,32 @@ func encode(p Package, version int) ([]byte, error) {
 		}
 		out = append(out, byte(o.Scale), byte(o.Rounding), inherit)
 		out = binary.BigEndian.AppendUint16(out, uint16(o.Width))
+	}
+	if version >= 12 {
+		write(p.Settings.GlintColor)
+		write(p.Settings.ParticleColor)
+		for _, value := range []int{p.Settings.GlintCount, p.Settings.GlintSize, p.Settings.GlintStrength, p.Settings.GlintSpeed,
+			p.Settings.ParticleCount, p.Settings.ParticleMinSize, p.Settings.ParticleMaxSize, p.Settings.ParticleOpacity,
+			p.Settings.ParticleFade, p.Settings.ParticleDepth} {
+			out = binary.BigEndian.AppendUint16(out, uint16(value))
+		}
+		out = binary.BigEndian.AppendUint16(out, uint16(int16(p.Settings.ParticleSpeedX)))
+		out = binary.BigEndian.AppendUint16(out, uint16(int16(p.Settings.ParticleSpeedY)))
+		var effects byte
+		if p.Settings.GlintsEnabled {
+			effects |= 1
+		}
+		if p.Settings.ParticlesEnabled {
+			effects |= 2
+		}
+		out = append(out, effects)
+	}
+	if version >= 13 {
+		if p.Settings.WaveStyle == "pixel" {
+			out = append(out, 1)
+		} else {
+			out = append(out, 0)
+		}
 	}
 	return out, nil
 }
@@ -488,6 +537,40 @@ func decode(data []byte, version int) (Package, error) {
 			o.Width = int(binary.BigEndian.Uint16(raw[3:]))
 			if raw[2] > 1 {
 				return Package{}, errFormat
+			}
+		}
+	}
+	if version >= 12 {
+		p.Settings.GlintColor, p.Settings.ParticleColor = d.text(), d.text()
+		values := []*int{&p.Settings.GlintCount, &p.Settings.GlintSize, &p.Settings.GlintStrength, &p.Settings.GlintSpeed,
+			&p.Settings.ParticleCount, &p.Settings.ParticleMinSize, &p.Settings.ParticleMaxSize, &p.Settings.ParticleOpacity,
+			&p.Settings.ParticleFade, &p.Settings.ParticleDepth}
+		for _, value := range values {
+			if raw := d.take(2); raw != nil {
+				*value = int(binary.BigEndian.Uint16(raw))
+			}
+		}
+		for _, value := range []*int{&p.Settings.ParticleSpeedX, &p.Settings.ParticleSpeedY} {
+			if raw := d.take(2); raw != nil {
+				*value = int(int16(binary.BigEndian.Uint16(raw)))
+			}
+		}
+		if raw := d.take(1); raw != nil && raw[0]&^byte(3) == 0 {
+			p.Settings.GlintsEnabled = raw[0]&1 != 0
+			p.Settings.ParticlesEnabled = raw[0]&2 != 0
+		} else {
+			d.bad = true
+		}
+	}
+	if version >= 13 {
+		if raw := d.take(1); raw != nil {
+			switch raw[0] {
+			case 0:
+				p.Settings.WaveStyle = "smooth"
+			case 1:
+				p.Settings.WaveStyle = "pixel"
+			default:
+				d.bad = true
 			}
 		}
 	}

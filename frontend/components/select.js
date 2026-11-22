@@ -29,11 +29,17 @@
       this.wrapper.append(this.button);
       this.menu = document.createElement('div');
       this.menu.className = 's-select-menu';
+      this.compact = source.hasAttribute('data-compact-select');
+      if (this.compact) {
+        this.menu.classList.add('s-select-menu-compact');
+        this.menu.popover = 'manual';
+      }
       if (source.form?.id) this.menu.dataset.form = source.form.id;
       this.menu.id = `s-select-${++nextId}`;
       this.menu.setAttribute('role', 'listbox');
       this.menu.hidden = true;
-      (source.closest('dialog,[popover]') || document.body).append(this.menu);
+      const host = source.closest('dialog,[popover]') || document.body;
+      host.append(this.menu);
       this.button.setAttribute('aria-controls', this.menu.id);
       this.button.addEventListener('click', () => active === this ? this.close() : this.open());
       this.button.addEventListener('keydown', event => this.keydown(event));
@@ -56,7 +62,9 @@
         return t(copy.textContent.trim());
       });
       this.button.setAttribute('aria-label', t(source.getAttribute('aria-label') || labels.join(' ') || 'Выбор'));
-      this.text.textContent = t(source.selectedOptions[0]?.label || 'Выбрать');
+      const selected = source.selectedOptions[0];
+      if (selected?.sintetRenderLabel) selected.sintetRenderLabel(this.text);
+      else this.text.textContent = t(selected?.label || 'Выбрать');
       this.menu.replaceChildren();
       this.items = this.options.map((option, index) => {
         const item = document.createElement('div');
@@ -66,7 +74,8 @@
         item.setAttribute('aria-selected', String(index === source.selectedIndex));
         item.setAttribute('aria-disabled', String(this.disabled(index)));
         const label = document.createElement('span');
-        label.textContent = option.label;
+        if (option.sintetRenderLabel) option.sintetRenderLabel(label);
+        else label.textContent = option.label;
         const check = document.createElement('span');
         check.className = 's-select-check';
         check.textContent = '✓';
@@ -90,11 +99,13 @@
       this.refresh();
       active = this;
       this.menu.hidden = false;
+      if (this.compact) this.menu.showPopover();
       this.button.setAttribute('aria-expanded', 'true');
       this.position();
       this.highlight(this.validIndex(this.source.selectedIndex));
     }
     close() {
+      if (this.compact && this.menu.matches(':popover-open')) this.menu.hidePopover();
       this.menu.hidden = true;
       this.button.setAttribute('aria-expanded', 'false');
       this.button.removeAttribute('aria-activedescendant');
@@ -107,12 +118,12 @@
       const below = innerHeight - rect.bottom - margin - gap;
       const above = rect.top - margin - gap;
       const up = below < Math.min(this.menu.scrollHeight, 240) && above > below;
-      const width = Math.min(Math.max(rect.width, 200), innerWidth - margin * 2);
+      const width = Math.min(Math.max(rect.width, this.compact ? 140 : 200), innerWidth - margin * 2);
       // A transformed/acrylic dialog establishes a fixed-position containing
       // block. Keep the popup in the top layer, but compensate its origin.
       const host = this.menu.parentElement;
       let originX = 0, originY = 0;
-      if (host !== document.body) {
+      if (!this.compact && host !== document.body) {
         const style = getComputedStyle(host);
         if (style.transform !== 'none' || style.filter !== 'none' || style.backdropFilter && style.backdropFilter !== 'none' || style.perspective !== 'none') {
           const hostRect = host.getBoundingClientRect();
@@ -146,7 +157,7 @@
       this.source.selectedIndex = index;
       this.close();
       this.refresh();
-      this.button.focus();
+      this.button.focus({preventScroll:true});
       if (changed) {
         this.source.dispatchEvent(new Event('input', {bubbles: true}));
         this.source.dispatchEvent(new Event('change', {bubbles: true}));
@@ -195,7 +206,13 @@
     if (control) { event.preventDefault(); control.button.focus(); }
   });
   document.addEventListener('scroll', event => { if (active && !active.menu.contains(event.target)) active.position(); }, true);
+  document.addEventListener('beforetoggle', event => {
+    if (event.newState === 'closed' && active && event.target !== active.menu && event.target.contains(active.source)) active.close();
+  }, true);
   window.addEventListener('resize', () => active?.close());
+  window.addEventListener('sintet:settings', () => {
+    for (const control of controls) if (control.source.isConnected) control.refresh();
+  });
   // Programmatic select.value writes can be followed by refresh or a change event.
   window.SintetUI = Object.freeze({select: Object.freeze({mount, refresh(source) { instances.get(source)?.refresh(); }})});
 })();

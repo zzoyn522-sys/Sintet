@@ -37,3 +37,15 @@ test('a failed provider retries its own page and finished catalogs are not refet
  await searchWorkshopSources(search,'shaders','iris',filters);
  assert.deepEqual(calls.map(call=>call[0]),['modrinth','curseforge']);
 });
+
+test('all sources preserves the SintedMods listing when storefront author handles differ',()=>{
+ const title='Zzoyn Markers';
+ const modrinth=item('modrinth','eOe3lG8E',title,'zzoyn-markers',{downloads:400,author:'zzoyn33'});
+ const curseforge=item('curseforge','1201',title,'zzoyn-markers',{downloads:600,author:'Zzoyn'});
+ const native=item('sintedmods','native-id',title,'',{author:'zzoyn',links:[{type:'telegram',url:'https://t.me/sintet_launcher'}]});
+ const pages={modrinth:{items:[modrinth]},curseforge:{items:[curseforge]},sintedmods:{items:[native]}};
+ const [card,...remaining]=mergeWorkshopResults(pages,'downloads');
+ assert.equal(remaining.length,0);
+ assert.deepEqual(projectSources(card).map(source=>source.provider),['sintedmods','modrinth','curseforge']);
+ assert.equal(projectSources(card)[0].links[0].type,'telegram');
+});

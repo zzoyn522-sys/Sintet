@@ -145,6 +145,10 @@ namespace SintetUpdater {
     }
     string label=candidate;if(payload.ContainsKey("channel")&&Convert.ToString(payload["channel"])=="test"){var parts=candidate.Split('.');label=parts[0]+"."+parts[1]+"."+parts[2]+" TEST";}
     else if(payload.ContainsKey("beta")&&payload["beta"] is bool&&(bool)payload["beta"]){label=candidate+" BETA";}
+    else {
+     object displayValue; Version displayParsed;
+     if(payload.TryGetValue("displayVersion",out displayValue)&&Version.TryParse(Convert.ToString(displayValue),out displayParsed)&&displayParsed.Revision>=0)label=displayParsed.ToString();
+    }
     return new Release{Version=candidate,DisplayVersion=label,Url=url,Sha256=sha,Size=size,Manifest=manifestPath,DownloadPath=download};
    }catch{try{if(File.Exists(download))File.Delete(download);}catch{}try{if(File.Exists(manifestPath))File.Delete(manifestPath);}catch{}throw;}
   }

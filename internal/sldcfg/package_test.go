@@ -190,6 +190,77 @@ func TestWaveAppearanceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestAmbientEffectsRoundTrip(t *testing.T) {
+	public, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := Default()
+	settings.GlintsEnabled = false
+	settings.GlintColor = "#ff8eac"
+	settings.GlintCount = 6
+	settings.ParticlesEnabled = true
+	settings.ParticleColor = "#a6e8c5"
+	settings.ParticleCount = 123
+	settings.ParticleMinSize = 2
+	settings.ParticleMaxSize = 17
+	settings.ParticleSpeedX = -37
+	settings.ParticleSpeedY = 64
+	settings.ParticleFade = 91
+	pack := Package{Name: "Depth", Settings: settings}
+	draft, err := MarshalDraft(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := OpenDraft(draft)
+	if err != nil || decoded.FormatVersion != 12 || decoded.Settings != settings {
+		t.Fatalf("ambient effects lost in draft: %+v, %v", decoded.Settings, err)
+	}
+	file, err := Seal(decoded, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := Open(file, public)
+	if err != nil || verified.FormatVersion != 12 || verified.Settings != settings {
+		t.Fatalf("ambient effects lost in signed theme: %+v, %v", verified.Settings, err)
+	}
+	settings.ParticleMaxSize = settings.ParticleMinSize - 1
+	if settings.Valid() {
+		t.Fatal("accepted particle maximum smaller than minimum")
+	}
+}
+
+func TestPixelWaveStyleRoundTrip(t *testing.T) {
+	public, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settings := Default()
+	settings.BackgroundEffect = "wave"
+	settings.WaveStyle = "pixel"
+	pack := Package{Name: "Pixel Wave", Settings: settings}
+	draft, err := MarshalDraft(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := OpenDraft(draft)
+	if err != nil || decoded.FormatVersion != 13 || decoded.Settings != settings {
+		t.Fatalf("pixel wave style lost in draft: %+v, %v", decoded.Settings, err)
+	}
+	file, err := Seal(decoded, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := Open(file, public)
+	if err != nil || verified.FormatVersion != 13 || verified.Settings != settings {
+		t.Fatalf("pixel wave style lost in signed theme: %+v, %v", verified.Settings, err)
+	}
+	settings.WaveStyle = "blocky-but-unsupported"
+	if settings.Valid() {
+		t.Fatal("accepted unknown wave style")
+	}
+}
+
 func TestSignedMalformedPayloads(t *testing.T) {
 	pub, key, _ := ed25519.GenerateKey(rand.Reader)
 	good, err := encode(Package{Name: "Theme", Settings: Default()}, 2)

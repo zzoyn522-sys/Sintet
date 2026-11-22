@@ -43,6 +43,8 @@ type PlanEntry struct {
 }
 type Plan struct {
 	maintenance  bool
+	world        string
+	Destination  string      `json:"destination,omitempty"`
 	Kind         string      `json:"kind"`
 	ID           string      `json:"id"`
 	Target       Target      `json:"target"`
@@ -318,6 +320,14 @@ func (m *Manager) Start(ctx context.Context, id string, withDependencies bool) e
 }
 
 func (m *Manager) StartWithCommit(ctx context.Context, id string, withDependencies bool, commit ModCommit) error {
+	return m.start(ctx, id, withDependencies, commit, "")
+}
+
+func (m *Manager) StartPlugin(ctx context.Context, id, serverDir string) error {
+	return m.start(ctx, id, false, nil, serverDir)
+}
+
+func (m *Manager) start(ctx context.Context, id string, withDependencies bool, commit ModCommit, serverDir string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state.Busy {
@@ -329,6 +339,12 @@ func (m *Manager) StartWithCommit(ctx context.Context, id string, withDependenci
 	}
 	if (plan.Target.SharedID != "") != (commit != nil) {
 		return errors.New("папка сборки изменилась; выберите мод заново")
+	}
+	if (plan.Kind == "plugins") != (serverDir != "") {
+		return errors.New("выберите папку сервера для установки плагина")
+	}
+	if serverDir != "" {
+		plan.Target.Directory = serverDir
 	}
 	delete(m.plans, id)
 	if !withDependencies && len(plan.Entries) > 1 {
@@ -388,6 +404,9 @@ func (m *Manager) installShared(ctx context.Context, plan Plan, commit ModCommit
 	return commit(ctx, plan, staging)
 }
 func (m *Manager) install(ctx context.Context, plan Plan) error {
+	if isExtraContent(plan.Kind) {
+		return m.installExtraContent(ctx, plan)
+	}
 	if isZipPack(plan.Kind) {
 		return m.installResources(ctx, plan)
 	}
@@ -651,7 +670,7 @@ func packFileDigest(algorithm string) (hash.Hash, error) {
 
 func (m *Manager) downloadOnce(ctx context.Context, v Version, path string, progress func(int64, int64)) (string, error) {
 	limit := int64(256 << 20)
-	if isZipPack(v.Kind) || v.Kind == "modpacks" {
+	if isZipPack(v.Kind) || v.Kind == "modpacks" || v.Kind == "worlds" || v.Kind == "datapacks" {
 		limit = 1 << 30
 	}
 	allowed := downloadURLPolicy(v)
@@ -676,7 +695,7 @@ func (m *Manager) downloadOnce(ctx context.Context, v Version, path string, prog
 	request.Header.Set("User-Agent", "Sintet/0.9 (sintet.xyz)")
 	downloadClient := *m.Client.HTTP
 	downloadClient.Timeout = 3 * time.Minute
-	if isZipPack(v.Kind) || v.Kind == "modpacks" || v.Kind == "packfile" {
+	if isZipPack(v.Kind) || v.Kind == "modpacks" || v.Kind == "packfile" || v.Kind == "worlds" || v.Kind == "datapacks" {
 		downloadClient.Timeout = 10 * time.Minute
 	}
 	downloadClient.CheckRedirect = func(next *http.Request, via []*http.Request) error {

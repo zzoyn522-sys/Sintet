@@ -22,7 +22,7 @@ let config = {enabled: false};
 let color;
 
 function resizeSurfaces() {
-  const density = window.devicePixelRatio || 1;
+  const density = config.style === 'pixel' ? 1 / 2.2 : window.devicePixelRatio || 1;
   for (const surface of surfaces) {
     const { canvas, context } = surface;
     const { width, height } = canvas.getBoundingClientRect();
@@ -71,6 +71,7 @@ function renderSurface({ context, image, preview }, heights) {
   const sampleRadius = 26;
   const trailStrength = config.trail / 100;
   const trailDepth = trailStrength > 0 ? (22 + 64 * trailStrength) * scaleY : 0;
+  const pixelated = config.style === 'pixel';
   const [red, green, blue] = color;
   data.fill(0);
 
@@ -86,6 +87,24 @@ function renderSurface({ context, image, preview }, heights) {
     const reflection = curvature >= 0 ? strength : strength * .55;
     const edge = Math.min(1, x / 150, (waveWidth - x) / 150);
     const fade = edge * edge * (3 - 2 * edge);
+    if (pixelated) {
+      // Match the website's distinct single-pixel ridge and darker trail.
+      const ridge = Math.round(edgeY);
+      const depth = trailDepth ? Math.max(2, Math.round(trailDepth * 51 / 54)) : 1;
+      const brightness = Math.min(1, (.12 + .88 * reflection) * config.intensity / 100) * fade;
+      const trailAlpha = Math.min(255, 278 * trailStrength);
+      const lastRow = Math.min(height, Math.ceil(bottomY), ridge + depth);
+      for (let row = Math.max(0, ridge); row < lastRow; row++) {
+        const index = row * rowStride + column * 4;
+        const isRidge = row === ridge;
+        const falloff = 1 - (row - ridge) / depth;
+        data[index] = red;
+        data[index + 1] = green;
+        data[index + 2] = blue;
+        data[index + 3] = brightness * (isRidge ? 215 : trailAlpha * falloff ** 3);
+      }
+      continue;
+    }
     const brightness = 255 * Math.min(1, (.065 + .91 * reflection) * config.intensity / 100) * fade;
     if (brightness < .5) continue;
 
@@ -127,10 +146,11 @@ function drawWave(time) {
 }
 
 function animateWave(time) {
+  frame = requestAnimationFrame(animateWave);
+  if (config.style === 'pixel' && previousTime !== undefined && time - previousTime < 32) return;
   if (previousTime !== undefined) elapsed += Math.min(time - previousTime, 50);
   previousTime = time;
   drawWave(elapsed);
-  frame = requestAnimationFrame(animateWave);
 }
 
 function shouldAnimate() {
@@ -145,7 +165,11 @@ function updateMotion() {
 
 export function configureWave(settings) {
   const wasMoving = shouldAnimate();
-  config = settings;
+  config = {...settings, style: settings.style === 'pixel' ? 'pixel' : 'smooth'};
+  for (const {canvas} of surfaces) {
+    if (config.style === 'pixel') canvas.dataset.waveStyle = 'pixel';
+    else delete canvas.dataset.waveStyle;
+  }
   document.documentElement.style.setProperty('--wave-offset', `${settings.offset}px`);
   color = [1, 3, 5].map(index => Number.parseInt(settings.color.slice(index, index + 2), 16));
   const newPeriod = 18000 - 120 * settings.speed;

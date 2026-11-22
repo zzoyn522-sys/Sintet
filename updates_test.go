@@ -81,3 +81,14 @@ func TestScopedReleasesStillRequireSignatureAndDoNotTreatCurrentStableAsAnError(
 		t.Fatal("four-part stable release version is ordered or labeled incorrectly")
 	}
 }
+
+func TestStableReleaseDisplayVersionDoesNotAffectUpdateOrder(t *testing.T) {
+	payload := updatePayload{Version: "1.10.2.32", DisplayVersion: "1.10.2.20"}
+	if payload.displayLabel() != "1.10.2.20" || !versionIsNewer(payload.Version, "1.10.2.31") {
+		t.Fatalf("stable label or upgrade order failed: %+v", payload)
+	}
+	payload.Channel = "test"
+	if payload.displayLabel() != "1.10.2 TEST" {
+		t.Fatal("stable display override applied to TEST")
+	}
+}

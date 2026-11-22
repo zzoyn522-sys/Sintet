@@ -39,6 +39,7 @@ type Settings struct {
 	OverlayHotkey        string          `json:"overlayHotkey"`
 	ApplyOverlayFont     bool            `json:"applyOverlayFont"`
 	WorkshopLanguage     string          `json:"workshopLanguage,omitempty"`
+	ShaderLanguage       string          `json:"shaderLanguage,omitempty"`
 	Snapshots            bool            `json:"snapshots"`
 	PreReleases          bool            `json:"preReleases"`
 	ReleaseCandidates    bool            `json:"releaseCandidates"`
@@ -87,6 +88,11 @@ func ValidateSettings(s Settings) error {
 	}
 	if s.InterfaceLanguage != "" && InterfaceLanguage(s.InterfaceLanguage, "") != s.InterfaceLanguage {
 		return fmt.Errorf("invalid interface language")
+	}
+	switch s.ShaderLanguage {
+	case "", "original", "en", "ru", "uk", "pt", "es":
+	default:
+		return fmt.Errorf("неверный язык настроек шейдеров")
 	}
 	if s.WorkshopLanguage != "" && !regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`).MatchString(s.WorkshopLanguage) {
 		return fmt.Errorf("неверный язык перевода описаний")

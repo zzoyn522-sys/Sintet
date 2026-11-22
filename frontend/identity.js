@@ -2,6 +2,36 @@
  const q=s=>document.querySelector(s);
  let api,activeKey='',last='',pollTask,starting=false,elyBusy=false,identitySummary=null;
  const addDialog=q('#account-add-dialog');
+ const deletionDialog=q('#account-deletion-dialog');
+ const deletionDone=deletionDialog.querySelector('.account-done');
+ let deletionNotice;
+ function showDeletionNotice(notice){
+  if(!notice||deletionDialog.open)return;
+  deletionNotice=notice;
+  deletionDialog.querySelector('.account-deletion-user').textContent=notice.username;
+  const reason=deletionDialog.querySelector('.account-deletion-reason');
+  reason.hidden=!notice.reason;
+  reason.querySelector('p').textContent=notice.reason||'';
+  deletionDialog.querySelector('.account-deletion-error').textContent='';
+  deletionDialog.showModal();
+ }
+ async function dismissDeletionNotice(){
+  if(!deletionNotice||deletionDone.disabled)return;
+  deletionDone.disabled=true;
+  try{
+   await api.DismissAccountDeletion(deletionNotice.key);
+   deletionNotice=undefined;
+   last='';
+   deletionDialog.close();
+  }catch{
+   deletionDialog.querySelector('.account-deletion-error').textContent='Не удалось закрыть уведомление. Попробуй ещё раз.';
+  }finally{deletionDone.disabled=false}
+ }
+ deletionDone.addEventListener('click',dismissDeletionNotice);
+ deletionDialog.addEventListener('cancel',event=>{event.preventDefault();void dismissDeletionNotice()});
+ deletionDialog.querySelectorAll('[data-community]').forEach(button=>{
+  button.addEventListener('click',()=>api.OpenCommunity(button.dataset.community).catch(error=>toast(String(error))));
+ });
  const microsoftDialog=q('#microsoft-device-dialog');
  const microsoftButton=q('#microsoft-login');
  const microsoftCode=q('#microsoft-device-code');
@@ -163,6 +193,7 @@
    }
    const key=JSON.stringify(state);
    if(key!==last){last=key;apply(state)}
+   showDeletionNotice(state.deletionNotices?.[0]);
    loginBlocked=!!(state.checking||state.pending);
    syncNetworkButtons();
   }catch{}

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"sintet/internal/launcher"
 	"sintet/internal/sldcfg"
 )
 
@@ -116,9 +117,24 @@ func (a *App) SaveAppearance(settings Appearance) error {
 }
 
 func (a *App) ChooseAppearanceBackground() (string, error) {
+	a.mu.RLock()
+	preference := a.settings.InterfaceLanguage
+	a.mu.RUnlock()
+	language := launcher.InterfaceLanguage(preference, launcher.SystemLanguage())
+	title, filter := "Choose a Sintet background", "Images and videos"
+	switch language {
+	case "ru":
+		title, filter = "Выбери фон для Sintet", "Изображения и видео"
+	case "uk":
+		title, filter = "Вибери фон для Sintet", "Зображення та відео"
+	case "pt":
+		title, filter = "Escolhe um fundo para o Sintet", "Imagens e vídeos"
+	case "es":
+		title, filter = "Elige un fondo para Sintet", "Imágenes y vídeos"
+	}
 	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title:   "Выбери фон для Sintet",
-		Filters: []runtime.FileFilter{{DisplayName: "Изображения и видео", Pattern: "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.mp4;*.webm"}},
+		Title:   title,
+		Filters: []runtime.FileFilter{{DisplayName: filter, Pattern: "*.png;*.jpg;*.jpeg;*.webp;*.gif;*.mp4;*.webm"}},
 	})
 	if err != nil || path == "" {
 		return "", err

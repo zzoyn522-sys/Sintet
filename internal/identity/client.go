@@ -22,6 +22,12 @@ import (
 	"time"
 )
 
+type AccountDeletedError struct {
+	Reason string
+}
+
+func (*AccountDeletedError) Error() string { return "Аккаунт Sintet ID удалён" }
+
 type SkinMetadata struct {
 	URL    string `json:"url"`
 	Model  string `json:"model"`
@@ -156,6 +162,15 @@ func (c *Client) requestOnce(ctx context.Context, method, path, token string, bo
 		return &serviceError{message: "сервис Sintet ID временно недоступен", method: method, route: path, cause: e, temporary: true}
 	}
 	defer response.Body.Close()
+	if method == http.MethodGet && path == "/api/launcher/session" && response.StatusCode == http.StatusGone {
+		var notice struct {
+			Code   string
+			Reason string
+		}
+		if json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&notice) == nil && notice.Code == "ACCOUNT_DELETED" {
+			return &AccountDeletedError{Reason: notice.Reason}
+		}
+	}
 	if response.StatusCode == 401 {
 		return errors.New("сессия завершена; войдите снова")
 	}
@@ -309,26 +324,28 @@ func (c *Client) Verify(ctx context.Context) (*Account, error) {
 
 // RefreshProfile updates metadata in the background while retaining the cached
 // profile when the network is temporarily unavailable. Launch still uses Verify.
-func (c *Client) RefreshProfile(ctx context.Context) {
+func (c *Client) RefreshProfile(ctx context.Context) error {
 	c.verifyMu.Lock()
 	defer c.verifyMu.Unlock()
 	c.mu.Lock()
 	saved, generation := c.credential, c.generation
 	c.mu.Unlock()
 	if saved == nil {
-		return
+		return nil
 	}
 	var result struct {
 		Account Account `json:"account"`
 	}
-	if c.request(ctx, http.MethodGet, "/api/launcher/session", saved.Token, nil, &result) != nil ||
-		!validAccount(result.Account) || result.Account.ID != saved.Account.ID {
-		return
+	if err := c.request(ctx, http.MethodGet, "/api/launcher/session", saved.Token, nil, &result); err != nil {
+		return err
+	}
+	if !validAccount(result.Account) || result.Account.ID != saved.Account.ID {
+		return nil
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if generation != c.generation {
-		return
+		return nil
 	}
 	if c.ServiceBase != "" {
 		result.Account.AvatarURL = saved.Account.AvatarURL
@@ -336,7 +353,7 @@ func (c *Client) RefreshProfile(ctx context.Context) {
 	c.state.Account = &result.Account
 	c.state.Error = ""
 	if result.Account == saved.Account {
-		return
+		return nil
 	}
 	updated := *saved
 	updated.Account = result.Account
@@ -345,6 +362,7 @@ func (c *Client) RefreshProfile(ctx context.Context) {
 	}
 	c.state.Account = &result.Account
 	c.state.Error = ""
+	return nil
 }
 
 func (c *Client) storeCredential(value credential) error {
@@ -589,7 +607,12 @@ func (c *Client) ServerURL() string {
 }
 
 // Forget removes the desktop credential even if the provider is offline.
-func (c *Client) Forget() error {
+func (c *Client) Forget() error { return c.forget(true) }
+
+// ForgetDeleted drops local credentials for a session the server already revoked.
+func (c *Client) ForgetDeleted() error { return c.forget(false) }
+
+func (c *Client) forget(revoke bool) error {
 	c.Cancel()
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -599,7 +622,7 @@ func (c *Client) Forget() error {
 	saved := c.credential
 	c.credential = nil
 	c.state = State{}
-	if saved != nil {
+	if revoke && saved != nil {
 		go func() { _ = c.request(context.Background(), "DELETE", "/api/launcher/session", saved.Token, nil, nil) }()
 	}
 	return nil

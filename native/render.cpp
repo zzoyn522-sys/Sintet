@@ -40,6 +40,8 @@ using Swap = void (*)(GLFWwindow*);
 using WindowHandle = HWND (*)(GLFWwindow*);
 using InputMode = void (*)(GLFWwindow*,int,int);
 using GetMode = int (*)(GLFWwindow*,int);
+using GlfwGetCursorPos = void (*)(GLFWwindow*,double*,double*);
+using GlfwSetCursorPos = void (*)(GLFWwindow*,double,double);
 Swap originalSwap;
 using NativeSwap=BOOL(WINAPI*)(HDC);
 using CurrentGame=GLFWwindow*(*)();
@@ -50,6 +52,8 @@ int cursorAdjustments=0;
 WindowHandle nativeWindow;
 InputMode inputMode;
 GetMode getMode;
+GlfwGetCursorPos getCursorPos;
+GlfwSetCursorPos setCursorPos;
 void* target;
 HANDLE loaderThread;
 std::atomic<bool> stopping{false};
@@ -82,20 +86,35 @@ float copiedUntil=0;
 void logo(ImDrawList*,ImVec2,float,ImU32);
 void drawFittedText(ImDrawList*,ImFont*,float,ImVec2,float,ImU32,const std::string&);
 GLFWwindow* game;
-bool visible=false,previousToggle=false,previousEscape=false,previousCapture=false,usingGLFWCursor=false;
+std::atomic<bool> visible{false};
+bool previousToggle=false,previousEscape=false,previousCapture=false,usingGLFWCursor=false;
 bool openLobbyOnStart=false;
 std::atomic<bool> acceptWheel{false};
 std::atomic<int> pendingWheelX{0},pendingWheelY{0};
+std::atomic<ULONGLONG> mouseResumeAfter{0};
 ULONGLONG welcomeStarted=0;
 ULONGLONG sessionStarted=0;
 float panelAnimation=0.0f;
 int oldCursor=0x34001,section=0;
 constexpr int CursorMode=0x33001,CursorNormal=0x34001;
+constexpr int CursorDisabled=0x34003;
+double savedGameCursorX=0,savedGameCursorY=0;
+bool savedGameCursorValid=false;
 void closePanel(){
  if(SintetOverlayStyle::preview){visible=false;return;}
  acceptWheel=false;pendingWheelX=0;pendingWheelY=0;
+ // Discard mouse messages already queued while the overlay owned the cursor.
+ mouseResumeAfter=GetTickCount64()+80;
  visible=false;
- if(usingGLFWCursor)inputMode(game,CursorMode,oldCursor);
+ if(usingGLFWCursor){
+  inputMode(game,CursorMode,oldCursor);
+  // GLFW seeds the disabled cursor's virtual position from the visible OS
+  // cursor when the mode changes. Restore the position Minecraft had before
+  // opening the overlay, or the first mouse delta is measured from the UI
+  // cursor's location and turns the camera by that offset.
+  if(savedGameCursorValid&&oldCursor==CursorDisabled)setCursorPos(game,savedGameCursorX,savedGameCursorY);
+  savedGameCursorValid=false;
+ }
  else{
   ClipCursor(&savedClip);
   while(cursorAdjustments>0){ShowCursor(FALSE);--cursorAdjustments;}
@@ -104,9 +123,15 @@ void closePanel(){
 }
 void openPanel(){
  pendingWheelX=0;pendingWheelY=0;acceptWheel=true;
+ mouseResumeAfter=0;
  visible=true;
  usingGLFWCursor=game&&getMode&&inputMode;
- if(usingGLFWCursor){oldCursor=getMode(game,CursorMode);inputMode(game,CursorMode,CursorNormal);}
+ if(usingGLFWCursor){
+  oldCursor=getMode(game,CursorMode);
+  savedGameCursorValid=oldCursor==CursorDisabled&&getCursorPos&&setCursorPos;
+  if(savedGameCursorValid)getCursorPos(game,&savedGameCursorX,&savedGameCursorY);
+  inputMode(game,CursorMode,CursorNormal);
+ }
  else{
   GetClipCursor(&savedClip);
   ClipCursor(nullptr);
@@ -119,12 +144,26 @@ void openPanel(){
  }
 }
 LRESULT CALLBACK input(HWND hwnd,UINT message,WPARAM w,LPARAM l){
- // Win32 input and GL rendering can run on different threads. Queue wheel
- // deltas so a busy render mutex never drops a scroll or forwards it to Minecraft.
+ const bool mouseMessage=message==WM_INPUT||(message>=WM_MOUSEFIRST&&message<=WM_MOUSELAST);
  if(acceptWheel&&(message==WM_MOUSEWHEEL||message==WM_MOUSEHWHEEL)){
   const int delta=static_cast<short>(HIWORD(w));
   if(message==WM_MOUSEWHEEL)pendingWheelY.fetch_add(delta);else pendingWheelX.fetch_sub(delta);
   return 0;
+ }
+ // Never let UI movement reach Minecraft, even when the render thread briefly
+ // owns the shared mutex and ImGui cannot consume this individual event.
+ if(visible&&mouseMessage){
+  std::unique_lock<std::recursive_mutex> lock(renderMutex,std::try_to_lock);
+  if(lock.owns_lock()&&!stopping&&context){
+   ImGui::SetCurrentContext(context);
+   ImGui_ImplWin32_WndProcHandler(hwnd,message,w,l);
+  }
+  return 0;
+ }
+ ULONGLONG resumeAt=mouseResumeAfter.load();
+ if(resumeAt&&mouseMessage){
+  if(GetTickCount64()<resumeAt)return 0;
+  if(!mouseResumeAfter.compare_exchange_strong(resumeAt,0)&&GetTickCount64()<resumeAt)return 0;
  }
  std::unique_lock<std::recursive_mutex> lock(renderMutex,std::try_to_lock);
  if(lock.owns_lock()&&!stopping&&context&&visible){
@@ -318,7 +357,7 @@ void drawFittedText(ImDrawList* draw,ImFont* font,float size,ImVec2 pos,float wi
 void drawSocialName(ImFont* font,float fontSize,float available,const std::string& name,
                     SintetSocial::AccountProvider provider,const std::vector<std::string>& badges){
  const float width=SintetBadgeMark::DrawName(ImGui::GetWindowDrawList(),font,fontSize,ImGui::GetCursorScreenPos(),
-    available,ImGui::GetColorU32(ImGuiCol_Text),name,14*interfaceScale,provider,badges,visible);
+    available,ImGui::GetColorU32(ImGuiCol_Text),name,14*interfaceScale,provider,badges);
  ImGui::Dummy(ImVec2(width,fontSize));
 }
 
@@ -657,7 +696,6 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
      capacityRoom=state.room;
      ImGui::OpenPopup(capacityTitle);
     }
-    if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",capacityTitle);
    }
   }
   ImGui::SetNextWindowSize(ImVec2(px(390),0),ImGuiCond_Appearing);
@@ -688,7 +726,7 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
    if(ImGui::Button(OverlayText("Отмена")))ImGui::CloseCurrentPopup();
    ImGui::SameLine();
    ImGui::BeginDisabled(!canResize||capacityRoom!=state.room||!valid||capacityInput==state.roomCapacity);
-   if(ImGui::Button(OverlayText(excess?"Отключить лишних и применить":"Применить"))){
+   if(ImGui::Button(excess?OverlayText("Отключить лишних и применить"):OverlayText("Применить"))){
     dispatchSocial(excess?"lobby-capacity-confirm":"lobby-capacity",std::to_string(capacityInput));
     ImGui::CloseCurrentPopup();
    }
@@ -713,13 +751,11 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     const ImVec2 center(corner.x+px(17),corner.y+ImGui::GetFrameHeight()*.5f);
     const ImVec2 arrow[]={{center.x-px(4),center.y-px(6)},{center.x+px(6),center.y},{center.x-px(4),center.y+px(6)}};
     ImGui::GetWindowDrawList()->AddTriangleFilled(arrow[0],arrow[1],arrow[2],ImGui::GetColorU32(state.gameReady?ImGuiCol_Text:ImGuiCol_TextDisabled));
-    if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",state.gameReady?OverlayText("Автоматически войти в мир"):OverlayText("Запустите Minecraft из Sintet для автовхода"));
    }
    }
    if(state.preGameLobby&&!state.leader&&!state.inWorld){
     bool automatic=state.autoConnect;
     if(ImGui::Checkbox(OverlayText("Подключиться, когда мир готов"),&automatic))dispatchSocial("auto-connect",automatic?"true":"false");
-    if(ImGui::IsItemHovered())ImGui::SetTooltip(OverlayText(state.noPack?"Запустите Minecraft из Sintet для автовхода":"Если запущена другая сборка, Minecraft перезапустится"));
    }
    if(!state.leader&&!state.lobbyConnected&&!state.busy)socialButton(OverlayText("Восстановить соединение"),"reconnect-lobby");
    if(!state.packPhase.empty()){
@@ -729,7 +765,10 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     if(required){
      ImGui::TextColored(ImVec4(.9f,.58f,.58f,1),"%s",state.packMissing?OverlayText("Нужна сборка друга"):OverlayText("Нужен перезапуск"));
      if(state.packMissing)ImGui::TextDisabled(OverlayText("%d файлов · %s"),state.packMissing,SintetLayout::TransferSize(state.packBytes).c_str());
-     if(!state.packError.empty()){ImGui::TextDisabled(OverlayText("Не удалось подготовить сборку"));if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",OverlayText(state.packError.c_str()));}
+     if(!state.packError.empty()){
+      ImGui::TextDisabled("%s",OverlayText("Не удалось подготовить сборку"));
+      ImGui::TextWrapped("%s",OverlayText(state.packError.c_str()));
+     }
      if(!state.packDigest.empty()){
       ImGui::PushStyleColor(ImGuiCol_Button,ImVec4(.28f,.14f,.14f,1));ImGui::PushStyleColor(ImGuiCol_ButtonHovered,ImVec4(.37f,.19f,.19f,1));
       if(ImGui::Button(state.preGameLobby?OverlayText("Подготовить сборку"):state.packRestart?OverlayText("Скачать и перезапустить"):OverlayText("Скачать и войти"),ImVec2(-1,px(30))))ImGui::OpenPopup(OverlayText("Сборка друга"));ImGui::PopStyleColor(2);
@@ -768,7 +807,6 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     const auto ink=ImGui::GetColorU32(ImGuiCol_Text);
     draw->AddCircle(center,px(4),ink,16,px(1.25f));
     draw->AddLine(ImVec2(center.x+px(3),center.y+px(3)),ImVec2(center.x+px(7),center.y+px(7)),ink,px(1.25f));
-    if(ImGui::IsItemHovered())ImGui::SetTooltip("%s",OverlayText("Поиск участников"));
     if(toggleSearch){
      searchOpen=!searchOpen;memberLimit=pageSize;search[0]=0;resetScroll=true;
     }
@@ -828,7 +866,6 @@ void drawSocialContent(const SintetSocial::State& state,float height) {
     if(state.leader&&!member.leader){
      ImGui::SameLine(ImGui::GetWindowWidth()-px(49));
      if(ImGui::Button("×",ImVec2(px(34),px(35))))dispatchSocial("kick",member.person.id);
-     if(ImGui::IsItemHovered())ImGui::SetTooltip(OverlayText("Исключить из лобби"));
     }
     ImGui::EndGroup();
     ImGui::Dummy(ImVec2(0,px(8)));
@@ -923,7 +960,7 @@ void drawScreenshotNotice(){
 }
 
 void drawTransportButton(ImDrawList* draw,ImVec2 cursor,float scale,const SintetMedia::Track& track,
-                         SintetMedia::Action action,bool enabled,const char* tooltip){
+                         SintetMedia::Action action,bool enabled){
  using SintetMedia::Action;
  ImGui::SetCursorPos(cursor);
  ImGui::PushID(static_cast<int>(action));
@@ -942,7 +979,6 @@ void drawTransportButton(ImDrawList* draw,ImVec2 cursor,float scale,const Sintet
   draw->AddTriangleFilled(p(-4*direction,-5),p(4*direction,0),p(-4*direction,5),color);
   if(action!=Action::Toggle)draw->AddLine(p(6*direction,-5),p(6*direction,5),color,1.6f*scale);
  }
- if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tooltip);
  ImGui::EndDisabled();
  ImGui::PopID();
 }
@@ -994,9 +1030,9 @@ void drawMedia(float scale){
  drawFittedText(draw,headingFont,px(15),p(62,track.artist.empty()?17:9),textWidth,ImGui::GetColorU32(ImGuiCol_Text),track.title);
  drawFittedText(draw,ImGui::GetFont(),px(12),p(62,27),textWidth,muted,track.artist);
  const float controls=cursor.x+width;
- drawTransportButton(draw,ImVec2(controls-px(89),cursor.y+px(9)),scale,track,Action::Previous,track.canPrevious,OverlayText("Предыдущий трек"));
- drawTransportButton(draw,ImVec2(controls-px(62),cursor.y+px(9)),scale,track,Action::Toggle,track.canToggle,track.playing?OverlayText("Пауза"):OverlayText("Воспроизвести"));
- drawTransportButton(draw,ImVec2(controls-px(35),cursor.y+px(9)),scale,track,Action::Next,track.canNext,OverlayText("Следующий трек"));
+ drawTransportButton(draw,ImVec2(controls-px(89),cursor.y+px(9)),scale,track,Action::Previous,track.canPrevious);
+ drawTransportButton(draw,ImVec2(controls-px(62),cursor.y+px(9)),scale,track,Action::Toggle,track.canToggle);
+ drawTransportButton(draw,ImVec2(controls-px(35),cursor.y+px(9)),scale,track,Action::Next,track.canNext);
 
  const float lineWidth=width-px(73);
  if(track.end>track.start){
@@ -1182,8 +1218,8 @@ void drawPanel(const SintetSocial::State& state) {
   if(*id){ImGui::SetClipboardText(id);copiedUntil=(float)ImGui::GetTime()+2;}
  }
  bool hovered=ImGui::IsItemHovered();
- if(hovered)ImGui::SetTooltip((float)ImGui::GetTime()<copiedUntil?OverlayText("ID скопирован"):OverlayText("Скопировать ID"));
- ImU32 copyColor=ImGui::GetColorU32(hovered?ImVec4(.9f,.9f,.9f,1):ImVec4(.55f,.55f,.55f,1));
+ const bool copied=(float)ImGui::GetTime()<copiedUntil;
+ ImU32 copyColor=ImGui::GetColorU32(copied?SintetOverlayStyle::Accent(1):hovered?ImVec4(.9f,.9f,.9f,1):ImVec4(.55f,.55f,.55f,1));
  draw->AddRect(ImVec2(copy.x+px(6),copy.y+px(5)),ImVec2(copy.x+px(17),copy.y+px(17)),copyColor,px(2),0,px(1.4f));
  draw->AddRect(ImVec2(copy.x+px(10),copy.y+px(9)),ImVec2(copy.x+px(21),copy.y+px(21)),copyColor,px(2),0,px(1.4f));
  ImGui::EndChild();ImGui::PopStyleVar(2);
@@ -1498,7 +1534,7 @@ DWORD WINAPI previewRenderer(void* mode){
  cls.style=CS_OWNDC;cls.lpfnWndProc=previewInput;cls.hInstance=module;
  cls.hCursor=LoadCursorW(nullptr,IDC_ARROW);cls.lpszClassName=className;
  if(!RegisterClassW(&cls)){SetEvent(previewReady);return 1;}
- const HWND host=CreateWindowW(className,config.language==1?L"Sintet Overlay – предпросмотр (F11)":L"Sintet Overlay – preview (F11)",
+ const HWND host=CreateWindowW(className,L"Sintet Overlay",
   WS_POPUP,0,0,previewWidth,previewHeight,nullptr,nullptr,module,nullptr);
  HDC dc=host?GetDC(host):nullptr;
  PIXELFORMATDESCRIPTOR format{};
@@ -1507,9 +1543,15 @@ DWORD WINAPI previewRenderer(void* mode){
  const int pixel=dc?ChoosePixelFormat(dc,&format):0;
  HGLRC gl=pixel&&SetPixelFormat(dc,pixel,&format)?wglCreateContext(dc):nullptr;
  bool initialized=false;
+ const auto applyPreviewLanguage=[&]{
+   OverlayPreviewLanguage=config.language;
+   wchar_t title[160]{};
+   if(MultiByteToWideChar(CP_UTF8,0,OverlayText("Sintet Overlay – предпросмотр (F11)"),-1,title,160))
+    SetWindowTextW(host,title);
+ };
  if(gl&&wglMakeCurrent(dc,gl)){
   window=host;SintetOverlayStyle::style=config.appearance;SintetOverlayStyle::preview=true;
-  OverlayPreviewLanguage=config.language;
+  applyPreviewLanguage();
   initialized=initializeRenderer(config.font.c_str(),true);
  }
  if(initialized){
@@ -1538,7 +1580,15 @@ DWORD WINAPI previewRenderer(void* mode){
     TranslateMessage(&msg);DispatchMessageW(&msg);
    }
    if(!running)break;
-   {std::lock_guard<std::mutex> lock(previewConfigLock);config.appearance=previewConfig.appearance;}
+   {
+    std::lock_guard<std::mutex> lock(previewConfigLock);
+    config.appearance=previewConfig.appearance;
+    config.language=previewConfig.language;
+   }
+   if(OverlayPreviewLanguage!=config.language){
+    applyPreviewLanguage();
+    previewFrameAvailable=false;
+   }
    SintetOverlayStyle::style=config.appearance;
    const float renderScale=config.appearance.scale*(previewEmbedded?.64f:initialScale);
    interfaceScale=renderScale;
@@ -1587,7 +1637,7 @@ BOOL WINAPI nativeSwapFrame(HDC dc) {
    try{
     if(!currentGame){
      HMODULE glfw=GetModuleHandleW(L"glfw.dll");if(!glfw)glfw=GetModuleHandleW(L"glfw3.dll");
-     if(glfw){currentGame=(CurrentGame)GetProcAddress(glfw,"glfwGetCurrentContext");nativeWindow=(WindowHandle)GetProcAddress(glfw,"glfwGetWin32Window");inputMode=(InputMode)GetProcAddress(glfw,"glfwSetInputMode");getMode=(GetMode)GetProcAddress(glfw,"glfwGetInputMode");}
+     if(glfw){currentGame=(CurrentGame)GetProcAddress(glfw,"glfwGetCurrentContext");nativeWindow=(WindowHandle)GetProcAddress(glfw,"glfwGetWin32Window");inputMode=(InputMode)GetProcAddress(glfw,"glfwSetInputMode");getMode=(GetMode)GetProcAddress(glfw,"glfwGetInputMode");getCursorPos=(GlfwGetCursorPos)GetProcAddress(glfw,"glfwGetCursorPos");setCursorPos=(GlfwSetCursorPos)GetProcAddress(glfw,"glfwSetCursorPos");}
     }
     renderFrame(currentGame?currentGame():nullptr);
    }catch(const std::exception&){
@@ -1610,7 +1660,7 @@ DWORD WINAPI loadRenderer(void*){
 
 float SintetBadgeMark::DrawName(ImDrawList* draw,ImFont* font,float fontSize,ImVec2 top,float available,
                                ImU32 color,const std::string& name,float iconSize,SintetSocial::AccountProvider provider,
-                               const std::vector<std::string>& badges,bool tooltip){
+                               const std::vector<std::string>& badges){
  const float measured=font->CalcTextSizeA(fontSize,FLT_MAX,0,name.c_str()).x;
  const float slot=1.4f*iconSize;
  const bool providerVisible=SintetProviderMark::Label(provider)&&available>=slot;
@@ -1633,7 +1683,7 @@ float SintetBadgeMark::DrawName(ImDrawList* draw,ImFont* font,float fontSize,ImV
  const float gap=slot-iconSize;
  const float y=top.y+(fontSize-iconSize)*.5f;
  if(providerVisible){
-  SintetProviderMark::Draw(draw,ImVec2(top.x+offset+gap,y),iconSize,provider,tooltip);
+  SintetProviderMark::Draw(draw,ImVec2(top.x+offset+gap,y),iconSize,provider);
   offset+=slot;
  }
  for(size_t i=0;i<shown;++i){
@@ -1641,26 +1691,14 @@ float SintetBadgeMark::DrawName(ImDrawList* draw,ImFont* font,float fontSize,ImV
   auto [texture,inserted]=badgeTextures.try_emplace(badge.first,0);
   if(inserted)texture->second=uploadIcon<24>(badge.second.pixels);
   const ImVec2 min(top.x+offset+gap,y),max(min.x+iconSize,y+iconSize);
-  if(texture->second){
+  if(texture->second)
    draw->AddImage((ImTextureID)(intptr_t)texture->second,min,max,ImVec2(0,0),ImVec2(1,1),ImGui::GetColorU32(IM_COL32_WHITE));
-   if(tooltip&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(min,max)){
-    ImGui::BeginTooltip();
-    ImGui::TextUnformatted(badge.second.label.c_str());
-    if(slots==1)for(size_t extra=shown;extra<count;++extra)ImGui::TextUnformatted(icons[extra]->second.label.c_str());
-    ImGui::EndTooltip();
-   }
-  }
   offset+=slot;
  }
  if(overflow){
-  const ImVec2 min(top.x+offset+gap,y),max(top.x+offset+slot,y+iconSize);
+  const ImVec2 min(top.x+offset+gap,y);
   const std::string more="+"+std::to_string(count-shown);
   drawFittedText(draw,font,iconSize*.75f,ImVec2(min.x,min.y+iconSize*.125f),iconSize,color,more);
-  if(tooltip&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(min,max)){
-   ImGui::BeginTooltip();
-   for(size_t i=shown;i<count;++i)ImGui::TextUnformatted(icons[i]->second.label.c_str());
-   ImGui::EndTooltip();
-  }
   offset+=slot;
  }
  return offset;

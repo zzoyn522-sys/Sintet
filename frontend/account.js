@@ -38,7 +38,7 @@
   const current=[...target.querySelectorAll('.account-role-badge')];
   if(current.length===wanted.length&&current.every((image,i)=>{
    const item=badgeCatalog.get(wanted[i]);
-   return image.dataset.badge===wanted[i]&&image.getAttribute('src')===item.src&&image.title===item.label;
+   return image.dataset.badge===wanted[i]&&image.getAttribute('src')===item.src;
   }))return;
   current.forEach(image=>image.remove());
   label.after(...wanted.map(id=>{
@@ -48,7 +48,6 @@
    image.dataset.badge=id;
    image.src=item.src;
    image.alt=item.label;
-   image.title=item.label;
    image.draggable=false;
    return image;
   }));

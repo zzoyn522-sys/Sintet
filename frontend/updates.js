@@ -1,14 +1,4 @@
 (() => {
- Object.assign(window.SintetLanguageCatalog,{
-  'Канал обновлений Sintet':['Sintet update channel','Канал обновлений Sintet','Канал оновлень Sintet','Canal de atualizações do Sintet','Canal de actualizaciones de Sintet'],
-  'Тестовые сборки доступны аккаунтам с бейджем «Тестировщик».':['Test builds are available to accounts with the Tester badge.','Тестовые сборки доступны аккаунтам с бейджем «Тестировщик».','Тестові збірки доступні акаунтам зі значком «Тестувальник».','As versões de teste estão disponíveis para contas com o selo de Testador.','Las versiones de prueba están disponibles para cuentas con la insignia de Tester.'],
-  'Получать обновления':['Receive updates','Получать обновления','Отримувати оновлення','Receber atualizações','Recibir actualizaciones'],
-  'Официальные и TEST':['Official and TEST','Официальные и TEST','Офіційні та TEST','Oficiais e TEST','Oficiales y TEST'],
-  'Только официальные':['Official only','Только официальные','Лише офіційні','Apenas oficiais','Solo oficiales'],
-  'Вернуться на официальную версию':['Return to the official version','Вернуться на официальную версию','Повернутися до офіційної версії','Voltar à versão oficial','Volver a la versión oficial'],
-  'Канал обновлений доступен только тестировщикам':['Only testers can change the update channel','Канал обновлений доступен только тестировщикам','Канал оновлень доступний лише тестувальникам','Apenas testadores podem alterar o canal','Solo los testers pueden cambiar el canal'],
-  'Официальная версия временно недоступна':['The official version is temporarily unavailable','Официальная версия временно недоступна','Офіційна версія тимчасово недоступна','A versão oficial está temporariamente indisponível','La versión oficial no está disponible temporalmente'],
- });
  const button=document.querySelector('#update-button');
  if(!button)return;
  const q=selector=>document.querySelector(selector),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));

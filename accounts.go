@@ -31,9 +31,10 @@ type profileRecord struct {
 	Name     string `json:"name,omitempty"`
 }
 type profileIndex struct {
-	HideDefault bool            `json:"hideDefault,omitempty"`
-	Active      string          `json:"active"`
-	Profiles    []profileRecord `json:"profiles"`
+	DeletionNotices []accountDeletionNotice `json:"deletionNotices,omitempty"`
+	HideDefault     bool                    `json:"hideDefault,omitempty"`
+	Active          string                  `json:"active"`
+	Profiles        []profileRecord         `json:"profiles"`
 }
 type profileSlot struct {
 	profileRecord
@@ -42,6 +43,7 @@ type profileSlot struct {
 	microsoft *identity.MicrosoftClient
 }
 type profileRoster struct {
+	deletionNotices       []accountDeletionNotice
 	lobbyDefaultName      string
 	hideDefault           bool
 	root, base            string
@@ -57,8 +59,14 @@ type profileView struct {
 	Provider string           `json:"provider"`
 	Account  identity.Account `json:"account"`
 }
+type accountDeletionNotice struct {
+	Key      string `json:"key"`
+	Username string `json:"username"`
+	Reason   string `json:"reason"`
+}
 type accountSelection struct {
-	CanAdd bool `json:"canAdd"`
+	DeletionNotices []accountDeletionNotice `json:"deletionNotices,omitempty"`
+	CanAdd          bool                    `json:"canAdd"`
 	identity.State
 	Active          string        `json:"active"`
 	Profiles        []profileView `json:"profiles"`
@@ -151,7 +159,7 @@ func (r *profileRoster) saveIndex(active string, slots []*profileSlot, hideDefau
 	if r.loadError != nil {
 		return r.loadError
 	}
-	index := profileIndex{Active: active, HideDefault: hideDefault, Profiles: make([]profileRecord, 0, len(slots))}
+	index := profileIndex{DeletionNotices: r.deletionNotices, Active: active, HideDefault: hideDefault, Profiles: make([]profileRecord, 0, len(slots))}
 	for _, slot := range slots {
 		index.Profiles = append(index.Profiles, slot.profileRecord)
 	}
@@ -260,10 +268,11 @@ func (r *profileRoster) selection(defaultName string) accountSelection {
 	r.finishLogin()
 	local := localAccount(defaultName)
 	result := accountSelection{
-		State:      identity.State{Provider: "local", Account: &local},
-		Active:     r.active,
-		CanAdd:     r.canAdd(),
-		LoginError: r.loginError,
+		State:           identity.State{Provider: "local", Account: &local},
+		Active:          r.active,
+		CanAdd:          r.canAdd(),
+		LoginError:      r.loginError,
+		DeletionNotices: append([]accountDeletionNotice(nil), r.deletionNotices...),
 	}
 	if !r.hideDefault {
 		result.Profiles = append(result.Profiles, profileView{Key: defaultProfile, Provider: "local", Account: local})
@@ -488,20 +497,7 @@ func (a *App) removeAccount(key string) error {
 	if slot == nil {
 		return errors.New("аккаунт не найден")
 	}
-	remaining := make([]*profileSlot, 0, len(r.slots)-1)
-	for _, other := range r.slots {
-		if other != slot {
-			remaining = append(remaining, other)
-		}
-	}
-	next := r.active
-	if next == key {
-		next = defaultProfile
-		if len(remaining) > 0 {
-			next = remaining[len(remaining)-1].Key
-		}
-	}
-	hideDefault := r.hideDefault && len(remaining) > 0
+	next, remaining, hideDefault := r.withoutAccount(slot)
 	if slot.sintet != nil {
 		if err := slot.sintet.Forget(); err != nil {
 			return err
@@ -525,6 +521,64 @@ func (a *App) removeAccount(key string) error {
 	}
 	return nil
 }
+func (r *profileRoster) withoutAccount(slot *profileSlot) (string, []*profileSlot, bool) {
+	remaining := make([]*profileSlot, 0, len(r.slots)-1)
+	for _, other := range r.slots {
+		if other != slot {
+			remaining = append(remaining, other)
+		}
+	}
+	next := r.active
+	if next == slot.Key {
+		next = defaultProfile
+		if len(remaining) > 0 {
+			next = remaining[len(remaining)-1].Key
+		}
+	}
+	hideDefault := r.hideDefault && len(remaining) > 0
+	return next, remaining, hideDefault
+}
+
+// authMu must be held. The persisted notice survives a close before the UI can show it.
+func (a *App) handleDeletedAccount(slot *profileSlot, err error) {
+	var deleted *identity.AccountDeletedError
+	r := a.profiles
+	if !errors.As(err, &deleted) || r.find(slot.Key) != slot {
+		return
+	}
+	account := slot.sintet.SavedAccount()
+	if account == nil {
+		return
+	}
+	next, remaining, hidden := r.withoutAccount(slot)
+	previous := r.deletionNotices
+	r.deletionNotices = append(r.deletionNotices, accountDeletionNotice{Key: slot.Key, Username: account.Username, Reason: deleted.Reason})
+	if saveErr := r.saveIndex(next, remaining, hidden); saveErr != nil {
+		r.deletionNotices = previous
+		return // Retain the credential to retry the notice on the next check.
+	}
+	_ = slot.sintet.ForgetDeleted()
+}
+
+func (a *App) DismissAccountDeletion(key string) error {
+	a.authMu.Lock()
+	defer a.authMu.Unlock()
+	r := a.profiles
+	for i, notice := range r.deletionNotices {
+		if notice.Key != key {
+			continue
+		}
+		previous := r.deletionNotices
+		r.deletionNotices = append(append([]accountDeletionNotice(nil), previous[:i]...), previous[i+1:]...)
+		if err := r.save(r.active, r.slots); err != nil {
+			r.deletionNotices = previous
+			return err
+		}
+		break
+	}
+	return nil
+}
+
 func (a *App) LogoutSintetID() error { return a.LogoutAccount() }
 
 func (a *App) RefreshProfiles() {
@@ -534,21 +588,21 @@ func (a *App) RefreshProfiles() {
 	}
 }
 
-func (a *App) syncSavedProfiles(ctx context.Context) {
+func (a *App) syncSavedProfiles(ctx context.Context, includeActive bool) {
 	a.authMu.Lock()
-	var clients []*identity.Client
+	var slots []*profileSlot
 	for _, slot := range a.profiles.slots {
-		if slot.sintet != nil {
-			clients = append(clients, slot.sintet)
+		if slot.sintet != nil && (includeActive || slot.Key != a.profiles.active) {
+			slots = append(slots, slot)
 		}
 	}
 	a.authMu.Unlock()
 	var pending sync.WaitGroup
-	for _, client := range clients {
+	for _, slot := range slots {
 		pending.Add(1)
 		go func() {
 			defer pending.Done()
-			a.syncAvatar(ctx, client)
+			a.syncSintetProfile(ctx, slot, includeActive)
 		}()
 	}
 	pending.Wait()
@@ -559,9 +613,22 @@ func (a *App) syncActiveProfile(ctx context.Context) {
 	slot := a.profiles.find(a.profiles.active)
 	a.authMu.Unlock()
 	if slot != nil && slot.sintet != nil {
-		refreshCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-		slot.sintet.RefreshProfile(refreshCtx)
-		cancel()
+		a.syncSintetProfile(ctx, slot, true)
+	}
+}
+
+func (a *App) syncSintetProfile(ctx context.Context, slot *profileSlot, refreshAvatar bool) {
+	refreshCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	err := slot.sintet.RefreshProfile(refreshCtx)
+	cancel()
+	var deleted *identity.AccountDeletedError
+	if errors.As(err, &deleted) {
+		a.authMu.Lock()
+		a.handleDeletedAccount(slot, err)
+		a.authMu.Unlock()
+		return
+	}
+	if refreshAvatar {
 		a.syncAvatar(ctx, slot.sintet)
 	}
 }

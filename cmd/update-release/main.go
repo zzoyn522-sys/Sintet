@@ -12,18 +12,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 )
 
 type payload struct {
-	Version  string   `json:"version"`
-	Channel  string   `json:"channel,omitempty"`
-	Beta     bool     `json:"beta,omitempty"`
-	Notes    []string `json:"notes,omitempty"`
-	URL      string   `json:"url"`
-	SHA256   string   `json:"sha256"`
-	Size     int64    `json:"size"`
-	Released string   `json:"releasedAt"`
+	Version        string   `json:"version"`
+	DisplayVersion string   `json:"displayVersion,omitempty"`
+	Channel        string   `json:"channel,omitempty"`
+	Beta           bool     `json:"beta,omitempty"`
+	Notes          []string `json:"notes,omitempty"`
+	URL            string   `json:"url"`
+	SHA256         string   `json:"sha256"`
+	Size           int64    `json:"size"`
+	Released       string   `json:"releasedAt"`
 }
 type envelope struct {
 	Payload   string `json:"payload"`
@@ -35,6 +37,7 @@ func main() {
 	public := flag.Bool("public-key", false, "print the public key as lowercase hex")
 	initKey := flag.Bool("init-key", false, "generate a signing key if missing")
 	version := flag.String("version", "", "release version")
+	displayVersion := flag.String("display-version", "", "override the visible stable release version")
 	channel := flag.String("channel", "", "release channel: empty for stable, beta for a public beta, test for a targeted preview")
 	exe := flag.String("exe", "", "launcher executable to publish")
 	manifest := flag.String("manifest", "", "output signed manifest path")
@@ -82,12 +85,15 @@ func main() {
 	if *version == "" || *exe == "" || *manifest == "" {
 		fatal("use -version, -exe and -manifest to create a release manifest")
 	}
+	if *displayVersion != "" && (*channel != "" || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(*displayVersion)) {
+		fatal("-display-version requires a four-part stable version")
+	}
 	data, err := os.ReadFile(*exe)
 	if err != nil {
 		fatal(err.Error())
 	}
 	sum := sha256.Sum256(data)
-	p := payload{Version: *version, Channel: *channel, URL: fmt.Sprintf("https://sintet-updates.zzoyn522.workers.dev/stable/Sintet-%s.exe", *version), SHA256: hex.EncodeToString(sum[:]), Size: int64(len(data)), Released: time.Now().UTC().Format(time.RFC3339)}
+	p := payload{Version: *version, DisplayVersion: *displayVersion, Channel: *channel, URL: fmt.Sprintf("https://sintet-updates.zzoyn522.workers.dev/stable/Sintet-%s.exe", *version), SHA256: hex.EncodeToString(sum[:]), Size: int64(len(data)), Released: time.Now().UTC().Format(time.RFC3339)}
 	if *channel == "beta" {
 		// Installed launchers reject unknown channel values on the public feed.
 		p.Channel, p.Beta = "", true

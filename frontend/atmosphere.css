@@ -31,18 +31,7 @@ body:has(.nav.active[data-page="workshop"]) {
   --glow-middle: #965abd;
   --glow-end: #5b6ab5;
 }
-body:has(#logs-dialog[open]) {
-  --glow-start: #a35a61;
-  --glow-middle: #ab7850;
-  --glow-end: #8a5c90;
-}
-
-#logs-dialog[open] {
-  background-image: radial-gradient(ellipse 80% 105px at 50% 0,
-    color-mix(in srgb,var(--glow-middle) 12%,transparent),transparent 100%);
-}
-
-#account-dialog[open] {
+html:not([data-profile-gradient-off]) #account-dialog[open] {
   --glow-start: var(--avatar-glow-start,#a167b5);
   --glow-middle: var(--avatar-glow-middle,#9c5fb3);
   --glow-end: var(--avatar-glow-end,#78378c);
@@ -56,5 +45,5 @@ body:has(#logs-dialog[open]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body, #account-dialog[open] {transition: none}
+  body, html:not([data-profile-gradient-off]) #account-dialog[open] {transition: none}
 }

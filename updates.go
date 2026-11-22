@@ -29,6 +29,7 @@ var defaultLauncherVersion string
 
 // Release builds can override the version with a linker flag.
 var launcherVersion string
+var launcherDisplayVersion string
 var updatePublicKeyHex = "6465d83b4eece79f1bae8ef11c302271f9c79683c4b3cf38f5a2e5c8fa5ae99f"
 var updateHealthMarker string
 var targetedBootstrapAccountID string
@@ -49,14 +50,15 @@ type signedUpdateEnvelope struct {
 }
 
 type updatePayload struct {
-	Version  string   `json:"version"`
-	Channel  string   `json:"channel,omitempty"`
-	Beta     bool     `json:"beta,omitempty"`
-	Notes    []string `json:"notes,omitempty"`
-	URL      string   `json:"url"`
-	SHA256   string   `json:"sha256"`
-	Size     int64    `json:"size"`
-	Released string   `json:"releasedAt,omitempty"`
+	Version        string   `json:"version"`
+	DisplayVersion string   `json:"displayVersion,omitempty"`
+	Channel        string   `json:"channel,omitempty"`
+	Beta           bool     `json:"beta,omitempty"`
+	Notes          []string `json:"notes,omitempty"`
+	URL            string   `json:"url"`
+	SHA256         string   `json:"sha256"`
+	Size           int64    `json:"size"`
+	Released       string   `json:"releasedAt,omitempty"`
 }
 
 type updateView struct {
@@ -110,8 +112,22 @@ func (a *App) activeUpdateClient() *identity.Client {
 
 func (a *App) LauncherVersion() string { return launcherVersion }
 func (a *App) LauncherDisplayVersion() string {
-	return releaseVersionLabel(launcherVersion, launcherChannel)
+	return currentReleaseLabel()
 }
+func currentReleaseLabel() string {
+	return (updatePayload{Version: launcherVersion, DisplayVersion: launcherDisplayVersion, Channel: launcherChannel}).displayLabel()
+}
+
+func (p updatePayload) displayLabel() string {
+	if p.Beta {
+		return releaseVersionLabel(p.Version, "beta")
+	}
+	if p.Channel == "" && versionIsNewer(p.DisplayVersion, "0.0.0") {
+		return p.DisplayVersion
+	}
+	return releaseVersionLabel(p.Version, p.Channel)
+}
+
 func releaseVersionLabel(version, channel string) string {
 	if channel == "beta" {
 		return version + " BETA"
@@ -224,11 +240,7 @@ func (u *updateManager) check(ctx context.Context, account *identity.Client, off
 	payload := selectUpdate(public, private, launcherVersion, launcherChannel, official)
 	u.mu.Lock()
 	u.payload = payload
-	channel := payload.Channel
-	if payload.Beta {
-		channel = "beta"
-	}
-	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: releaseVersionLabel(payload.Version, channel), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion),
+	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: payload.displayLabel(), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion),
 		Tester: offer.Tester, OfficialOnly: official, CanReturn: offer.Tester && launcherChannel == "test"}
 	v := u.state
 	u.mu.Unlock()
@@ -359,10 +371,7 @@ func (u *updateManager) install(app *App, payload updatePayload, returning bool)
 		return errors.New("Нет доступного обновления")
 	}
 	u.state.LatestVersion = payload.Version
-	u.state.LatestLabel = releaseVersionLabel(payload.Version, payload.Channel)
-	if payload.Beta {
-		u.state.LatestLabel = releaseVersionLabel(payload.Version, "beta")
-	}
+	u.state.LatestLabel = payload.displayLabel()
 	u.state.Downloading = true
 	u.state.Stage = "Подготовка обновления"
 	u.state.Percent = 0

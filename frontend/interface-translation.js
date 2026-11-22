@@ -31,8 +31,18 @@
   return translate(key).replace(/%%|%(?:\.[0-9]+)?[sdvwgfq]/g,placeholder=>placeholder==='%%'?'%':String(args[index++]??''));
  }};
  const originals=new WeakMap();
- const attrs=['title','aria-label','aria-description','placeholder','alt'];
+ const attrs=['aria-label','aria-description','placeholder','alt'];
  const ignored='script,style,code,pre,[contenteditable],#interface-language,[data-no-translate]';
+ const hoverDescriptions=new WeakSet();
+ function removeHoverTitle(node) {
+  const title=node.getAttribute('title');
+  if(title===null)return;
+  if(title&&(!node.hasAttribute('aria-description')||hoverDescriptions.has(node))){
+   node.setAttribute('aria-description',title);
+   hoverDescriptions.add(node);
+  }
+  node.removeAttribute('title');
+ }
  function update(node,attribute) {
   const previous=originals.get(node)||{};
   const current=attribute?node.getAttribute(attribute):node.nodeValue;
@@ -51,19 +61,24 @@
  function walk(node) {
   if(node.nodeType===Node.TEXT_NODE){
    if(!node.parentElement?.closest(ignored))update(node);
-  }else if(node.nodeType===Node.ELEMENT_NODE&&!node.closest(ignored)){
-   for(const attr of attrs)update(node,attr);
+  }else if(node.nodeType===Node.ELEMENT_NODE){
+   removeHoverTitle(node);
+   if(!node.closest(ignored))for(const attr of attrs)update(node,attr);
    for(const child of node.childNodes)walk(child);
   }
  }
  const observer=new MutationObserver(records=>{
   for(const record of records){
    if(record.type==='childList'){for(const node of record.addedNodes)walk(node);}
-   else if(record.type==='attributes'){if(!record.target.closest(ignored))update(record.target,record.attributeName);}
+   else if(record.type==='attributes'){
+    if(record.attributeName==='title')removeHoverTitle(record.target);
+    else if(!record.target.closest(ignored))update(record.target,record.attributeName);
+   }
    else walk(record.target);
   }
  });
- observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:attrs});
+ observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:[...attrs,'title']});
+ walk(document.body);
  window.addEventListener('sintet:settings',event=>{
   language=event.detail.config.interfaceLanguage||'en';
   walk(document.body);

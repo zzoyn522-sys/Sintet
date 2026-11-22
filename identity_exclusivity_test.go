@@ -274,3 +274,70 @@ func TestFiveProfilesAndRemovingInactiveAccount(t *testing.T) {
 		t.Fatal("default fallback was not restored")
 	}
 }
+
+func TestDeletedSintetAccountClearsSelectionAndPersistsNotice(t *testing.T) {
+	account := identity.Account{ID: "ba815a63-4176-45db-8e70-12e3801c1207", Username: "FirstPlayer"}
+	token := strings.Repeat("a", 43)
+	status := make(chan int, 1)
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/launcher/token":
+			_ = json.NewEncoder(w).Encode(map[string]any{"account": account, "token": token, "expires": time.Now().Add(time.Hour)})
+		case "/api/launcher/session":
+			if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer "+token {
+				t.Error("unexpected deletion check")
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+			code := <-status
+			w.WriteHeader(code)
+			if code == http.StatusGone {
+				_ = json.NewEncoder(w).Encode(map[string]string{"code": "ACCOUNT_DELETED", "reason": "Local fixture reason"})
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer site.Close()
+	root := t.TempDir()
+	old := identity.New(site.URL, filepath.Join(root, "identity.dpapi"))
+	address, err := old.Start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorizeFixture(t, address, token)
+	app := &App{profiles: newProfileRoster(root, site.URL), service: launcher.New(root)}
+	configure := func(app *App) { app.profiles.find("legacy-sintet").sintet.ServiceBase = site.URL }
+	configure(app)
+	status <- http.StatusUnauthorized
+	app.syncActiveProfile(context.Background())
+	if got := app.IdentityState("Player"); got.Account.ID != account.ID || len(got.DeletionNotices) != 0 {
+		t.Fatal("ordinary expiration removed the account", got)
+	}
+	app.profiles = newProfileRoster(root, site.URL)
+	configure(app)
+	status <- http.StatusGone
+	app.syncSavedProfiles(context.Background(), true)
+	got := app.IdentityState("Player")
+	if got.Active != defaultProfile || len(got.Profiles) != 1 || len(got.DeletionNotices) != 1 {
+		t.Fatal("deleted account or missing notice", got)
+	}
+	notice := got.DeletionNotices[0]
+	if notice.Username != account.Username || notice.Reason != "Local fixture reason" {
+		t.Fatal("incorrect notice", notice)
+	}
+	if _, err = os.Stat(filepath.Join(root, "identity.dpapi")); !os.IsNotExist(err) {
+		t.Fatal("old credential remains", err)
+	}
+	app.profiles = newProfileRoster(root, site.URL)
+	if got = app.IdentityState("Player"); len(got.DeletionNotices) != 1 || got.DeletionNotices[0] != notice {
+		t.Fatal("notice did not survive restart", got)
+	}
+	if err = app.DismissAccountDeletion(notice.Key); err != nil {
+		t.Fatal(err)
+	}
+	app.profiles = newProfileRoster(root, site.URL)
+	if got = app.IdentityState("Player"); len(got.DeletionNotices) != 0 {
+		t.Fatal("notice returned after dismissal", got)
+	}
+}

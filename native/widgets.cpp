@@ -119,7 +119,7 @@ void drawIcon(ImDrawList* draw,Icon icon,ImVec2 center,float scale,ImU32 ink){
  }
 }
 
-bool iconButton(const char* id,Icon icon,ImVec2 top,float size,float scale,const char* tooltip,bool active=false,bool enabled=true,const ImVec4* tint=nullptr){
+bool iconButton(const char* id,Icon icon,ImVec2 top,float size,float scale,bool active=false,bool enabled=true,const ImVec4* tint=nullptr){
  auto* draw=ImGui::GetWindowDrawList();
  ImGui::SetCursorScreenPos(top);
  ImGui::BeginDisabled(!enabled);
@@ -131,7 +131,6 @@ bool iconButton(const char* id,Icon icon,ImVec2 top,float size,float scale,const
  draw->AddRectFilled(top,ImVec2(top.x+size,top.y+size),ImGui::GetColorU32(fill),7*scale);
  const ImVec4 ink=tint?*tint:active?theme.accent:theme.text;
  drawIcon(draw,icon,ImVec2(top.x+size*.5f,top.y+size*.5f),scale,ImGui::GetColorU32(ink));
- if(ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))ImGui::SetTooltip("%s",tooltip);
  ImGui::EndDisabled();
  return clicked;
 }
@@ -181,7 +180,6 @@ void drawBattery(ImDrawList* draw,ImVec2 top,float scale,float space){
  }
  char percent[8];std::snprintf(percent,sizeof(percent),"%d%%",clock.battery);
  if(space>29)draw->AddText(ImGui::GetFont(),(space<61?11:13)*scale,p(25,-2),fill,percent);
- if(ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(p(-3,-5),p(space-4,15)))ImGui::SetTooltip("%s%s",percent,clock.powered?OverlayText(" · от сети"):OverlayText(" · от батареи"));
 }
 
 void drawBar(ImVec2 position,float width,float height,float scale,float alpha,bool open,bool compact,bool vertical,
@@ -197,9 +195,9 @@ void drawBar(ImVec2 position,float width,float height,float scale,float alpha,bo
    else x+=size+4;
    return point;
   };
-  if(iconButton("##sound",Icon::Audio,place(button),button*scale,scale,OverlayText("Звук"),popup==Popup::Sound))
+  if(iconButton("##sound",Icon::Audio,place(button),button*scale,scale,popup==Popup::Sound))
    popup=popup==Popup::Sound?Popup::None:Popup::Sound;
-  if(iconButton("##performance",Icon::Performance,place(button),button*scale,scale,OverlayText("Производительность"),performanceOpen)){
+  if(iconButton("##performance",Icon::Performance,place(button),button*scale,scale,performanceOpen)){
    performanceOpen=!performanceOpen;
    if(!performanceOpen)pinned=false;
   }
@@ -216,17 +214,14 @@ void drawBar(ImVec2 position,float width,float height,float scale,float alpha,bo
   drawIcon(draw,Icon::Network,ImVec2(link.x+button*scale*.5f,link.y+button*scale*.5f),.81f*scale,ImGui::GetColorU32(quality));
   const auto delay=ping(network.quality);
   if(linkWidth>button)draw->AddText(ImGui::GetFont(),(compact?11:13)*scale,ImVec2(link.x+(compact?25:30)*scale,link.y+(button-13)*scale*.5f),ImGui::GetColorU32(quality),delay.c_str());
-  if(hovered)ImGui::SetTooltip(OverlayText("Сеть P2P · %s"),delay.c_str());
-  if(iconButton("##screenshot",Icon::Camera,place(button),button*scale,scale,OverlayText("Снимок игры · Ctrl + F12"),
+  if(iconButton("##screenshot",Icon::Camera,place(button),button*scale,scale,
                 false,!SintetOverlayStyle::preview))SintetScreenshot::Request();
   const auto mic=volumes()[2];
   const ImVec4 red(.98f,.51f,.50f,1);
   if(iconButton("##microphone",mic.muted?Icon::MicOff:Icon::Mic,place(button),button*scale,scale,
-                mic.available?(mic.muted?OverlayText("Включить микрофон Windows"):OverlayText("Выключить микрофон Windows")):OverlayText("Микрофон Windows недоступен"),
                 false,mic.available,mic.muted?&red:nullptr))
    setMuted(SintetAudio::Target::Microphone,!mic.muted);
-  if(iconButton("##ghost",ghost?Icon::EyeOff:Icon::Eye,place(button),button*scale,scale,
-                ghost?OverlayText("Показать закреплённые виджеты"):OverlayText("Скрыть закреплённые виджеты"),ghost))ghost=!ghost;
+  if(iconButton("##ghost",ghost?Icon::EyeOff:Icon::Eye,place(button),button*scale,scale,ghost))ghost=!ghost;
   const auto divider=ImGui::GetColorU32(SintetOverlayStyle::Blend(theme.surface,theme.text,.28f));
   if(vertical){
    draw->AddLine(p(10,y+1),p(width/scale-10,y+1),divider,scale);
@@ -263,8 +258,7 @@ void drawNetwork(ImVec2 position,float width,float scale,float alpha,bool open,I
   auto* font=ImGui::GetFont();
   const auto ink=ImGui::GetColorU32(ImGuiCol_Text),muted=ImGui::GetColorU32(ImGuiCol_TextDisabled);
   draw->AddText(heading,16*scale,p(14,12),ink,OverlayText("Сеть P2P"));
-  if(iconButton("##network-pin",Icon::Pin,p(width/scale-38,8),24*scale,.76f*scale,
-                networkPinned?OverlayText("Скрыть показатели поверх игры"):OverlayText("Закрепить показатели поверх игры"),networkPinned)){
+  if(iconButton("##network-pin",Icon::Pin,p(width/scale-38,8),24*scale,.76f*scale,networkPinned)){
    networkPinned=!networkPinned;
    if(!networkPinFile.empty()){
     if(networkPinned){
@@ -288,8 +282,6 @@ void drawNetwork(ImVec2 position,float width,float scale,float alpha,bool open,I
    draw->AddText(font,12*scale,p(14+section*2,45),muted,OverlayText("Туннель"));
    draw->AddText(heading,16*scale,p(14,63),ImGui::GetColorU32(networkColor(quality)),ping(quality).c_str());
    draw->AddText(heading,16*scale,p(14+section,63),ink,loss);
-   if(open&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(lossLabel,p(14+section*2,79)))
-    ImGui::SetTooltip("%s",OverlayText("Доля проверочных пакетов без ответа за последние 12 секунд."));
    draw->AddText(heading,16*scale,p(14+section*2,63),ink,speed);
    for(size_t i=0;i<network.networkPeers.size();++i){
     const auto& peer=network.networkPeers[i];
@@ -299,7 +291,7 @@ void drawNetwork(ImVec2 position,float width,float scale,float alpha,bool open,I
     draw->AddCircleFilled(p(23,y+8),3*scale,color);
     const auto namePos=p(32,y+1);
     const float nameWidth=width-48*scale,iconSize=12*scale;
-    SintetBadgeMark::DrawName(draw,heading,13*scale,namePos,nameWidth,ink,peer.name,iconSize,peer.provider,peer.badges,open);
+    SintetBadgeMark::DrawName(draw,heading,13*scale,namePos,nameWidth,ink,peer.name,iconSize,peer.provider,peer.badges);
     char values[80];
     if(peer.quality.loss>=0)std::snprintf(values,sizeof(values),OverlayText("%s  ·  %.0f%%  ·  %.1f КБ/с"),ping(peer.quality).c_str(),peer.quality.loss,peer.quality.kbPerSec);
     else std::snprintf(values,sizeof(values),OverlayText("%s  ·  –  ·  %.1f КБ/с"),ping(peer.quality).c_str(),peer.quality.kbPerSec);
@@ -325,7 +317,7 @@ void volumeRow(SintetAudio::Target target,const SintetAudio::Volume& volume,cons
  draw->AddText(ImGui::GetFont(),13*scale,ImVec2(top.x+width-34*scale-valueWidth,top.y),mutedInk,value);
  ImGui::PushID(static_cast<int>(target));
  if(iconButton("##mute",volume.muted?Icon::Muted:Icon::Audio,p(width/scale-24,-4),24*scale,.77f*scale,
-               volume.muted?OverlayText("Включить звук"):OverlayText("Выключить звук"),volume.muted,volume.available))setMuted(target,!volume.muted);
+               volume.muted,volume.available))setMuted(target,!volume.muted);
  const auto slider=p(0,21);
  const float length=width-34*scale;
  ImGui::SetCursorScreenPos(slider);
@@ -437,8 +429,8 @@ void drawPerformance(ImVec2 position,ImVec2 size,float scale,float alpha,bool op
     performanceMoved=true;
     performancePosition=ImVec2(position.x+delta.x,position.y+delta.y);
    }
-   if(iconButton("##pin",Icon::Pin,p(width-60,6),23*scale,.76f*scale,pinned?OverlayText("Открепить"):OverlayText("Закрепить поверх игры"),pinned))pinned=!pinned;
-   if(iconButton("##close-performance",Icon::Close,p(width-31,6),23*scale,.82f*scale,OverlayText("Закрыть"))){performanceOpen=false;pinned=false;}
+   if(iconButton("##pin",Icon::Pin,p(width-60,6),23*scale,.76f*scale,pinned))pinned=!pinned;
+   if(iconButton("##close-performance",Icon::Close,p(width-31,6),23*scale,.82f*scale)){performanceOpen=false;pinned=false;}
   }
 
   char fps[16]="–",low[16]="–",frame[20]="–",cpu[96],memory[96];

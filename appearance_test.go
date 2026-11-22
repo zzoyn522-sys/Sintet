@@ -350,3 +350,23 @@ func TestWaveDefaultPreservesLegacySavedThemes(t *testing.T) {
 		t.Fatal("explicitly selected gradient was replaced")
 	}
 }
+
+func TestAppearancePersistsAmbientEffects(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "appearance.json")
+	a := &App{appearance: defaultAppearance(), appearancePath: path}
+	settings := a.appearance
+	settings.GlintsEnabled = false
+	settings.GlintStrength = 0
+	settings.GlintColor = "#ffaa66"
+	settings.ParticlesEnabled = false
+	settings.ParticleCount = 0
+	settings.ParticleSpeedX = -35
+	settings.ParticleMinSize = 12
+	settings.ParticleMaxSize = 12
+	if err := a.SaveAppearance(settings); err != nil {
+		t.Fatal(err)
+	}
+	if got := readAppearanceLibrary(path).Current; got != settings {
+		t.Fatal("saved appearance changed after reloading from disk")
+	}
+}

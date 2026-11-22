@@ -116,9 +116,9 @@
 }
 
 .tour-card .tour-skip { padding: 0 6px; min-height: 26px; color: #bababa; }
-.tour-card :is(.tour-skip, .tour-back):is(:hover, :focus-visible) { background: #fff1; color: #fff; }
+.tour-card :is(.tour-skip, .tour-back):hover { background: #fff1; color: #fff; }
 .tour-card .tour-next { min-width: 83px; color: #131313; background: #eee; }
-.tour-card .tour-next:is(:hover, :focus-visible) { background: #fff; }
+.tour-card .tour-next:hover { background: #fff; }
 .tour-card [hidden] { display: none; }
 
 @keyframes tour-enter { from { opacity: 0; } }

@@ -18,7 +18,26 @@ html{font-size:15px;font-weight:500}.brand{font-size:22px;font-weight:700}.heade
 .account-handle{display:block;margin:5px auto 0;padding:3px 8px;background:transparent;border:0;color:var(--text-muted,#999);font:inherit;font-size:13px;cursor:pointer}.account-handle[hidden]{display:none}.account-handle:hover{color:var(--text,#eee)}.presence-handle,.friend-handle{color:var(--text-muted,#999);font-size:12px;font-weight:500;line-height:1.4}
 
 :where(button, input, select, textarea, a[href], summary, [tabindex]):focus {outline: none}
-:where(input, select, textarea, a[href], summary, [tabindex]):where(:not(button, [role=button], [role=tab])):focus-visible {
-  outline: 1px solid var(--focus-ring,#a0a0a0);
-  outline-offset: -1px;
+
+
+#toast {
+ display:flex;align-items:center;gap:12px;z-index:40;
+ max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere;
+ color:var(--custom-text,#eee);background:var(--launcher-surface,#292929);
+ border-radius:var(--launcher-radius,10px);
 }
+#toast-action {
+ flex:none;padding:5px 8px;border-radius:var(--button-radius,6px);color:inherit;font-size:12px;font-weight:650;
+ background:color-mix(in srgb,currentColor 10%,transparent);
+}
+#toast.visible #toast-action {pointer-events:auto}
+#toast-action:hover {background:color-mix(in srgb,currentColor 18%,transparent)}
+#toast-action[hidden] {display:none}
+@media(prefers-reduced-motion:reduce) {#toast {transition:none}}
+html[data-launcher-panels] #toast {
+ background:color-mix(in srgb,var(--launcher-surface,#292929) var(--launcher-opacity,100%),transparent);
+ backdrop-filter:blur(var(--launcher-blur,0px));
+}
+
+/* Page transitions may extend past the viewport without adding a scrollbar. */
+body > main {overflow-x:hidden}

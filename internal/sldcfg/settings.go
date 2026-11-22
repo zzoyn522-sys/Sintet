@@ -79,6 +79,7 @@ type Appearance struct {
 	ProfileColor         string            `json:"profileColor"`
 	ProfileText          string            `json:"profileText"`
 	ProfileControl       string            `json:"profileControl"`
+	ProfileGradientOff   bool              `json:"profileGradientOff"`
 	Theme                string            `json:"theme"`
 	Font                 string            `json:"font"`
 	Accent               string            `json:"accent"`
@@ -115,10 +116,27 @@ type Appearance struct {
 	MotionSpeed          int               `json:"motionSpeed"`
 	BackgroundEffect     string            `json:"backgroundEffect"`
 	WaveColor            string            `json:"waveColor"`
+	WaveStyle            string            `json:"waveStyle"`
 	WaveIntensity        int               `json:"waveIntensity"`
 	WaveAmplitude        int               `json:"waveAmplitude"`
 	WaveTrail            int               `json:"waveTrail"`
 	WaveOffset           int               `json:"waveOffset"`
+	GlintsEnabled        bool              `json:"glintsEnabled"`
+	GlintCount           int               `json:"glintCount"`
+	GlintSize            int               `json:"glintSize"`
+	GlintStrength        int               `json:"glintStrength"`
+	GlintSpeed           int               `json:"glintSpeed"`
+	GlintColor           string            `json:"glintColor"`
+	ParticlesEnabled     bool              `json:"particlesEnabled"`
+	ParticleCount        int               `json:"particleCount"`
+	ParticleMinSize      int               `json:"particleMinSize"`
+	ParticleMaxSize      int               `json:"particleMaxSize"`
+	ParticleOpacity      int               `json:"particleOpacity"`
+	ParticleFade         int               `json:"particleFade"`
+	ParticleSpeedX       int               `json:"particleSpeedX"`
+	ParticleSpeedY       int               `json:"particleSpeedY"`
+	ParticleDepth        int               `json:"particleDepth"`
+	ParticleColor        string            `json:"particleColor"`
 }
 
 func Default() Appearance {
@@ -128,7 +146,10 @@ func Default() Appearance {
 		NavOpacity: 100, NavHeight: 55, NavTabWidth: 130, NavTabHeight: 39, NavTabRadius: 11, NavTabGap: 52, NavTextSize: 15,
 		Opacity: 100, Radius: 14, Dim: 45, Fit: "cover", Gradient: true, Animate: true, CanvasColor: "#090909", PanelColor: "#191919", TextColor: "#ededed", Position: "center",
 		TextScale: 100, TextWeight: 600, ButtonRadius: 10, BackgroundSaturation: 100, BackgroundZoom: 100, BackgroundBrightness: 100, BackgroundContrast: 100, BackgroundOpacity: 100, GradientX: 12, GradientY: 48, GradientSize: 100, MotionSpeed: 50,
-		BackgroundEffect: "gradient", WaveColor: "#ffffff", WaveIntensity: 100, WaveAmplitude: 100, WaveTrail: 50}
+		BackgroundEffect: "gradient", WaveColor: "#ffffff", WaveStyle: "smooth", WaveIntensity: 100, WaveAmplitude: 100, WaveTrail: 50,
+		GlintsEnabled: false, GlintCount: 5, GlintSize: 110, GlintStrength: 24, GlintSpeed: 22, GlintColor: "#a9c7ff",
+		ParticlesEnabled: true, ParticleCount: 54, ParticleMinSize: 1, ParticleMaxSize: 4, ParticleOpacity: 36, ParticleFade: 100,
+		ParticleSpeedX: -18, ParticleSpeedY: 0, ParticleDepth: 70, ParticleColor: "#e1ebff"}
 }
 
 func (p Appearance) Valid() bool {
@@ -164,8 +185,16 @@ func (p Appearance) Valid() bool {
 		p.GradientX >= 0 && p.GradientX <= 100 && p.GradientY >= 0 && p.GradientY <= 100 &&
 		p.GradientSize >= 50 && p.GradientSize <= 180 && p.MotionSpeed >= 10 && p.MotionSpeed <= 100 &&
 		(p.BackgroundEffect == "wave" || p.BackgroundEffect == "gradient") && themeColor.MatchString(p.WaveColor) &&
+		(p.WaveStyle == "smooth" || p.WaveStyle == "pixel") &&
 		p.WaveIntensity >= 0 && p.WaveIntensity <= 130 && p.WaveAmplitude >= 0 && p.WaveAmplitude <= 160 && p.WaveTrail >= 0 && p.WaveTrail <= 100 &&
 		p.WaveOffset >= 0 && p.WaveOffset <= 240 &&
+		themeColor.MatchString(p.GlintColor) && p.GlintCount >= 0 && p.GlintCount <= 8 && p.GlintSize >= 20 && p.GlintSize <= 220 &&
+		p.GlintStrength >= 0 && p.GlintStrength <= 100 && p.GlintSpeed >= 0 && p.GlintSpeed <= 100 &&
+		themeColor.MatchString(p.ParticleColor) && p.ParticleCount >= 0 && p.ParticleCount <= 180 &&
+		p.ParticleMinSize >= 1 && p.ParticleMinSize <= 16 && p.ParticleMaxSize >= p.ParticleMinSize && p.ParticleMaxSize <= 32 &&
+		p.ParticleOpacity >= 0 && p.ParticleOpacity <= 100 && p.ParticleFade >= 0 && p.ParticleFade <= 100 &&
+		p.ParticleSpeedX >= -100 && p.ParticleSpeedX <= 100 && p.ParticleSpeedY >= -100 && p.ParticleSpeedY <= 100 &&
+		p.ParticleDepth >= 0 && p.ParticleDepth <= 100 &&
 		p.NavOpacity >= 35 && p.NavOpacity <= 100 && p.NavBlur >= 0 && p.NavBlur <= 30 &&
 		p.NavHeight >= 52 && p.NavHeight <= 76 && p.NavTabWidth >= 105 && p.NavTabWidth <= 175 &&
 		p.NavTabHeight >= 28 && p.NavTabHeight <= 46 && p.NavTabRadius >= 0 && p.NavTabRadius <= 24 &&

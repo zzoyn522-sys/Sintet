@@ -27,6 +27,9 @@ inline const char* OverlayText(const char* russian) {
  const int language=OverlayLanguage();
  if(language==1)return russian;
  static const std::unordered_map<std::string,std::array<const char*,5>> text={
+  {"Sintet Overlay – предпросмотр (F11)", {"Sintet Overlay – preview (F11)", "Sintet Overlay – предпросмотр (F11)", "Sintet Overlay – попередній перегляд (F11)", "Sintet Overlay – pré-visualização (F11)", "Sintet Overlay – vista previa (F11)"}},
+  {"Ничего не ставить", {"Nothing to install", "Ничего не ставить", "Нічого не встановлювати", "Sem instalação", "No instalar nada"}},
+  {"Запусти Minecraft и открой мир для сети", {"Launch Minecraft and open your world to LAN", "Запусти Minecraft и открой мир для сети", "Запусти Minecraft і відкрий світ для мережі", "Inicia o Minecraft e abre o mundo à rede local", "Inicia Minecraft y abre el mundo en LAN"}},
   {"Закрыть предпросмотр", {"Close preview", "Закрыть предпросмотр", "Закрити попередній перегляд", "Fechar pré-visualização", "Cerrar vista previa"}},
   {"Лобби без Sintet ID", {"Lobby without Sintet ID", "Лобби без Sintet ID", "Лобі без Sintet ID", "Lobby sem Sintet ID", "Sala sin Sintet ID"}},
   {"Для игры с друзьями рекомендуем Sintet ID. Без него доступен 1 ГБ TURN на два месяца. Прямое P2P не тратит этот лимит.", {"We recommend Sintet ID for playing with friends. Without it, you get 1 GB of TURN every two months. Direct P2P does not use this allowance.", "Для игры с друзьями рекомендуем Sintet ID. Без него доступен 1 ГБ TURN на два месяца. Прямое P2P не тратит этот лимит.", "Радимо Sintet ID для гри з друзями. Без нього доступний 1 ГБ TURN на два місяці. Пряме P2P не витрачає цей ліміт.", "Recomendamos o Sintet ID para jogar com amigos. Sem ele, tens 1 GB de TURN a cada dois meses. O P2P direto não gasta este limite.", "Recomendamos Sintet ID para jugar con amigos. Sin él tienes 1 GB de TURN cada dos meses. El P2P directo no consume este límite."}},

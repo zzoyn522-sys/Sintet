@@ -20,21 +20,13 @@ import (
 var translationLanguage = regexp.MustCompile(`^[a-z]{2}(-[A-Z]{2})?$`)
 var errTranslationQuota = errors.New("Лимит сервиса перевода исчерпан. Показан оригинал.")
 
-func (c *Client) TranslateDescription(ctx context.Context, text, target string) (string, error) {
+func (c *Client) translateMyMemory(ctx context.Context, text, source, target string) (string, error) {
 	text = strings.TrimSpace(text)
 	if text == "" || target == "" {
 		return text, nil
 	}
 	if len(text) > 4096 || !translationLanguage.MatchString(target) {
 		return "", errors.New("не удалось подготовить описание к переводу")
-	}
-	info := whatlanggo.Detect(text)
-	source := info.Lang.Iso6391()
-	if source == "" {
-		source = "en"
-	}
-	if source == target || (source == "zh" && target == "zh-CN") {
-		return text, nil
 	}
 	c.translationMu.Lock()
 	blocked := time.Now().Before(c.translationBlockedUntil)
@@ -93,4 +85,110 @@ func splitTranslationText(text string) (string, string) {
 		cut = space
 	}
 	return strings.TrimSpace(text[:cut]), strings.TrimSpace(text[cut:])
+}
+
+func (c *Client) TranslateDescription(ctx context.Context, text, target string) (string, error) {
+	text = strings.TrimSpace(text)
+	if text == "" || target == "" {
+		return text, nil
+	}
+	if len(text) > 4096 || !translationLanguage.MatchString(target) {
+		return "", errors.New("не удалось подготовить текст к переводу")
+	}
+	source := whatlanggo.Detect(text).Lang.Iso6391()
+	if source == "" {
+		source = "en"
+	}
+	if source == target || (source == "zh" && target == "zh-CN") {
+		return text, nil
+	}
+
+	primary, cancel := context.WithTimeout(ctx, 4*time.Second)
+	result, err := c.translateMyMemory(primary, text, source, target)
+	cancel()
+	if err == nil && result != text {
+		return result, nil
+	}
+
+	c.translationMu.Lock()
+	lingvaAvailable := time.Now().After(c.lingvaBlockedUntil)
+	c.translationMu.Unlock()
+	if lingvaAvailable {
+		for _, host := range []string{"https://translate.plausibility.cloud", "https://lingva.thedaviddelta.com"} {
+			probe, cancel := context.WithTimeout(ctx, 1800*time.Millisecond)
+			result, err := c.translateLingva(probe, host, text, target)
+			cancel()
+			if err == nil {
+				return result, nil
+			}
+		}
+		if ctx.Err() == nil {
+			c.translationMu.Lock()
+			c.lingvaBlockedUntil = time.Now().Add(2 * time.Minute)
+			c.translationMu.Unlock()
+		}
+	}
+	return c.translateGoogle(ctx, text, target)
+}
+
+func (c *Client) translateLingva(ctx context.Context, host, text, target string) (string, error) {
+	address := host + "/api/v1/auto/" + url.PathEscape(target) + "/" + url.PathEscape(text)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/json")
+	response, err := c.HTTP.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	var result struct {
+		Translation string `json:"translation"`
+	}
+	if response.StatusCode != http.StatusOK ||
+		json.NewDecoder(io.LimitReader(response.Body, 128<<10)).Decode(&result) != nil ||
+		strings.TrimSpace(result.Translation) == "" {
+		return "", errors.New("Lingva Translate недоступен")
+	}
+	return result.Translation, nil
+}
+
+func (c *Client) translateGoogle(ctx context.Context, text, target string) (string, error) {
+	query := url.Values{"client": {"gtx"}, "sl": {"auto"}, "tl": {target}, "dt": {"t"}, "q": {text}}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://translate.googleapis.com/translate_a/single?"+query.Encode(), nil)
+	if err != nil {
+		return "", err
+	}
+	response, err := c.HTTP.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return "", errors.New("сервисы перевода недоступны")
+	}
+	var body []json.RawMessage
+	if err := json.NewDecoder(io.LimitReader(response.Body, 128<<10)).Decode(&body); err != nil || len(body) == 0 {
+		return "", errors.New("не удалось прочитать перевод шейдера")
+	}
+	var segments [][]json.RawMessage
+	if err := json.Unmarshal(body[0], &segments); err != nil {
+		return "", err
+	}
+	var translated strings.Builder
+	for _, segment := range segments {
+		if len(segment) == 0 {
+			continue
+		}
+		var part string
+		if err := json.Unmarshal(segment[0], &part); err != nil {
+			return "", err
+		}
+		translated.WriteString(part)
+	}
+	if strings.TrimSpace(translated.String()) == "" {
+		return "", errors.New("сервис вернул пустой перевод")
+	}
+	return translated.String(), nil
 }

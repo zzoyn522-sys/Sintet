@@ -64,22 +64,27 @@ html[data-launcher-panels]:not([data-custom-profile]) #skin-wardrobe {
   background:color-mix(in srgb,var(--wardrobe-ink) 85%,var(--wardrobe-surface));
 }
 #wardrobe-catalog, .wardrobe-model-type {color:var(--wardrobe-muted)}
-#wardrobe-catalog svg, .wardrobe-model-type svg {width:12px; height:12px}
+#wardrobe-catalog svg {width:12px; height:12px}
 #wardrobe-catalog[aria-pressed=true] svg {transform:rotate(180deg)}
 #wardrobe-catalog:hover:not(:disabled), .wardrobe-close:hover {
   color:var(--wardrobe-ink); background:var(--wardrobe-hover);
 }
 .wardrobe-model-type {position:relative; min-width:0}
-.wardrobe-model-type svg {position:absolute; right:5px; top:8px; pointer-events:none}
-#skin-wardrobe #wardrobe-skin-type {
-  appearance:none; width:auto; max-width:100%; height:29px; padding:0 20px 0 6px;
-  border:0; border-radius:var(--wardrobe-radius); background:transparent; color:inherit;
-  font-size:calc(11px * var(--text-scale,1)); cursor:pointer;
+.wardrobe-model-type .s-select-trigger {
+  gap:7px; height:29px; padding:0 8px;
+  border:0; border-radius:var(--wardrobe-radius); background:var(--wardrobe-hover); color:var(--wardrobe-ink);
+  font-size:calc(11px * var(--text-scale,1));
 }
-#skin-wardrobe #wardrobe-skin-type:hover:not(:disabled) {background:var(--wardrobe-hover); color:var(--wardrobe-ink)}
-#wardrobe-skin-type option {background:var(--wardrobe-surface); color:var(--wardrobe-ink)}
-#skin-wardrobe :is(button,select):focus-visible, #wardrobe-toggle:focus-visible {
-  outline:2px solid currentColor; outline-offset:2px;
+.wardrobe-model-type .s-select-trigger svg {width:12px;height:12px;color:var(--wardrobe-muted)}
+.wardrobe-model-type .s-select-trigger:is(:hover,[aria-expanded=true]) {
+  background:color-mix(in srgb,var(--wardrobe-ink) 16%,transparent);
+}
+#skin-wardrobe .s-select-menu-compact {
+  color:var(--wardrobe-ink); background:var(--wardrobe-control); border:1px solid var(--wardrobe-line);
+  --select-hover:var(--wardrobe-hover);
+}
+#skin-wardrobe .s-select-menu-compact .s-select-option {
+  color:var(--wardrobe-ink);
 }
 #skin-wardrobe button:disabled, #wardrobe-skin-type:disabled {opacity:.55; cursor:wait}
 .wardrobe-preview {position:relative; height:clamp(145px,30vh,218px); display:grid; place-items:center}

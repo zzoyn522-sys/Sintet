@@ -7,6 +7,7 @@ toolchain go1.27.4
 require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/abadojack/whatlanggo v1.0.1
+	github.com/magiconair/properties v1.18.12
 	github.com/masahiro331/go-mvn-version v0.0.0-20260119054159-d21fcd2e7de1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/tc-hib/winres v0.3.1

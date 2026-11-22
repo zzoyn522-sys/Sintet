@@ -1,4 +1,6 @@
 /* Shared dropdown tokens: every single select uses this component. */
+.s-select-menu-compact[popover] {margin:0;inset:auto;box-sizing:border-box}
+.s-select-menu-compact .s-select-option {min-height:30px;padding:6px 8px;font-size:12px}
 :root{--select-surface:#252525;--select-menu:#1c1c1c;--select-hover:#303030;--select-text:#ededed;--select-muted:#929292;--select-radius:10px;--select-motion:140ms}
 .s-select{width:100%;min-width:0}.s-select>select[hidden]{display:none!important}
 .s-select-trigger{width:100%;height:45px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 13px;background:var(--select-surface);color:var(--select-text);border:0;border-radius:var(--select-radius);font-size:15px;font-weight:600;text-align:left;transition:background var(--select-motion)}

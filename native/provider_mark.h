@@ -19,9 +19,8 @@ inline const char* Label(AccountProvider provider){
  }
 }
 
-inline void Draw(ImDrawList* draw,ImVec2 top,float size,AccountProvider provider,bool tooltip){
- const char* label=Label(provider);
- if(!label)return;
+inline void Draw(ImDrawList* draw,ImVec2 top,float size,AccountProvider provider){
+ if(!Label(provider))return;
  auto p=[&](float x,float y){return ImVec2(top.x+x*size,top.y+y*size);};
  const auto tint=[](int r,int g,int b){return ImGui::GetColorU32(IM_COL32(r,g,b,255));};
  if(provider==AccountProvider::Microsoft){
@@ -55,8 +54,6 @@ inline void Draw(ImDrawList* draw,ImVec2 top,float size,AccountProvider provider
   draw->PathBezierCubicCurveTo(p(.14f,.54f),p(.86f,.54f),p(.86f,.87f));
   draw->PathStroke(ink,0,size*.09f);
  }
- if(tooltip&&ImGui::IsWindowHovered()&&ImGui::IsMouseHoveringRect(top,p(1,1)))
-  ImGui::SetTooltip("%s",label);
 }
 
 inline float NameWidth(float available,float iconSize,AccountProvider provider){
@@ -64,10 +61,10 @@ inline float NameWidth(float available,float iconSize,AccountProvider provider){
 }
 
 inline void DrawAfterName(ImDrawList* draw,ImFont* font,float fontSize,ImVec2 top,float available,
-                          const std::string& name,float iconSize,AccountProvider provider,bool tooltip=true){
+                          const std::string& name,float iconSize,AccountProvider provider){
  if(!Label(provider)||name.empty()||available<1.4f*iconSize)return;
  const float measured=font->CalcTextSizeA(fontSize,FLT_MAX,0,name.c_str()).x;
  const float x=std::min(measured,NameWidth(available,iconSize,provider))+.4f*iconSize;
- Draw(draw,ImVec2(top.x+x,top.y+(fontSize-iconSize)*.5f),iconSize,provider,tooltip);
+ Draw(draw,ImVec2(top.x+x,top.y+(fontSize-iconSize)*.5f),iconSize,provider);
 }
 }
