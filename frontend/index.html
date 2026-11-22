@@ -60,17 +60,19 @@
   <canvas></canvas>
 </div>
 <main><section id="screenshots" class="page hidden" aria-labelledby="screenshots-heading">
- <header class="shots-heading">
-  <h1 id="screenshots-heading">Скриншоты</h1>
-  <button type="button" id="shots-refresh" class="shots-icon" aria-label="Обновить"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 7.3a6.4 6.4 0 1 0 .3 5.1M16.4 3.6v4.1h-4.1"/></svg></button>
- </header>
- <div class="shots-toolbar">
-  <label class="shots-search-field">
-   <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>
-   <input type="search" id="shots-search" placeholder="Поиск по имени" aria-label="Поиск по имени" autocomplete="off">
-  </label>
-  <select id="shots-profile" aria-label="Сборка"><option value="">Все сборки</option></select>
-  <select id="shots-sort" aria-label="Сортировка"><option value="recent">Сначала новые</option><option value="old">Сначала старые</option><option value="name">По имени</option></select>
+ <div class="shots-sticky">
+  <header class="shots-heading">
+   <h1 id="screenshots-heading">Скриншоты</h1>
+   <button type="button" id="shots-refresh" class="shots-icon" aria-label="Обновить"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16.2 7.3a6.4 6.4 0 1 0 .3 5.1M16.4 3.6v4.1h-4.1"/></svg></button>
+  </header>
+  <div class="shots-toolbar">
+   <label class="shots-search-field">
+    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg>
+    <input type="search" id="shots-search" placeholder="Поиск по имени" aria-label="Поиск по имени" autocomplete="off">
+   </label>
+   <select id="shots-profile" aria-label="Сборка"><option value="">Все сборки</option></select>
+   <select id="shots-sort" aria-label="Сортировка"><option value="recent">Сначала новые</option><option value="old">Сначала старые</option><option value="name">По имени</option></select>
+  </div>
  </div>
  <p class="shots-status" id="shots-status" role="status"></p>
  <div id="shots-grid"></div>

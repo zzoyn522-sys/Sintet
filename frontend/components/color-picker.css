@@ -1,6 +1,7 @@
 input[type=color] {appearance:none; border:0; border-radius:8px; background:#252525; cursor:pointer}
 input[type=color]::-webkit-color-swatch-wrapper {padding:0}
 input[type=color]::-webkit-color-swatch {border:0; border-radius:4px}
+html.color-picker-sampling,html.color-picker-sampling * {cursor:crosshair!important}
 #appearance-pane-profile > .check-label {margin-top:12px}
 .color-picker {
  position:fixed; inset:auto; margin:0; box-sizing:border-box;
@@ -25,7 +26,14 @@ input[type=color]::-webkit-color-swatch {border:0; border-radius:4px}
  border-radius:6px; background:#252525; color:inherit;
 }
 .color-picker .color-picker-dropper[hidden] {display:none}
+.color-picker .color-picker-dropper:disabled {opacity:.55;cursor:wait}
 .color-picker-dropper svg {width:16px; height:16px}
+.color-picker-pick-prompt {
+ position:fixed;z-index:2147483647;right:14px;bottom:14px;max-width:calc(100vw - 28px);
+ padding:9px 13px;border-radius:999px;background:#191919ed;color:#eee;
+ box-shadow:0 6px 22px #0008;font-size:12px;pointer-events:none;
+}
+.color-picker-pick-prompt[hidden] {display:none}
 .color-picker-preview {flex:none; width:24px; height:24px; border-radius:50%; background:var(--picked); border:1px solid #ffffff28}
 .color-picker .color-picker-hue {
  appearance:none; flex:1; width:0; min-width:0; height:9px; margin:0; padding:0; border:0; border-radius:8px;

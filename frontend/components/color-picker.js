@@ -19,6 +19,11 @@
    <select data-native-select aria-label="Формат цвета"><option>RGB</option><option>HEX</option></select>
   </div>`;
  document.body.append(picker);
+ const pickPrompt = document.createElement('div');
+ pickPrompt.className = 'color-picker-pick-prompt';
+ pickPrompt.textContent = window.SintetText?.translate('Выберите цвет на экране · Esc — отмена') || 'Выберите цвет на экране · Esc — отмена';
+ pickPrompt.hidden = true;
+ document.body.append(pickPrompt);
 
  const plane = picker.querySelector('.color-picker-plane');
  const hue = picker.querySelector('.color-picker-hue');
@@ -142,16 +147,29 @@
  mode.addEventListener('change', renderFields);
  renderFields();
 
- dropper.hidden = !window.EyeDropper;
+ const canPickColor = () => typeof window.go?.main?.App?.PickScreenColor === 'function' || typeof window.EyeDropper === 'function';
+ dropper.hidden = !canPickColor();
  dropper.addEventListener('click', async () => {
   const field = source;
+  if (!field || !canPickColor()) return;
+  dropper.disabled = true;
+  picker.hidePopover();
+  pickPrompt.hidden = false;
+  document.documentElement.classList.add('color-picker-sampling');
   try {
-   const {sRGBHex} = await new EyeDropper().open();
-   if (field !== source || !picker.matches(':popover-open')) return;
+   const nativePicker = window.go?.main?.App?.PickScreenColor;
+   const sRGBHex = nativePicker ? await nativePicker() : (await new window.EyeDropper().open()).sRGBHex;
+   if (field !== source) return;
    loadColor(sRGBHex);
    apply(sRGBHex);
-  } catch {
-   // Escape cancels sampling.
+  } catch (error) {
+   if (error?.name !== 'AbortError' && !/отмен/i.test(String(error?.message || error))) {
+    window.toast?.('Не удалось выбрать цвет с экрана');
+   }
+  } finally {
+   pickPrompt.hidden = true;
+   document.documentElement.classList.remove('color-picker-sampling');
+   dropper.disabled = false;
   }
  });
 

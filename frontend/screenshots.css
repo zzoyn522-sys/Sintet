@@ -13,6 +13,7 @@
  color:var(--shots-ink);
 }
 #screenshots {max-width:1260px; margin:0 auto}
+.shots-sticky {position:sticky;top:0;z-index:8}
 .shots-heading {display:flex;justify-content:space-between;align-items:center;gap:16px;margin:8px 0 16px}
 .shots-heading h1 {font-size:calc(25px * var(--text-scale,1));font-weight:700;margin:0}
 .shots-status {margin:0;color:var(--shots-muted);font-size:13px}
