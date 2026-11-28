@@ -313,11 +313,19 @@ save.onclick = async () => {
  if (!Object.keys(changes).length) return;
  busy = close.disabled = tools.inert = layout.inert = true;
  updateActions();
- status.textContent = '';
+ status.textContent = 'Применяем настройки шейдера…';
  try {
-  await api.SaveLocalShaderOptions(target, filename, schema.revision, changes);
+  const result = await api.SaveLocalShaderOptions(target, filename, schema.revision, changes);
   dialog.close();
-  window.toast?.('Настройки шейдера сохранены');
+  const messages = {
+   applied: 'Настройки шейдера применены в Minecraft',
+   inactive: 'Настройки сохранены. Включи этот шейдер в Iris.',
+   unsupported: 'Настройки сохранены. Горячее применение доступно в Iris.',
+   unavailable: 'Настройки сохранены. Игровой мост недоступен.',
+   failed: 'Настройки сохранены, но Iris не смог перезагрузить шейдер.',
+   unconfirmed: 'Настройки сохранены. Minecraft пока не подтвердил применение.',
+  };
+  window.toast?.(messages[result] || 'Настройки шейдера сохранены');
  } catch (error) {
   status.textContent = errorText(error);
  } finally {

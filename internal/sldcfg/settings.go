@@ -25,7 +25,7 @@ type OverlayAppearance struct {
 }
 
 func DefaultOverlay() OverlayAppearance {
-	return OverlayAppearance{Position: "top", Material: "acrylic", Surface: "#121214", Text: "#ededed", Accent: "#8ec5a2", Opacity: 75, Blur: 8, Dim: 40}
+	return OverlayAppearance{Position: "top", Material: "acrylic", Surface: "#181818", Text: "#ededed", Accent: "#d2d2d2", Opacity: 72, Blur: 21, Dim: 21}
 }
 
 func (p OverlayAppearance) Valid() bool {
@@ -38,7 +38,23 @@ func (p OverlayAppearance) Valid() bool {
 		(p.Rounding == 0 || p.Rounding >= 4 && p.Rounding <= 28)
 }
 
+func (p OverlayAppearance) WithCurrentDefaults() OverlayAppearance {
+	defaults := DefaultOverlay()
+	if p.Surface == "#121214" && p.Accent == "#8ec5a2" {
+		p.Surface, p.Accent = defaults.Surface, defaults.Accent
+		if p.Material == "acrylic" && p.Opacity == 75 && p.Blur == 8 && p.Dim == 40 {
+			p.Opacity, p.Blur, p.Dim = defaults.Opacity, defaults.Blur, defaults.Dim
+		}
+	}
+	if p.Material == "acrylic" && p.Surface == defaults.Surface && p.Text == defaults.Text && p.Accent == defaults.Accent && p.Dim == 18 &&
+		(p.Opacity == 88 && p.Blur == 14 || p.Opacity == defaults.Opacity && p.Blur == defaults.Blur) {
+		p.Opacity, p.Blur, p.Dim = defaults.Opacity, defaults.Blur, defaults.Dim
+	}
+	return p
+}
+
 func (p OverlayAppearance) RendererSettings(launcherAccent string) string {
+	p = p.WithCurrentDefaults()
 	accent := p.Accent
 	if p.UseLauncherAccent && themeColor.MatchString(launcherAccent) {
 		accent = launcherAccent
@@ -80,6 +96,13 @@ type Appearance struct {
 	ProfileText          string            `json:"profileText"`
 	ProfileControl       string            `json:"profileControl"`
 	ProfileGradientOff   bool              `json:"profileGradientOff"`
+	ProfileWaveLine      bool              `json:"profileWaveLine"`
+	ProfileWaveOff       bool              `json:"profileWaveOff"`
+	ProfileWaveColor     string            `json:"profileWaveColor"`
+	ProfileWaveOpacity   int               `json:"profileWaveOpacity"`
+	ProfileWaveAlpha     int               `json:"profileWaveAlpha"` // 0 uses default, otherwise percent + 1.
+	ProfileWaveTrail     int               `json:"profileWaveTrail"` // 0 follows the background, otherwise percent + 1.
+	ProfileWaveHeight    int               `json:"profileWaveHeight"`
 	Theme                string            `json:"theme"`
 	Font                 string            `json:"font"`
 	Accent               string            `json:"accent"`
@@ -153,6 +176,15 @@ func Default() Appearance {
 }
 
 func (p Appearance) Valid() bool {
+	if p.ProfileWaveAlpha < 0 || p.ProfileWaveAlpha > 101 || p.ProfileWaveTrail < 0 || p.ProfileWaveTrail > 101 {
+		return false
+	}
+	if p.ProfileWaveOpacity < 0 || p.ProfileWaveOpacity > 150 || p.ProfileWaveHeight < 0 || p.ProfileWaveHeight > 140 {
+		return false
+	}
+	if p.ProfileWaveColor != "" && !themeColor.MatchString(p.ProfileWaveColor) {
+		return false
+	}
 	for _, color := range []string{p.NavColor, p.NavText, p.NavActive, p.ProfileColor, p.ProfileText, p.ProfileControl} {
 		if color != "" && !themeColor.MatchString(color) {
 			return false

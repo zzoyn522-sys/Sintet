@@ -57,7 +57,7 @@ func themePreviewServer(pack sldcfg.Package) (string, func(), error) {
 	if len(pack.Font) > 0 {
 		theme.FontFile = "theme-preview.ttf"
 	}
-	payload, err := json.Marshal(map[string]any{"current": theme, "defaults": defaultAppearance(), "version": launcherVersion})
+	payload, err := json.Marshal(map[string]any{"current": theme, "defaults": defaultAppearance(), "version": currentReleaseLabel()})
 	if err != nil {
 		return "", nil, err
 	}

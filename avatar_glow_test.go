@@ -22,8 +22,13 @@ func TestAvatarGlowUsesImageColorsAndRestrictsFetchOrigin(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := readAvatarGlow(data.Bytes())
-	if want := [3]string{"#d50909", "#09d509", "#0909d5"}; err != nil || got != want {
+	if want := (AvatarPalette{Gradient: [3]string{"#d50909", "#09d509", "#0909d5"}, Highlight: "#00ff00"}); err != nil || got != want {
 		t.Fatalf("palette=%v, err=%v", got, err)
+	}
+	avatar.SetNRGBA(0, 0, color.NRGBA{R: 255, G: 255, B: 255, A: 255})
+	got, err = avatarGlow(avatar)
+	if err != nil || got.Highlight != "#00ff00" {
+		t.Fatalf("a single white pixel changed the highlight: %s, err=%v", got.Highlight, err)
 	}
 	path := "/api/textures/avatar/ba815a63-4176-45db-8e70-12e3801c1207/" + strings.Repeat("a", 64) + ".png"
 	if !allowedAvatarTexture("http://127.0.0.1:3033", "http://127.0.0.1:3033"+path) {

@@ -6,6 +6,7 @@ import java.net.*;
 import java.io.*;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -19,8 +20,14 @@ import java.util.Map;
 public final class SintetBridge {
  private static Instrumentation instrumentation;
  private static String endpoint, secret;
+ private static final String bridgeRun=System.getenv("SINTET_BRIDGE_RUN");
+ private static final AtomicReference<String> shaderResult=new AtomicReference<>();
+ private static final AtomicBoolean shaderReloadPending=new AtomicBoolean();
+ private static String shaderCommand;
  private static long last;
  private static volatile Activity activity;
+ private static volatile boolean voiceTracking;
+ private static final VoicePose voicePose=new VoicePose();
  private static Class<?> gameClass;
  private static Field levelField, screenField, integratedServerField, serverNameField, serverAddressField;
  private static Method singleton, serverEntry, legacyScheduler;
@@ -51,9 +58,15 @@ public final class SintetBridge {
  }
 
  private static final class Activity {
-  final String mode, serverName, serverAddress;
+  final String mode, serverName, serverAddress, voiceCoordinates;
+  final long poseSampleTime;
   Activity(String mode, String serverName, String serverAddress) {
+   this(mode,serverName,serverAddress,null);
+  }
+  Activity(String mode, String serverName, String serverAddress, String voiceCoordinates) {
    this.mode=mode;this.serverName=serverName;this.serverAddress=serverAddress;
+   this.voiceCoordinates=voiceCoordinates;
+   this.poseSampleTime=voiceCoordinates==null?0:System.nanoTime();
   }
  }
 
@@ -69,12 +82,16 @@ public final class SintetBridge {
     if(!Character.isWhitespace(line.charAt(0))&&line.endsWith(":")){
      owner=line.substring(0,separator);
      if(names.contains(owner))mappings.put(owner,line.substring(separator+4,line.length()-1));
-    }else if(owner.equals(SERVER)||owner.equals(SERVER+"$Type")||owner.equals(PLAYER_LIST)||owner.equals(INTEGRATED)){
+    }else if(owner.equals(SERVER)||owner.equals(SERVER+"$Type")||owner.equals(PLAYER_LIST)||owner.equals(INTEGRATED)||
+             owner.equals(CLIENT)||owner.equals("net.minecraft.world.entity.Entity")||
+             owner.equals("net.minecraft.world.level.Level")||owner.equals("net.minecraft.resources.ResourceKey")){
      String member=line.substring(0,separator).trim();
      int split=member.lastIndexOf(' ');
      if(split<0)continue;
      String name=member.substring(split+1);
-     if(name.equals("name")||name.equals("ip")||name.equals("OTHER")||name.equals("maxPlayers")||name.equals("getMaxPlayers()"))
+     if(name.equals("name")||name.equals("ip")||name.equals("OTHER")||name.equals("maxPlayers")||name.equals("getMaxPlayers()")||
+        name.equals("player")||name.equals("getX()")||name.equals("getY()")||name.equals("getZ()")||
+        name.equals("getYRot()")||name.equals("dimension()")||name.equals("location()")||name.equals("identifier()"))
       fields.put(owner+"#"+name,line.substring(separator+4));
     }
    }
@@ -109,7 +126,8 @@ public final class SintetBridge {
    joinReady=false;
    mixedLobbyReady=false;
    if(levelField==null)return;
-   if(levelField.get(game)==null){
+   Object level=levelField.get(game);
+   if(level==null){
     activity=new Activity("menu",null,null);
     Object screen=screenField==null?null:screenField.get(game);
     for(Class<?> type=screen==null?null:screen.getClass();type!=null;type=type.getSuperclass()){
@@ -121,6 +139,11 @@ public final class SintetBridge {
     }
     return;
    }
+   String voiceCoordinates=null;
+   if(voiceTracking){
+    try{voiceCoordinates=voicePose.read(game,level,fields);}
+    catch(ReflectiveOperationException|RuntimeException|LinkageError ignored){}
+   }
    Object localServer=integratedServerField==null?null:integratedServerField.get(game);
    updateLegacyCapacity(localServer);
    if(localServer!=null) {
@@ -128,11 +151,11 @@ public final class SintetBridge {
       : obfuscated(gameClass) ? mappings.get(MixedLobbyLogin.LISTENER) : MixedLobbyLogin.LISTENER;
     mixedLobbyReady=MixedLobbyLogin.available(gameClass.getClassLoader(),listener);
    }
-   if(localServer!=null){activity=new Activity("singleplayer",null,null);return;}
+   if(localServer!=null){activity=new Activity("singleplayer",null,null,voiceCoordinates);return;}
    try {
     Object server=currentServer(game);
     if(server!=null){
-     activity=new Activity("multiplayer",readString(serverNameField,server),readString(serverAddressField,server));
+     activity=new Activity("multiplayer",readString(serverNameField,server),readString(serverAddressField,server),voiceCoordinates);
      return;
     }
    } catch(ReflectiveOperationException | RuntimeException | LinkageError ignored) {
@@ -199,8 +222,8 @@ public final class SintetBridge {
     for(Field field:candidate.getReturnType().getDeclaredFields()){
      if(field.getType()!=String.class||Modifier.isStatic(field.getModifiers()))continue;
      String name=field.getName();
-     if(name.equals("name")||name.equals("field_3752")||name.equals(fields.get(SERVER+"#name"))){field.setAccessible(true);serverNameField=field;}
-     if(name.equals("ip")||name.equals("field_3761")||name.equals(fields.get(SERVER+"#ip"))){field.setAccessible(true);serverAddressField=field;}
+     if(name.equals("name")||name.equals("field_3752")||name.equals("f_105362_")||name.equals(fields.get(SERVER+"#name"))){field.setAccessible(true);serverNameField=field;}
+     if(name.equals("ip")||name.equals("field_3761")||name.equals("f_105363_")||name.equals(fields.get(SERVER+"#ip"))){field.setAccessible(true);serverAddressField=field;}
     }
     candidate.setAccessible(true);serverEntry=candidate;break;
    }
@@ -238,9 +261,14 @@ public final class SintetBridge {
  private static String request(String path,String body) throws Exception {
   HttpURLConnection c=(HttpURLConnection)new URL("http://"+endpoint+path).openConnection(java.net.Proxy.NO_PROXY);
   c.setConnectTimeout(1500);c.setReadTimeout(2000);c.setInstanceFollowRedirects(false);c.setRequestProperty("Authorization","Bearer "+secret);
+  if(bridgeRun!=null&&(path.equals("/game/command")||path.equals("/game/shader-result")))
+   c.setRequestProperty("X-Sintet-Bridge-Run",bridgeRun);
   if(path.equals("/game/command")&&joinReady)c.setRequestProperty("X-Sintet-Join-Ready","1");
   if(path.equals("/game/command")&&mixedLobbyReady)c.setRequestProperty("X-Sintet-Mixed-Ready","1");
   Activity current=activity;
+  if(path.equals("/game/command")&&voiceTracking&&current!=null&&current.voiceCoordinates!=null&&
+     System.nanoTime()-current.poseSampleTime<400_000_000L)
+   c.setRequestProperty("X-Sintet-Voice-Pose",current.voiceCoordinates);
   if((path.equals("/game/command")||path.equals("/game/presence"))&&current!=null){
    c.setRequestProperty("X-Sintet-World",current.mode.equals("menu")?"0":"1");
    c.setRequestProperty("X-Sintet-Activity",current.mode);
@@ -251,6 +279,8 @@ public final class SintetBridge {
    if(body!=null){c.setRequestMethod("POST");c.setDoOutput(true);try(OutputStream out=c.getOutputStream()){out.write(body.getBytes(StandardCharsets.UTF_8));}}
    if(c.getResponseCode()!=200)throw new IOException("IPC status "+c.getResponseCode());
    if(path.equals("/game/command")){
+    voiceTracking="1".equals(c.getHeaderField("X-Sintet-Voice-Track"));
+    shaderCommand=c.getHeaderField("X-Sintet-Shader-Reload");
     int capacity=Math.max(8,Math.min(150,c.getHeaderFieldInt("X-Sintet-Lobby-Capacity",8)));
     if(lobbyCapacity!=capacity){
      lobbyCapacity=capacity;
@@ -355,6 +385,7 @@ public final class SintetBridge {
    if(executor!=null){
     queueWorldProbe(executor,game);
     String line=request("/game/command",null).trim();String[] parts=line.split(" ");
+    queueShaderReload(executor,mc.getClassLoader(),shaderCommand);
     if(parts.length==2){long id=Long.parseLong(parts[0]);int port=Integer.parseInt(parts[1]);
      if(id>last&&port>0&&port<=65535){last=id;executor.execute(()->{try{connect(game,mc,port);acknowledgement.set(id+" ok");}catch(Throwable e){System.err.println("[Sintet Bridge] Connection command failed: "+e);acknowledgement.set(id+" failed");}});}
     }
@@ -363,15 +394,56 @@ public final class SintetBridge {
    current.setContextClassLoader(previousLoader);
   }
  }
+ private static void queueShaderReload(Executor executor,ClassLoader loader,String command){
+  if(command==null)return;
+  String[] parts=command.split(" ",2);
+  if(parts.length!=2||!parts[0].matches("[A-Z2-7]{26}"))return;
+  String filename=new String(Base64.getUrlDecoder().decode(parts[1]),StandardCharsets.UTF_8);
+  String id=parts[0];
+  if(!shaderReloadPending.compareAndSet(false,true)){
+   shaderResult.set(id+" failed");
+   return;
+  }
+  try{
+   executor.execute(()->{
+    String result="failed";
+    try{result=reloadIris(loader,filename);}
+    catch(ReflectiveOperationException|RuntimeException|LinkageError error){
+     System.err.println("[Sintet Bridge] Iris reload failed: "+error);
+    }finally{
+     shaderResult.set(id+" "+result);
+     shaderReloadPending.set(false);
+    }
+   });
+  }catch(RuntimeException error){
+   shaderResult.set(id+" failed");
+   shaderReloadPending.set(false);
+  }
+ }
+ private static String reloadIris(ClassLoader loader,String filename)throws ReflectiveOperationException{
+  for(String name:new String[]{"net.irisshaders.iris.Iris","net.coderbot.iris.Iris"}){
+   Class<?> iris;
+   try{iris=Class.forName(name,false,loader);}
+   catch(ClassNotFoundException absent){continue;}
+   Method currentPack=iris.getMethod("getCurrentPackName");
+   if(!filename.equals(currentPack.invoke(null)))return "inactive";
+   iris.getMethod("reload").invoke(null);
+   return filename.equals(currentPack.invoke(null))&&!Boolean.TRUE.equals(iris.getMethod("isFallback").invoke(null))
+    ? "applied":"failed";
+  }
+  return "unsupported";
+ }
  private static void poll(){
   while(true){try{
+   String shaderAck=shaderResult.get();
+   if(shaderAck!=null){request("/game/shader-result",shaderAck);shaderResult.compareAndSet(shaderAck,null);}
    String ack=acknowledgement.get();
    if(ack!=null){request("/game/result",ack);acknowledgement.compareAndSet(ack,null);}
    pollGame();
   }catch(LinkageError error){
    System.err.println("[Sintet Bridge] Integration disabled after a class loading error: "+error);
    return;
-  }catch(Exception ignored){}try{Thread.sleep(500);}catch(InterruptedException e){return;}}
+  }catch(Exception ignored){}try{Thread.sleep(voiceTracking?100:500);}catch(InterruptedException e){return;}}
  }
  private static Class<?> gameType(Class<?> mc,String mojang,String fabric)throws ClassNotFoundException{
   String name=mc.getName().equals("net.minecraft.class_310")?fabric:obfuscated(mc)?mappings.get(mojang):mojang;

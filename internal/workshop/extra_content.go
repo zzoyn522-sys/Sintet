@@ -185,43 +185,6 @@ func LocalWorlds(instance string) ([]string, error) {
 	return worlds, nil
 }
 
-type WorldContent struct {
-	World string   `json:"world"`
-	Packs []string `json:"packs"`
-}
-
-func LocalWorldDataPacks(instance string) ([]WorldContent, error) {
-	worlds, err := LocalWorlds(instance)
-	if err != nil {
-		return nil, err
-	}
-	result := []WorldContent{}
-	for _, world := range worlds {
-		content := WorldContent{World: world}
-		folder, err := extraContentFolder(Plan{Kind: "datapacks", Target: Target{Directory: instance}, world: world})
-		if err != nil || ordinaryContentPath(folder, true) != nil {
-			result = append(result, content)
-			continue
-		}
-		children, err := os.ReadDir(folder)
-		if err != nil {
-			return nil, err
-		}
-		for _, child := range children {
-			name := filepath.Join(folder, child.Name())
-			if child.IsDir() {
-				if ordinaryContentPath(name, true) == nil && ordinaryContentPath(filepath.Join(name, "pack.mcmeta"), false) == nil {
-					content.Packs = append(content.Packs, child.Name())
-				}
-			} else if strings.EqualFold(filepath.Ext(child.Name()), ".zip") && ordinaryContentPath(name, false) == nil {
-				content.Packs = append(content.Packs, child.Name())
-			}
-		}
-		result = append(result, content)
-	}
-	return result, nil
-}
-
 func extraContentFolder(plan Plan) (string, error) {
 	root := plan.Target.Directory
 	if !filepath.IsAbs(root) {

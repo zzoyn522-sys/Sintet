@@ -12,7 +12,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
+	"sintet/internal/releaseversion"
+	"strings"
 	"time"
 )
 
@@ -21,6 +22,7 @@ type payload struct {
 	DisplayVersion string   `json:"displayVersion,omitempty"`
 	Channel        string   `json:"channel,omitempty"`
 	Beta           bool     `json:"beta,omitempty"`
+	PublicBeta     bool     `json:"publicBeta,omitempty"`
 	Notes          []string `json:"notes,omitempty"`
 	URL            string   `json:"url"`
 	SHA256         string   `json:"sha256"`
@@ -37,7 +39,9 @@ func main() {
 	public := flag.Bool("public-key", false, "print the public key as lowercase hex")
 	initKey := flag.Bool("init-key", false, "generate a signing key if missing")
 	version := flag.String("version", "", "release version")
-	displayVersion := flag.String("display-version", "", "override the visible stable release version")
+	displayVersion := flag.String("display-version", "", "visible release version")
+	buildVersion := flag.String("build-for", "", "print the update build identifier for this release version")
+	legacyOfficialBeta := flag.Bool("legacy-official-beta", false, "emit a public beta manifest for older official-only clients")
 	channel := flag.String("channel", "", "release channel: empty for stable, beta for a public beta, test for a targeted preview")
 	exe := flag.String("exe", "", "launcher executable to publish")
 	manifest := flag.String("manifest", "", "output signed manifest path")
@@ -45,6 +49,14 @@ func main() {
 	flag.Parse()
 	if *channel != "" && *channel != "test" && *channel != "beta" {
 		fatal("unsupported release channel")
+	}
+	if *buildVersion != "" {
+		build, err := releaseversion.Build(*buildVersion, *channel)
+		if err != nil {
+			fatal(err.Error())
+		}
+		fmt.Print(build)
+		return
 	}
 	if *keyPath == "" {
 		fatal("-key is required")
@@ -85,8 +97,17 @@ func main() {
 	if *version == "" || *exe == "" || *manifest == "" {
 		fatal("use -version, -exe and -manifest to create a release manifest")
 	}
-	if *displayVersion != "" && (*channel != "" || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(*displayVersion)) {
-		fatal("-display-version requires a four-part stable version")
+	if *legacyOfficialBeta && *channel != "beta" {
+		fatal("-legacy-official-beta requires -channel beta")
+	}
+	if strings.HasPrefix(*version, "2.") {
+		expected, err := releaseversion.Build(*displayVersion, *channel)
+		if err != nil || expected != *version {
+			fatal("release version must match the numeric build for this channel")
+		}
+	}
+	if *displayVersion != "" && releaseversion.Display(*displayVersion, *version, *channel) == "" {
+		fatal("-display-version does not match the release channel and build")
 	}
 	data, err := os.ReadFile(*exe)
 	if err != nil {
@@ -96,7 +117,7 @@ func main() {
 	p := payload{Version: *version, DisplayVersion: *displayVersion, Channel: *channel, URL: fmt.Sprintf("https://sintet-updates.zzoyn522.workers.dev/stable/Sintet-%s.exe", *version), SHA256: hex.EncodeToString(sum[:]), Size: int64(len(data)), Released: time.Now().UTC().Format(time.RFC3339)}
 	if *channel == "beta" {
 		// Installed launchers reject unknown channel values on the public feed.
-		p.Channel, p.Beta = "", true
+		p.Channel, p.Beta, p.PublicBeta = "", !*legacyOfficialBeta, *legacyOfficialBeta
 	}
 	raw, err := json.Marshal(p)
 	if err != nil {

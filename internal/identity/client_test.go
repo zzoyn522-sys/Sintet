@@ -187,6 +187,30 @@ func TestSessionSurvivesWebsiteShutdown(t *testing.T) {
 	}
 }
 
+func TestSocialRequestReadsFriendLobbyState(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.Method != http.MethodGet || r.URL.Path != "/api/social" ||
+			r.URL.Query().Get("profileBadges") != "1" || r.URL.Query().Get("friendLobbies") != "1" ||
+			r.Header.Get("Authorization") != "Bearer fixture-token" {
+			http.Error(w, "unexpected request", http.StatusBadRequest)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]bool{"friendLobbiesAvailable": true})
+	}))
+	defer server.Close()
+	client := New(server.URL, "")
+	client.credential = &credential{Token: "fixture-token"}
+	var state struct{ FriendLobbiesAvailable bool }
+	if err := client.SocialRequest(context.Background(), http.MethodGet, SocialStatePath, nil, &state); err != nil || !state.FriendLobbiesAvailable {
+		t.Fatalf("friend lobby state was not received: %v", err)
+	}
+	if err := client.SocialRequest(context.Background(), http.MethodPost, SocialStatePath, nil, nil); err == nil || requests.Load() != 1 {
+		t.Fatal("social state route must accept reads only")
+	}
+}
+
 func TestSocialRequestReadsAuthenticatedMusicCover(t *testing.T) {
 	const route = "/api/social/music-cover?account=fixture&digest=sample"
 	var requests atomic.Int32

@@ -3,6 +3,8 @@
  const tabs = [...document.querySelectorAll('.settings-tabs [role=tab]')];
  const form = document.querySelector('#appearance-form');
  const fields = form.elements;
+ const defaultProfileWaveTransparency = Number(fields.profileWaveAlpha.defaultValue);
+ const defaultProfileWaveHeight = Number(fields.profileWaveHeight.defaultValue);
  const editorTabs = [...form.querySelectorAll('.appearance-editor-tabs [role=tab]')];
  const mediaControls = form.querySelector('[data-appearance-media]');
  const waveColorValue = form.querySelector('#appearance-wave-color-value');
@@ -79,7 +81,7 @@
  const resetPaneFields = {
   style:['theme','font','accent','canvasColor','panelColor','textColor','barColor','mutedColor','textScale','textWeight','buttonRadius','fontFile'],
   nav:['navColor','navText','navActive','navOpacity','navBlur','navHeight','navTabWidth','navTabHeight','navTabRadius','navTabGap','navTextSize'],
-  profile:['profileColor','profileText','profileControl','profileGradientOff'],
+  profile:['profileColor','profileText','profileControl','profileGradientOff','profileWaveOff','profileWaveLine','profileWaveColor','profileWaveOpacity','profileWaveHeight','profileWaveAlpha','profileWaveTrail'],
   background:['gradient','animate','background','backgroundEffect','waveColor','waveStyle','waveIntensity','waveAmplitude','waveTrail','waveOffset','motionSpeed',
    'glintsEnabled','glintCount','glintSize','glintStrength','glintSpeed','glintColor','particlesEnabled','particleCount','particleMinSize','particleMaxSize',
    'particleOpacity','particleFade','particleSpeedX','particleSpeedY','particleDepth','particleColor','fit','position','dim','backgroundBlur','videoEdgeBlur',
@@ -182,7 +184,7 @@
   opacity:'overlayOpacity',blur:'overlayBlur',dim:'overlayDim',scale:'overlayScale',width:'overlayWidth',
   rounding:'overlayRounding',useLauncherAccent:'overlayUseLauncherAccent'
  };
- const overlayNumericDefaults={scale:100,width:414,rounding:16};
+ const overlayNumericDefaults={scale:100,width:360,rounding:16};
  const overlayField=key=>fields[overlayFields[key]];
  const previewCanvas=form.querySelector('#overlay-preview-canvas');
  const previewContext=previewCanvas.getContext('2d',{alpha:false});
@@ -271,6 +273,13 @@
     return [key,field.value];
    })),
    profileGradientOff: fields.profileGradientOff.checked,
+   profileWaveAlpha: fields.profileWaveAlpha.valueAsNumber===defaultProfileWaveTransparency?0:101-fields.profileWaveAlpha.valueAsNumber,
+   profileWaveTrail: fields.profileWaveTrail.valueAsNumber,
+   profileWaveLine: fields.profileWaveLine.value==='line',
+   profileWaveOff: fields.profileWaveOff.checked,
+   profileWaveColor: fields.profileWaveAvatarColor.checked?'':fields.profileWaveColor.value,
+   profileWaveOpacity: fields.profileWaveOpacity.valueAsNumber===100?0:fields.profileWaveOpacity.valueAsNumber,
+   profileWaveHeight: fields.profileWaveHeight.valueAsNumber===defaultProfileWaveHeight?0:fields.profileWaveHeight.valueAsNumber,
    theme: fields.theme.value, font: fields.font.value, accent: fields.accent.value,
    opacity: fields.opacity.valueAsNumber, blur: fields.blur.valueAsNumber,
    radius: fields.radius.valueAsNumber, dim: fields.dim.valueAsNumber,
@@ -316,6 +325,15 @@
    if (field instanceof HTMLSelectElement) window.SintetUI?.select.refresh(field);
   }
   for (const key of navigationFields) fields[key].value = settings[key] ?? defaults[key];
+  fields.profileWaveLine.value=settings.profileWaveLine?'line':'fill';
+  window.SintetUI?.select.refresh(fields.profileWaveLine);
+  fields.profileWaveAlpha.value=settings.profileWaveAlpha?101-settings.profileWaveAlpha:defaultProfileWaveTransparency;
+  fields.profileWaveTrail.value=settings.profileWaveTrail||0;
+  fields.profileWaveOff.checked=!!settings.profileWaveOff;
+  fields.profileWaveColor.value=settings.profileWaveColor||'#ffffff';
+  fields.profileWaveAvatarColor.checked=!settings.profileWaveColor;
+  fields.profileWaveOpacity.value=settings.profileWaveOpacity||100;
+  fields.profileWaveHeight.value=settings.profileWaveHeight||defaultProfileWaveHeight;
   fields.waveEnabled.checked = settings.backgroundEffect === 'wave' && settings.gradient;
   apply(settings);
  }
@@ -452,6 +470,22 @@
 
  function apply(settings) {
   document.documentElement.toggleAttribute('data-profile-gradient-off', settings.profileGradientOff === true);
+  root.toggleAttribute('data-profile-wave-off',settings.profileWaveOff===true);
+  const waveTransparency=settings.profileWaveAlpha?101-settings.profileWaveAlpha:defaultProfileWaveTransparency;
+  root.style.setProperty('--profile-wave-alpha',String((100-waveTransparency)/100));
+  root.toggleAttribute('data-profile-wave-transparent',settings.profileWaveAlpha===1);
+  root.dataset.profileWaveTrail=settings.profileWaveTrail?settings.profileWaveTrail-1:'';
+  fields.profileWaveAlpha.previousElementSibling.value=waveTransparency+'%';
+  fields.profileWaveTrail.previousElementSibling.value=settings.profileWaveTrail?(settings.profileWaveTrail-1)+'%':'Авто';
+  fields.profileWaveTrail.disabled=!settings.profileWaveLine;
+  root.dataset.profileWaveStyle=settings.profileWaveLine?'line':'fill';
+  root.dataset.profileWaveColor=settings.profileWaveColor||'';
+  fields.profileWaveColor.disabled=fields.profileWaveAvatarColor.checked;
+  root.dataset.profileWaveOpacity=(settings.profileWaveOpacity||100)/100;
+  root.dataset.profileWaveHeight=(settings.profileWaveHeight||defaultProfileWaveHeight)/100;
+  for(const key of ['profileWaveOpacity','profileWaveHeight']){
+   fields[key].previousElementSibling.value=(settings[key]||100)+'%';
+  }
   applyOverlay(settings.overlay||defaults.overlay);
   const data = root.dataset;
   const style = root.style;

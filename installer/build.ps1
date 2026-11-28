@@ -1,10 +1,16 @@
-﻿param([switch]$SkipLauncherBuild,[string]$Version='',[string]$UpdatePublicKey='')
+﻿param([switch]$SkipLauncherBuild,[string]$Version='',[string]$UpdatePublicKey='',[ValidateSet('stable','beta')][string]$Channel='stable')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Set-Location -LiteralPath $root
 $go = Join-Path $root '_tools/go/bin/go.exe'
 if (!(Test-Path -LiteralPath $go)) { $go=(Get-Command go.exe -CommandType Application).Source }
 if (!$Version) { $Version=(Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw).Trim() }
+$channelFlag=if($Channel -eq 'beta'){'beta'}else{''}
+$versionArgs=@('-build-for',$Version)
+if($channelFlag){$versionArgs+=@('-channel',$channelFlag)}
+$buildVersion=& $go run .\cmd\update-release @versionArgs
+if($LASTEXITCODE -ne 0){throw 'Invalid public release version.'}
+$displayVersion=if($Channel -eq 'beta'){"$Version BETA"}else{$Version}
 $resources = Join-Path $PSScriptRoot 'resources'
 $release = Join-Path $root 'Release'
 New-Item -ItemType Directory -Path $resources,$release -Force | Out-Null
@@ -26,7 +32,9 @@ if (-not $SkipLauncherBuild) {
 cmd /c native\build.bat
 if ($LASTEXITCODE -ne 0) { throw 'Overlay build failed.' }
 & (Join-Path $root 'updater/build.ps1') -Version $Version -UpdatePublicKey $UpdatePublicKey
-& $go build -trimpath -tags desktop,production -ldflags "-s -w -H windowsgui -X main.launcherVersion=$Version -X main.defaultIdentityURL=https://sintet.xyz" -o $launcher .
+$ldflags="-s -w -H windowsgui -X main.launcherVersion=$buildVersion -X main.launcherDisplayVersion=$Version -X main.defaultIdentityURL=https://sintet.xyz"
+if($channelFlag){$ldflags+=" -X main.launcherChannel=$channelFlag"}
+& $go build -trimpath -tags desktop,production -ldflags $ldflags -o $launcher .
 if ($LASTEXITCODE -ne 0) { throw 'Launcher build failed.' }
 }
 $packed = Join-Path $resources 'launcher.gz'
@@ -54,7 +62,8 @@ $verifier=Join-Path $resources 'Sintet-UpdateVerifier.exe'
 if($LASTEXITCODE -ne 0){throw 'Не удалось собрать проверку подписи установщика.'}
 $package = @"
 namespace SintetSetup { public static class Package {
-public const string Version="$Version";
+public const string Version="$buildVersion";
+public const string DisplayVersion="$displayVersion";
 public const string LauncherHash="$launcherHash";
 public const string WebViewHash="$webViewHash";
 public const long LauncherSize=${launcherSize}L;
@@ -86,7 +95,8 @@ $arguments = @('/nologo','/target:winexe','/platform:x64','/optimize+','/utf8out
     '/r:System.dll','/r:System.Core.dll','/r:System.Xml.dll','/r:System.Windows.Forms.dll','/r:System.Web.Extensions.dll',
     "/r:$framework\WPF\PresentationFramework.dll", "/r:$framework\WPF\PresentationCore.dll",
     "/r:$framework\WPF\WindowsBase.dll", "/r:$framework\System.Xaml.dll",
-    "$PSScriptRoot\AssemblyInfo.cs", "$PSScriptRoot\Package.cs", "$PSScriptRoot\Engine.cs", "$PSScriptRoot\SetupLanguage.cs", "$PSScriptRoot\Setup.cs")
+    "$PSScriptRoot\AssemblyInfo.cs", "$PSScriptRoot\Package.cs", "$PSScriptRoot\Engine.cs", "$PSScriptRoot\SetupLanguage.cs", "$PSScriptRoot\Setup.cs",
+    "$root\updater\ReleaseLabel.cs")
 & $compiler $arguments
 if ($LASTEXITCODE -ne 0) { throw 'Installer build failed.' }
 $installer = Join-Path $release 'Sintet-Setup.exe'

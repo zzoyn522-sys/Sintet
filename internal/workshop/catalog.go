@@ -25,6 +25,7 @@ type ProjectLink struct {
 
 type Project struct {
 	Links       []ProjectLink `json:"links,omitempty"`
+	Donations   []ProjectLink `json:"donations,omitempty"`
 	Screenshots []string      `json:"screenshots,omitempty"`
 	Downloads   int64         `json:"downloads"`
 	Kind        string        `json:"kind"`
@@ -37,6 +38,7 @@ type Project struct {
 	CreatedAt   string        `json:"createdAt,omitempty"`
 	UpdatedAt   string        `json:"updatedAt,omitempty"`
 	Description string        `json:"description"`
+	Body        string        `json:"body,omitempty"`
 	Icon        string        `json:"icon"`
 	Author      string        `json:"author"`
 	URL         string        `json:"url"`

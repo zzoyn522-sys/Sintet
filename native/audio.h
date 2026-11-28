@@ -2,7 +2,7 @@
 #include <array>
 
 namespace SintetAudio {
-enum class Target { Windows, Minecraft, Microphone };
+enum class Target { Windows, Minecraft, Microphone, Voice };
 
 struct Volume {
  bool available=false,muted=false;

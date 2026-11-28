@@ -90,14 +90,73 @@ func (a *App) WorkshopWorlds(targetID string) ([]string, error) {
 	}
 	return workshop.LocalWorlds(target.Directory)
 }
-func (a *App) WorkshopLocalDataPacks(targetID string) ([]workshop.WorldContent, error) {
+func (a *App) WorkshopWorldDetails(targetID string) ([]workshop.LocalWorld, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	target, err := a.workshopTarget(targetID)
+	if err != nil {
+		return nil, err
+	}
+	return workshop.LocalWorldDetails(target.Directory)
+}
+func (a *App) EditWorkshopWorld(targetID, folder, name string, difficulty, commands int) error {
+	return a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
+		return workshop.EditWorld(target.Directory, folder, name, difficulty, commands)
+	})
+}
+func (a *App) TrashWorkshopWorld(targetID, folder string) (string, error) {
+	var id string
+	err := a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
+		var err error
+		id, err = workshop.TrashWorld(target.Directory, folder)
+		return err
+	})
+	return id, err
+}
+func (a *App) RestoreWorkshopWorld(targetID, id string) error {
+	return a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
+		return workshop.RestoreWorld(target.Directory, id)
+	})
+}
+func (a *App) OpenWorkshopWorldFolder(targetID, folder string) error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	target, err := a.workshopTarget(targetID)
+	if err != nil {
+		return err
+	}
+	dir, err := workshop.WorldDirectory(target.Directory, folder)
+	if err != nil {
+		return err
+	}
+	return exec.Command("explorer.exe", dir).Start()
+}
+func (a *App) WorkshopLocalDataPacks(targetID string) ([]workshop.WorldDataPackSettings, error) {
 	a.mu.RLock()
 	target, err := a.workshopTarget(targetID)
 	a.mu.RUnlock()
 	if err != nil {
 		return nil, err
 	}
-	return workshop.LocalWorldDataPacks(target.Directory)
+	return workshop.LocalWorldDataPackSettings(target.Directory)
+}
+func (a *App) EditWorkshopWorldDataPacks(targetID, world string, changes []workshop.WorldDataPack) error {
+	return a.changeLocalWorkshop(targetID, func(target workshop.Target) error {
+		return workshop.EditWorldDataPacks(target.Directory, world, changes)
+	})
+}
+func (a *App) OpenWorkshopDataPacksFolder(targetID, world string) error {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	target, err := a.workshopTarget(targetID)
+	if err != nil {
+		return err
+	}
+	dir, err := workshop.WorldDataPackDirectory(target.Directory, world)
+	if err != nil {
+		return err
+	}
+	return exec.Command("explorer.exe", dir).Start()
 }
 func (a *App) PrepareWorkshopExtra(provider, project, version, kind, targetID, world, game, platform string) (workshop.Plan, error) {
 	if kind == "plugins" {

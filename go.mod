@@ -11,6 +11,7 @@ require (
 	github.com/masahiro331/go-mvn-version v0.0.0-20260119054159-d21fcd2e7de1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/tc-hib/winres v0.3.1
+	github.com/tphakala/go-opus v1.0.0
 	github.com/wailsapp/wails/v2 v2.13.0
 	golang.org/x/image v0.45.0
 )
@@ -56,6 +57,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.49.1 // indirect
 	github.com/tkrajina/go-reflector v0.5.8 // indirect
+	github.com/tphakala/simd v1.8.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect

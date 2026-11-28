@@ -22,7 +22,7 @@ namespace SintetSetup {
   public string UninstallerHash;
   public string Version = Package.Version;
  }
- public sealed class DownloadedRelease { public string Path; public string Version; }
+ public sealed class DownloadedRelease { public string Path; public string Version; public string DisplayVersion; }
  public static class Engine {
   public const string Product="Sintet.Launcher.8E6E8495-DB20-44FC-963E-567A8AC82181";
   const string RegistryPath=@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Sintet";
@@ -80,6 +80,7 @@ namespace SintetSetup {
    string exe=Path.Combine(root,"Sintet-launcher.exe"),temporary=Path.Combine(root,".sintet-"+Guid.NewGuid().ToString("N")+".tmp");
    try {
     string releaseVersion=remote==null?Package.Version:remote.Version;
+    string displayVersion=remote==null?Package.DisplayVersion:remote.DisplayVersion;
     if(installedVersion!=null&&installedVersion>new Version(releaseVersion))
      throw new IOException(SetupLanguage.T("A newer version of Sintet is already installed."));
     progress(60,SetupLanguage.T("Подготавливаем лаунчер"));
@@ -93,7 +94,7 @@ namespace SintetSetup {
      if(Hash(temporary)!=Package.LauncherHash)throw new IOException(SetupLanguage.T("Установщик повреждён. Скопируй его заново."));
     }
     Replace(temporary,exe);
-    progress(89,SetupLanguage.T("Сохраняем версию ")+releaseVersion);
+    progress(89,SetupLanguage.T("Сохраняем версию ")+displayVersion);
     var marker=new InstallMarker{Directory=root,LauncherHash=Hash(exe),UninstallerHash="",Version=releaseVersion};
     progress(90,SetupLanguage.T("Добавляем компоненты Sintet"));
     WriteResource("icon",Path.Combine(root,"Sintet.ico"));
@@ -108,7 +109,7 @@ namespace SintetSetup {
      Shortcut(Path.Combine(menu,SetupLanguage.T("Удалить Sintet")+".lnk"),uninstaller,root,"--uninstall");
      if(options.Desktop)Shortcut(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),"Sintet.lnk"),exe,root,"");
      using(var key=Registry.CurrentUser.CreateSubKey(RegistryPath)){
-      key.SetValue("DisplayName","Sintet");key.SetValue("DisplayVersion",releaseVersion);key.SetValue("Publisher","Sintet");key.SetValue("InstallLocation",root);key.SetValue("DisplayIcon",Path.Combine(root,"Sintet.ico"));
+      key.SetValue("DisplayName","Sintet");key.SetValue("DisplayVersion",displayVersion);key.SetValue("Publisher","Sintet");key.SetValue("InstallLocation",root);key.SetValue("DisplayIcon",Path.Combine(root,"Sintet.ico"));
       key.SetValue("UninstallString","\""+uninstaller+"\" --uninstall");
       key.SetValue("QuietUninstallString","\""+uninstaller+"\" --uninstall --silent");key.SetValue("NoModify",1);key.SetValue("NoRepair",1);key.SetValue("EstimatedSize",(int)((new FileInfo(exe).Length+new FileInfo(uninstaller).Length)/1024));
      }
@@ -130,7 +131,10 @@ namespace SintetSetup {
     var serializer=new JavaScriptSerializer();var envelope=serializer.Deserialize<Dictionary<string,object>>(manifest);
     var payloadBytes=Convert.FromBase64String(Convert.ToString(envelope["payload"]));
     var payload=serializer.Deserialize<Dictionary<string,object>>(System.Text.Encoding.UTF8.GetString(payloadBytes));
+    if(payload.ContainsKey("channel")&&!String.IsNullOrEmpty(Convert.ToString(payload["channel"])))throw new IOException(SetupLanguage.T("Манифест Sintet содержит недопустимую версию."));
     string version=Convert.ToString(payload["version"]),address=Convert.ToString(payload["url"]),hash=Convert.ToString(payload["sha256"]);
+    bool beta=Sintet.ReleaseLabel.IsBeta(payload);
+    string displayVersion=Sintet.ReleaseLabel.FromManifest(payload,version,false,beta);
     long size=Convert.ToInt64(payload["size"]);Uri uri;
     Version parsedVersion,bundledVersion;
     if(!Version.TryParse(version,out parsedVersion)||!Version.TryParse(Package.Version,out bundledVersion)||parsedVersion<=bundledVersion)return null;
@@ -139,7 +143,7 @@ namespace SintetSetup {
     manifestPath=Path.Combine(tempDirectory,"latest.json");verifierPath=Path.Combine(tempDirectory,"Sintet-UpdateVerifier.exe");downloadPath=Path.Combine(installRoot,".sintet-latest-"+Guid.NewGuid().ToString("N")+".tmp");
     File.WriteAllText(manifestPath,manifest,new System.Text.UTF8Encoding(false));
     using(var resource=Resource("updateVerifier"))using(var output=File.Create(verifierPath))resource.CopyTo(output);
-    progress(17,SetupLanguage.T("Скачиваем Sintet ")+version);
+    progress(17,SetupLanguage.T("Скачиваем Sintet ")+displayVersion);
     var downloadRequest=(HttpWebRequest)WebRequest.Create(uri);downloadRequest.Method="GET";downloadRequest.Timeout=20000;downloadRequest.ReadWriteTimeout=120000;downloadRequest.UserAgent="Sintet-Setup/"+Package.Version;
     using(var response=(HttpWebResponse)downloadRequest.GetResponse())using(var input=response.GetResponseStream())using(var output=new FileStream(downloadPath,FileMode.CreateNew,FileAccess.Write,FileShare.None,65536,FileOptions.WriteThrough)){
      byte[] buffer=new byte[65536];long copied=0;int count;
@@ -150,7 +154,7 @@ namespace SintetSetup {
     var verify=Process.Start(new ProcessStartInfo(verifierPath,"\""+manifestPath+"\" \""+downloadPath+"\""){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden});
     if(verify==null||!verify.WaitForExit(30000)){if(verify!=null)try{verify.Kill();}catch{}throw new IOException(SetupLanguage.T("Не удалось проверить подпись новой версии Sintet."));}
     if(verify.ExitCode!=0)throw new IOException(SetupLanguage.T("Новая версия Sintet не прошла проверку подписи и целостности."));
-    var result=new DownloadedRelease{Path=downloadPath,Version=version};downloadPath=null;return result;
+    var result=new DownloadedRelease{Path=downloadPath,Version=version,DisplayVersion=displayVersion};downloadPath=null;return result;
    }catch(WebException){progress(16,SetupLanguage.T("Нет соединения, используем версию из установщика"));return null;}
    finally{if(downloadPath!=null&&File.Exists(downloadPath))File.Delete(downloadPath);if(manifestPath!=null){string directory=Path.GetDirectoryName(manifestPath);try{if(Directory.Exists(directory))Directory.Delete(directory,true);}catch{}}}
   }

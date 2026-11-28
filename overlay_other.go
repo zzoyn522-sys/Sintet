@@ -24,3 +24,4 @@ func (a *App) serveOverlayPreview(w http.ResponseWriter, r *http.Request) {
 func (a *App) prepareGameOverlay(_ string) (string, io.Closer, error) { return "", nil, nil }
 func (a *App) prepareJavaBridge() (string, error)                     { return "", nil }
 func (a *App) presenceMedia(bool) (*presenceMusic, []byte)            { return nil, nil }
+func (a *App) ProfileAudioSpectrum(bool) []uint32                     { return nil }

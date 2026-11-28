@@ -14,6 +14,7 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"sintet/internal/launcher"
 	"sintet/internal/packsync"
 	p2p "sintet/internal/social"
 )
@@ -31,9 +32,11 @@ type lobbyExchange struct {
 	WorldReady       bool               `json:"worldReady"`
 	MixedUnavailable bool               `json:"mixedUnavailable,omitempty"`
 	NoPack           bool               `json:"noPack,omitempty"`
+	VersionOnly      bool               `json:"versionOnly,omitempty"`
 	Digest           string             `json:"digest"`
 	Members          []lobbyMemberState `json:"members"`
 	RosterVersion    uint64             `json:"rosterVersion,omitempty"`
+	VoiceRange       int                `json:"voiceRange,omitempty"`
 }
 type lobbyReport struct {
 	lobbyPreparation
@@ -43,6 +46,7 @@ type lobbyReport struct {
 type lobbyHostSelection struct {
 	profile, version, loader, name string
 	pack                           *packsync.Snapshot
+	versionOnly                    bool
 }
 
 func (m *socialManager) resizeLobby(ctx context.Context, value string, disconnect bool) error {
@@ -93,12 +97,27 @@ func (m *socialManager) prepareLobbyHost(ctx context.Context, profile string) (l
 		// The room service preserves the version string and validates the loader on changes.
 		return lobbyHostSelection{profile: profile, version: manualLobbyProfile, loader: "vanilla"}, nil
 	}
+	info, err := m.app.service.ProfileIdentity(profile)
+	if err != nil {
+		return lobbyHostSelection{}, err
+	}
+	if info.ID == launcher.ProfileID(info.Base, info.Loader, info.LoaderVersion) {
+		return prepareLobbyVersion(info)
+	}
 	pack, err := m.captureHostPack(ctx, profile)
 	if err != nil {
 		return lobbyHostSelection{}, fmt.Errorf("не удалось подготовить сборку: %w", err)
 	}
 	manifest := pack.Manifest
 	return lobbyHostSelection{profile: profile, version: manifest.Game, loader: manifest.Loader, name: cleanActivityLabel(manifest.Name), pack: &pack}, nil
+}
+
+func prepareLobbyVersion(info launcher.InstalledProfile) (lobbyHostSelection, error) {
+	manifest, err := packsync.Seal(packMeta(info, "Minecraft "+info.Base))
+	if err != nil {
+		return lobbyHostSelection{}, err
+	}
+	return lobbyHostSelection{profile: info.ID, version: info.Base, loader: info.Loader, name: cleanActivityLabel(manifest.Name), pack: &packsync.Snapshot{Manifest: manifest}, versionOnly: true}, nil
 }
 
 func (m *socialManager) applyLobbyHostLocked(selection lobbyHostSelection) {
@@ -108,7 +127,7 @@ func (m *socialManager) applyLobbyHostLocked(selection lobbyHostSelection) {
 	m.state.Pack = nil
 	if selection.pack != nil {
 		manifest := selection.pack.Manifest
-		m.state.Pack = &packStatus{Phase: "hosting", Name: manifest.Name, Game: manifest.Game, Loader: manifest.Loader, Digest: manifest.Digest, Missing: len(manifest.Files)}
+		m.state.Pack = &packStatus{Phase: "hosting", Name: manifest.Name, Game: manifest.Game, Loader: manifest.Loader, LoaderVersion: manifest.LoaderVersion, Digest: manifest.Digest, Missing: len(manifest.Files), VersionOnly: selection.versionOnly}
 	}
 }
 
@@ -139,7 +158,18 @@ func (m *socialManager) updateHostedWorld(port int) {
 	profile, epoch := m.hostProfile, m.epoch
 	manual := m.state.Room.manual()
 	previous := m.state.WorldReady
+	var previousVersion string
+	if manual && m.hostPack != nil {
+		manifest := m.hostPack.Manifest
+		previousVersion = launcher.ProfileID(manifest.Game, manifest.Loader, manifest.LoaderVersion)
+	}
 	m.mu.Unlock()
+	var version lobbyHostSelection
+	if manual && game.Running && game.Profile != previousVersion {
+		if info, err := m.app.service.ProfileIdentity(game.Profile); err == nil && info.ID == launcher.ProfileID(info.Base, info.Loader, info.LoaderVersion) {
+			version, _ = prepareLobbyVersion(info)
+		}
+	}
 	if !game.Running || (!manual && game.Profile != profile) {
 		port = 0
 	}
@@ -156,6 +186,10 @@ func (m *socialManager) updateHostedWorld(port int) {
 	defer m.mu.Unlock()
 	if m.epoch != epoch || m.hostProfile != profile || m.state.Room.manual() != manual {
 		return
+	}
+	if manual && game.Running && game.Profile != previousVersion && (version.pack != nil || m.hostPack != nil) {
+		version.profile = manualLobbyProfile
+		m.applyLobbyHostLocked(version)
 	}
 	m.state.WorldReady = port > 0
 	for _, peer := range m.peers {
@@ -216,7 +250,7 @@ func (m *socialManager) refreshLobbyPack(ctx context.Context) error {
 	if profile == "" || room == nil || room.Host != account {
 		return errors.New("сначала создай лобби")
 	}
-	snapshot, err := m.captureHostPack(ctx, profile)
+	selection, err := m.prepareLobbyHost(ctx, profile)
 	if err != nil {
 		return err
 	}
@@ -225,8 +259,9 @@ func (m *socialManager) refreshLobbyPack(ctx context.Context) error {
 	if m.epoch != epoch || m.hostProfile != profile {
 		return context.Canceled
 	}
-	m.hostPack = &snapshot
-	m.state.Pack = &packStatus{Phase: "hosting", Name: snapshot.Manifest.Name, Game: snapshot.Manifest.Game, Loader: snapshot.Manifest.Loader, Digest: snapshot.Manifest.Digest}
+	if profile != manualLobbyProfile {
+		m.applyLobbyHostLocked(selection)
+	}
 	return nil
 }
 
@@ -274,7 +309,7 @@ func (m *socialManager) hostLobbyHandler(peerID, guest string) http.Handler {
 			return
 		}
 		if r.URL.Path != "/lobby" {
-			if room.manual() {
+			if snapshot == nil {
 				http.NotFound(w, r)
 				return
 			}
@@ -306,7 +341,7 @@ func (m *socialManager) hostLobbyHandler(peerID, guest string) http.Handler {
 		if m.memberPreparation == nil {
 			m.memberPreparation = make(map[string]lobbyPreparation)
 		}
-		manual := m.state.Room.manual()
+		manual := m.state.Room.manual() && m.hostPack == nil
 		digest := ""
 		if !manual && m.hostPack == nil {
 			http.Error(w, "Host pack not prepared", http.StatusServiceUnavailable)
@@ -325,7 +360,7 @@ func (m *socialManager) hostLobbyHandler(peerID, guest string) http.Handler {
 			m.memberPreparation[guest] = preparation
 			m.rosterVersion++
 		}
-		result := lobbyExchange{WorldReady: m.state.WorldReady, NoPack: manual, Digest: digest, RosterVersion: m.rosterVersion}
+		result := lobbyExchange{WorldReady: m.state.WorldReady, NoPack: manual, VersionOnly: m.state.Pack != nil && m.state.Pack.VersionOnly, Digest: digest, RosterVersion: m.rosterVersion, VoiceRange: lobbyVoiceRange(m.voice.radius)}
 		if result.WorldReady && m.mixedPeerLocked(*membership) && (!m.mixedWorldReadyLocked() || membership.GameProfile == nil) {
 			result.WorldReady = false
 			result.MixedUnavailable = true
@@ -383,22 +418,25 @@ func (m *socialManager) exchangeLobby(ctx context.Context, peer *p2p.Peer, epoch
 	}
 	m.state.WorldReady = result.WorldReady
 	m.guestRosterVersion = result.RosterVersion
+	m.voice.radius = lobbyVoiceRange(result.VoiceRange)
 	m.state.NoPack = result.NoPack
 	if result.NoPack {
 		if m.packCancel != nil {
 			m.packCancel()
+			m.packCancel = nil
 		}
 		m.guestPack = nil
 		m.packConsent = ""
 		m.state.Pack = nil
 	}
-	if m.guestWorldDigest != result.Digest {
+	if m.guestWorldDigest != result.Digest || m.guestVersionOnly != result.VersionOnly {
 		m.resetAutoLobbyRetryLocked()
 	}
 	m.guestWorldDigest = result.Digest
+	m.guestVersionOnly = result.VersionOnly
 	m.state.InWorld = report.Phase == "world"
 	m.state.LocalPort = 0
-	if result.WorldReady && (result.Digest == "" || m.guestPack != nil && m.guestPack.manifest.Digest == result.Digest) {
+	if result.WorldReady && (result.Digest == "" || m.guestPack != nil && m.guestPack.manifest.Digest == result.Digest && m.guestPack.versionOnly == result.VersionOnly) {
 		m.state.LocalPort = m.guestPort
 	}
 	if m.memberPreparation == nil {
@@ -471,8 +509,8 @@ func (m *socialManager) watchGuestLobby(ctx context.Context, peer *p2p.Peer, epo
 		plan := m.guestPack
 		pack := m.state.Pack
 		cancelSync := m.packCancel
-		changed := plan != nil && digest != "" && digest != plan.manifest.Digest
-		recovered := plan == nil && digest != "" && digest != retriedDigest && (pack == nil || pack.Phase == "error" && pack.Digest == "")
+		changed := plan != nil && digest != "" && (digest != plan.manifest.Digest || plan.versionOnly != m.guestVersionOnly)
+		recovered := plan == nil && digest != "" && (pack == nil || digest != retriedDigest && pack.Phase == "error" && pack.Digest == "")
 		port := m.state.LocalPort
 		m.mu.Unlock()
 		if changed && cancelSync != nil {

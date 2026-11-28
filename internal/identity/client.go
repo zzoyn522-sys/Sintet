@@ -34,6 +34,7 @@ type SkinMetadata struct {
 	Digest string `json:"digest"`
 }
 type Account struct {
+	PublicID  string       `json:"publicID,omitempty"`
 	Handle    string       `json:"handle,omitempty"`
 	AvatarURL string       `json:"avatarURL,omitempty"`
 	Skin      SkinMetadata `json:"skin"`
@@ -235,13 +236,15 @@ func (c *Client) UpdateOfferDetails(ctx context.Context) (LauncherUpdateOffer, e
 	return result, err
 }
 
+const SocialStatePath = "/api/social?profileBadges=1&friendLobbies=1"
+
 // SocialRequest uses the encrypted desktop credential without exposing it to UI or DLL.
 func (c *Client) SocialRequest(ctx context.Context, method, path string, body, out any) error {
 	coverRequest := method == http.MethodGet && strings.HasPrefix(path, "/api/social/music-cover?")
 	traceRequest := method == http.MethodPost && path == "/api/social/ice-trace"
 	usageRequest := method == http.MethodGet && (path == "/api/social/turn-usage" || strings.HasPrefix(path, "/api/social/turn-usage?room="))
-	badgeStateRequest := method == http.MethodGet && path == "/api/social?profileBadges=1"
-	if path != "/api/social" && !badgeStateRequest && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest && !usageRequest {
+	stateRequest := method == http.MethodGet && (path == SocialStatePath || path == "/api/social?profileBadges=1")
+	if path != "/api/social" && !stateRequest && !strings.HasPrefix(path, "/api/social/search?") && !coverRequest && !traceRequest && !usageRequest {
 		return errors.New("invalid social route")
 	}
 	c.mu.Lock()

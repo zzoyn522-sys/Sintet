@@ -26,12 +26,16 @@ ULONGLONG autoConnectPendingUntil=0;
 struct AvatarEntry {std::string pixels;ULONGLONG nextAttempt=0;};
 std::unordered_map<std::string,AvatarEntry> avatars;
 std::deque<Person> avatarQueue;
+struct CoverRequest {std::string id,digest;};
+std::unordered_map<std::string,AvatarEntry> covers;
+std::deque<CoverRequest> coverQueue;
+std::atomic<ULONGLONG> inviteNoticeUntil{0};
 HINTERNET pollRequest,actionRequest;
 std::wstring wide(const std::string& str){int n=MultiByteToWideChar(CP_UTF8,0,str.data(),(int)str.size(),nullptr,0);std::wstring out(n,0);MultiByteToWideChar(CP_UTF8,0,str.data(),(int)str.size(),out.data(),n);return out;}
 Json request(bool action,const std::wstring& path,const std::string& body="",size_t maxBytes=256*1024) {
  HINTERNET session=WinHttpOpen(L"Sintet Overlay/1.0",WINHTTP_ACCESS_TYPE_NO_PROXY,WINHTTP_NO_PROXY_NAME,WINHTTP_NO_PROXY_BYPASS,0);
  if(!session)return Json{{"error",OverlayText("Связь с лаунчером недоступна")}};
- WinHttpSetTimeouts(session,1000,1000,2000,action?110000:1500);
+ WinHttpSetTimeouts(session,1000,1000,2000,action?(body.empty()?3500:110000):1500);
  HINTERNET connection=WinHttpConnect(session,hostname.c_str(),port,0);
  HINTERNET handle=connection?WinHttpOpenRequest(connection,body.empty()?L"GET":L"POST",path.c_str(),nullptr,WINHTTP_NO_REFERER,WINHTTP_DEFAULT_ACCEPT_TYPES,0):nullptr;
  std::string data;bool ok=false;
@@ -60,8 +64,10 @@ std::vector<std::string> badgeIDs(const Json& row){
 }
 Person person(const Json& value){
  if(!value.is_object())return {};
- return {value.value("id",""),value.value("username",""),value.value("avatarUrl",""),
-         ParseAccountProvider(value.value("provider","")),badgeIDs(value)};
+ Person account{value.value("id",""),value.value("username",""),value.value("avatarUrl",""),
+         ParseAccountProvider(value.value("provider","")),badgeIDs(value),value.value("publicID",""),value.value("handle","")};
+ if(account.publicID.size()<9||account.publicID.size()>16||account.publicID.find_first_not_of("0123456789")!=std::string::npos)account.publicID.clear();
+ return account;
 }
 void pollBadges(std::string& revision){
  const auto reply=request(false,L"/badges?revision="+wide(revision),"",2*1024*1024);
@@ -105,6 +111,16 @@ DWORD WINAPI poll(void*) {
    state.preGameLobby=value.value("preGameLobby",false);
    state.noPack=value.value("noPack",false);
    state.lobbyConnected=value.value("lobbyConnected",false);
+   state.hostNeedsPack=value.value("hostNeedsPack",false);
+   state.voiceEnabled=value.value("voiceEnabled",false);state.voiceError=value.value("voiceError","");
+   state.voiceSpatial=value.value("voiceSpatial",true);
+   state.voiceRange=value.value("voiceRange",48);
+   const auto voiceMixer=value.value("voiceMixer",Json());
+   state.voiceMixerAvailable=voiceMixer.is_object();
+   if(state.voiceMixerAvailable){
+    state.voiceVolume=voiceMixer.value("level",100);
+    state.voiceMuted=voiceMixer.value("muted",false);
+   }
    state.lobbyProvider=value.value("lobbyProvider","");
    state.self=person(value.value("lobbyProfile",Json()));
    state.turnActive=value.value("turnActive",false);
@@ -124,6 +140,8 @@ DWORD WINAPI poll(void*) {
     autoConnectPendingUntil=0;
    }
    state.room=room;
+   state.friendsOpen=!room.empty()&&value["room"].value("friends_open",false);
+   state.friendLobbiesAvailable=value.value("friendLobbiesAvailable",false);
    state.roomCapacity=room.empty()?4:value["room"].value("capacity",4);
    const auto pack=value.value("pack",Json());
    state.packPhase.clear();state.packDigest.clear();state.packError.clear();
@@ -131,16 +149,27 @@ DWORD WINAPI poll(void*) {
     state.packPhase=pack.value("phase","");state.packName=pack.value("name","");state.packGame=pack.value("game","");state.packLoader=pack.value("loader","");state.packDigest=pack.value("digest","");state.packCurrent=pack.value("current","");state.packError=pack.value("error","");state.packMissing=pack.value("missing",0);state.packBytes=pack.value("bytes",0LL);state.packDone=pack.value("done",0LL);state.packTotal=pack.value("total",0LL);state.packRestart=pack.value("restart",false);state.packNeedsGame=pack.value("needsGame",false);
    }
    state.friends.clear();state.invites.clear();state.members.clear();
-   if(value.contains("members")&&value["members"].is_array())for(auto& row:value["members"])state.members.push_back({person(row),row.value("leader",false),row.value("preparation",""),row.value("percent",0),row.value("handle","")});
+   if(value.contains("members")&&value["members"].is_array())for(auto& row:value["members"])state.members.push_back({person(row),row.value("leader",false),row.value("preparation",""),row.value("percent",0),row.value("handle",""),row.value("voiceMic",false),row.value("voiceSpeaking",false),row.value("voiceMuted",false)});
    if(value.contains("friends")&&value["friends"].is_array())for(auto& row:value["friends"]){
-    Friend f;f.person=person(row.value("account",Json()));f.status=row.value("status","");f.incoming=row.value("incoming",false);
+    Friend f;f.person=person(row.value("account",Json()));f.status=row.value("status","");f.incoming=row.value("incoming",false);f.joinableLobby=row.value("joinableLobby",false);
     const auto& presence=row.value("presence",Json());
+    const auto totals=row.value("totals",Json());
+    if(totals.is_object()){
+     f.hasTotals=true;
+     f.launcherMs=totals.value("launcherMs",0LL);f.minecraftMs=totals.value("minecraftMs",0LL);
+    }
     if(presence.is_object()){
      f.presence=presence.value("status","");
+     f.version=presence.value("version","");
      const auto& activity=presence.value("activity",Json());
      if(activity.is_object()){
       f.presence=activity.value("mode",f.presence);
       if(f.presence=="multiplayer")f.server=activity.value("server","");
+      f.version=activity.value("version",f.version);f.build=activity.value("build","");
+      const auto music=activity.value("music",Json());
+      if(music.is_object()&&!f.presence.empty()){
+       f.musicTitle=music.value("title","");f.musicArtist=music.value("artist","");f.musicDigest=music.value("digest","");
+      }
      }
     }
     if(!f.person.id.empty())state.friends.push_back(f);
@@ -161,9 +190,10 @@ DWORD WINAPI poll(void*) {
 }
 DWORD WINAPI actions(void*) {
  while(!stopping){
-  Command command;Person avatar;bool found=false;
+  Command command;Person avatar;CoverRequest cover;bool found=false;
   {std::lock_guard<std::mutex> lock(mutex);if(!commands.empty()){command=commands.front();commands.pop_front();state.busy=true;commandBusy=true;found=true;}
    else if(!avatarQueue.empty()){avatar=avatarQueue.front();avatarQueue.pop_front();}
+   else if(!coverQueue.empty()){cover=std::move(coverQueue.front());coverQueue.pop_front();}
   }
   if(!avatar.id.empty()){
    auto result=request(true,L"/avatar?id="+wide(avatar.id));
@@ -173,11 +203,23 @@ DWORD WINAPI actions(void*) {
    if(entry!=avatars.end()&&pixels.size()==36*36*8)entry->second.pixels=std::move(pixels);
    continue;
   }
+  if(!cover.id.empty()){
+   auto response=request(true,L"/music-cover?id="+wide(cover.id)+L"&digest="+wide(cover.digest),"",24*1024);
+   auto pixels=response.value("pixels","");
+   std::lock_guard<std::mutex> lock(mutex);
+   auto entry=covers.find(cover.id+cover.digest);
+   if(entry!=covers.end()&&pixels.size()==48*48*8)entry->second.pixels=std::move(pixels);
+   continue;
+  }
   if(!found){Sleep(100);continue;}
   auto result=request(true,L"/action",Json{{"action",command.action},{"target",command.target}}.dump());
   try{std::lock_guard<std::mutex> lock(mutex);commandBusy=false;state.busy=false;if(result.contains("error")){
    state.error=result.value("error","");
    if(command.action=="auto-connect")autoConnectPendingUntil=0;
+  }else if(result.value("ok",false)){
+   if(command.action=="invite")inviteNoticeUntil=GetTickCount64()+3300;
+   if(command.action=="voice-volume"){state.voiceVolume=std::atoi(command.target.c_str());state.voiceMuted=false;}
+   if(command.action=="voice-volume-mute")state.voiceMuted=command.target=="true";
   }
   }catch(...){std::lock_guard<std::mutex> lock(mutex);commandBusy=false;state.busy=false;state.error=OverlayText("Действие не выполнено");}
  }
@@ -195,6 +237,22 @@ std::string AvatarPixels(const Person& person){
  }
  return entry.pixels;
 }
+std::string MusicCoverPixels(const Friend& entry){
+ const auto& id=entry.person.id;
+ const auto& digest=entry.musicDigest;
+ if(id.size()!=36||id.find_first_not_of("0123456789abcdef-")!=std::string::npos||digest.size()!=64||
+    digest.find_first_not_of("0123456789abcdef")!=std::string::npos)return {};
+ std::lock_guard<std::mutex> lock(mutex);
+ const auto key=id+digest;
+ if(covers.size()>=48&&covers.find(key)==covers.end())covers.clear();
+ auto& cached=covers[key];
+ if(cached.pixels.empty()&&cached.nextAttempt<=GetTickCount64()&&coverQueue.size()<8){
+  cached.nextAttempt=GetTickCount64()+15000;
+  coverQueue.push_back({id,digest});
+ }
+ return cached.pixels;
+}
+const char* InviteNotice(){return GetTickCount64()<inviteNoticeUntil?OverlayText("Приглашение отправлено"):nullptr;}
 State Snapshot(){std::lock_guard<std::mutex> lock(mutex);return state;}
 AccountProvider ParseAccountProvider(const std::string& value){
  if(value=="sintet")return AccountProvider::Sintet;

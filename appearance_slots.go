@@ -160,7 +160,7 @@ func (a *App) SaveAppearanceSlot(index int, name string, settings Appearance) er
 	}
 	if slots[index].Name != name || slots[index].Settings != settings {
 		if slots[index].Name == "" || slots[index].Settings != settings {
-			slots[index].CreatorVersion = launcherVersion
+			slots[index].CreatorVersion = currentReleaseNumber()
 		}
 		slots[index].Package = ""
 		slots[index].Draft = ""
@@ -185,7 +185,7 @@ func (a *App) AddCurrentAppearance(name string) error {
 	if err != nil {
 		return err
 	}
-	slots[index] = AppearanceSlot{Name: name, Settings: a.appearance, CreatorVersion: launcherVersion}
+	slots[index] = AppearanceSlot{Name: name, Settings: a.appearance, CreatorVersion: currentReleaseNumber()}
 	return a.commitAppearance(a.appearance, slots, a.appearanceActive)
 }
 

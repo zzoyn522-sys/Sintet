@@ -47,6 +47,7 @@ func savedAppearanceDefaults() Appearance {
 }
 
 func restoreLegacyAppearance(settings Appearance) (Appearance, bool) {
+	settings.Overlay = settings.Overlay.WithCurrentDefaults()
 	if settings.BackgroundEffect != "" {
 		return settings, false
 	}
@@ -98,7 +99,7 @@ func (a *App) SaveAppearance(settings Appearance) error {
 	slots := a.copyAppearanceSlots()
 	if index := a.appearanceActive - 1; index >= 0 {
 		if slots[index].Settings != settings {
-			slots[index].CreatorVersion = launcherVersion
+			slots[index].CreatorVersion = currentReleaseNumber()
 			slots[index].Package = ""
 			slots[index].Draft = ""
 		}

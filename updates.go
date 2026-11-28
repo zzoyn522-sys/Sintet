@@ -16,13 +16,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sintet/internal/identity"
+	"sintet/internal/releaseversion"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
-// VERSION records the major version, feature branch, patch, and build in that order.
+// VERSION records the public release version.
 //
 //go:embed VERSION
 var defaultLauncherVersion string
@@ -37,7 +38,8 @@ var launcherChannel string
 
 func init() {
 	if launcherVersion == "" {
-		launcherVersion = strings.TrimSpace(defaultLauncherVersion)
+		launcherDisplayVersion = strings.TrimSpace(defaultLauncherVersion)
+		launcherVersion, _ = releaseversion.Build(launcherDisplayVersion, "")
 	}
 }
 
@@ -54,6 +56,7 @@ type updatePayload struct {
 	DisplayVersion string   `json:"displayVersion,omitempty"`
 	Channel        string   `json:"channel,omitempty"`
 	Beta           bool     `json:"beta,omitempty"`
+	PublicBeta     bool     `json:"publicBeta,omitempty"`
 	Notes          []string `json:"notes,omitempty"`
 	URL            string   `json:"url"`
 	SHA256         string   `json:"sha256"`
@@ -114,18 +117,32 @@ func (a *App) LauncherVersion() string { return launcherVersion }
 func (a *App) LauncherDisplayVersion() string {
 	return currentReleaseLabel()
 }
+func currentRelease() updatePayload {
+	return updatePayload{Version: launcherVersion, DisplayVersion: launcherDisplayVersion, Channel: launcherChannel}
+}
 func currentReleaseLabel() string {
-	return (updatePayload{Version: launcherVersion, DisplayVersion: launcherDisplayVersion, Channel: launcherChannel}).displayLabel()
+	return currentRelease().displayLabel()
+}
+func currentReleaseNumber() string {
+	return currentRelease().releaseNumber()
+}
+
+func (p updatePayload) releaseChannel() string {
+	if p.Beta {
+		return "beta"
+	}
+	return p.Channel
+}
+
+func (p updatePayload) releaseNumber() string {
+	if version := releaseversion.Display(p.DisplayVersion, p.Version, p.releaseChannel()); version != "" {
+		return version
+	}
+	return p.Version
 }
 
 func (p updatePayload) displayLabel() string {
-	if p.Beta {
-		return releaseVersionLabel(p.Version, "beta")
-	}
-	if p.Channel == "" && versionIsNewer(p.DisplayVersion, "0.0.0") {
-		return p.DisplayVersion
-	}
-	return releaseVersionLabel(p.Version, p.Channel)
+	return releaseVersionLabel(p.releaseNumber(), p.releaseChannel())
 }
 
 func releaseVersionLabel(version, channel string) string {
@@ -224,6 +241,7 @@ func (u *updateManager) check(ctx context.Context, account *identity.Client, off
 	var public updatePayload
 	var err error
 	if official {
+		// Official updates include stable releases and public BETA builds.
 		public, err = fetchOfficialUpdate(checkCtx)
 	} else if launcherChannel != "test" {
 		public, err = fetchUpdateManifest(checkCtx, updateManifestURL)
@@ -238,13 +256,23 @@ func (u *updateManager) check(ctx context.Context, account *identity.Client, off
 	}
 	private, _ := parseSignedUpdate(offer.Release)
 	payload := selectUpdate(public, private, launcherVersion, launcherChannel, official)
+	if payload.Version == launcherVersion && payload.URL == "" {
+		payload = currentRelease()
+	}
 	u.mu.Lock()
 	u.payload = payload
-	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: payload.displayLabel(), Notes: append([]string(nil), payload.Notes...), Available: versionIsNewer(payload.Version, launcherVersion),
+	u.state = updateView{CurrentVersion: launcherVersion, LatestVersion: payload.Version, LatestLabel: payload.displayLabel(), Notes: append([]string(nil), payload.Notes...), Available: updateAvailable(payload, launcherVersion, launcherChannel, official),
 		Tester: offer.Tester, OfficialOnly: official, CanReturn: offer.Tester && launcherChannel == "test"}
 	v := u.state
 	u.mu.Unlock()
 	return v
+}
+
+func updateAvailable(payload updatePayload, current, channel string, official bool) bool {
+	if channel == "test" && official {
+		return payload.Version != "" && payload.Version != current && payload.Channel == ""
+	}
+	return versionIsNewer(payload.Version, current)
 }
 
 func selectUpdate(public, private updatePayload, current, channel string, official bool) updatePayload {
@@ -261,11 +289,11 @@ func selectUpdate(public, private updatePayload, current, channel string, offici
 }
 
 func fetchOfficialUpdate(ctx context.Context) (updatePayload, error) {
-	public, err := fetchUpdateManifest(ctx, officialManifestURL)
+	public, err := fetchUpdateManifest(ctx, updateManifestURL)
 	if err != nil {
-		public, err = fetchUpdateManifest(ctx, updateManifestURL)
+		public, err = fetchUpdateManifest(ctx, officialManifestURL)
 	}
-	if err == nil && (public.Channel != "" || public.Beta) {
+	if err == nil && public.Channel != "" {
 		err = errors.New("Официальная версия временно недоступна")
 	}
 	return public, err
@@ -313,6 +341,7 @@ func parseSignedUpdate(data []byte) (updatePayload, error) {
 	if err = json.Unmarshal(payloadBytes, &payload); err != nil {
 		return updatePayload{}, errors.New("содержимое манифеста некорректно")
 	}
+	payload.Beta = payload.Beta || payload.PublicBeta
 	if !validUpdatePayload(payload) {
 		return updatePayload{}, errors.New("манифест содержит недопустимые параметры")
 	}
@@ -324,6 +353,12 @@ func contextWithoutCancel() context.Context { return context.Background() }
 func validUpdatePayload(p updatePayload) bool {
 	if p.Channel != "" && (p.Channel != "test" || p.Beta) {
 		return false
+	}
+	if strings.HasPrefix(p.Version, "2.") {
+		expected, err := releaseversion.Build(p.DisplayVersion, p.releaseChannel())
+		if err != nil || expected != p.Version {
+			return false
+		}
 	}
 	if !versionIsNewer(p.Version, "0.0.0") || p.Size < 1 || p.Size > 350*1024*1024 || len(p.SHA256) != 64 {
 		return false

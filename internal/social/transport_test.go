@@ -53,6 +53,34 @@ func TestWebRTCTunnelCarriesConcurrentMinecraftStreams(t *testing.T) {
 	if err = guest.SetAnswer(*answer); err != nil {
 		t.Fatal(err)
 	}
+	voice := make(chan []byte, 1)
+	guest.OnVoice(func(packet []byte) {
+		select {
+		case voice <- bytes.Clone(packet):
+		default:
+		}
+	})
+	host.OnVoice(func(packet []byte) { host.SendVoice(bytes.Clone(packet)) })
+	frame := make([]byte, VoiceHeader+VoiceMaxPayload)
+	frame[0], frame[len(frame)-1] = 3, 42
+	voiceTimeout := time.NewTimer(3 * time.Second)
+	defer voiceTimeout.Stop()
+	voiceTick := time.NewTicker(25 * time.Millisecond)
+	defer voiceTick.Stop()
+voiceRoundTrip:
+	for {
+		select {
+		case <-voiceTick.C:
+			guest.SendVoice(frame)
+		case echo := <-voice:
+			if !bytes.Equal(echo, frame) {
+				t.Fatal("voice channel changed the audio frame")
+			}
+			break voiceRoundTrip
+		case <-voiceTimeout.C:
+			t.Fatal("voice datagram did not return")
+		}
+	}
 	port, err := guest.Listen(ctx)
 	if err != nil {
 		t.Fatal(err)

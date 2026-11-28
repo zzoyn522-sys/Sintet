@@ -29,7 +29,7 @@ $arguments=@('/nologo','/target:winexe','/platform:x64','/optimize+','/utf8outpu
   "/r:$framework\WPF\PresentationCore.dll",
   "/r:$framework\WPF\WindowsBase.dll",
   "/r:$framework\System.Xaml.dll",
-  "$root\installer\SetupLanguage.cs","$PSScriptRoot\Updater.cs")
+  "$root\installer\SetupLanguage.cs","$PSScriptRoot\ReleaseLabel.cs","$PSScriptRoot\Updater.cs")
 & $compiler $arguments
 if($LASTEXITCODE -ne 0){throw 'Не удалось собрать окно обновления Sintet.'}
 Get-Item -LiteralPath $output | Select-Object FullName,Length,LastWriteTime

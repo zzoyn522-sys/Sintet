@@ -27,12 +27,14 @@
   padding:15px 18px 17px; border:0; border-radius:var(--launcher-radius,16px);
   background:var(--wardrobe-surface); color:var(--wardrobe-ink);
   box-shadow:var(--panel-shadow,0 16px 40px #0007); transform-origin:top right;
-  opacity:0; transform:translateY(-6px) scale(.98);
+}
+:is(#skin-wardrobe,#friends-panel) {
+  opacity:0; transform:var(--popover-rest-transform,translateY(-6px) scale(.98));
   transition:opacity .18s, transform .24s cubic-bezier(.2,.8,.2,1), display .24s allow-discrete, overlay .24s allow-discrete;
 }
-#skin-wardrobe:popover-open {opacity:1; transform:none}
+:is(#skin-wardrobe,#friends-panel):popover-open {opacity:1; transform:none}
 @starting-style {
-  #skin-wardrobe:popover-open {opacity:0; transform:translateY(-6px) scale(.98)}
+  :is(#skin-wardrobe,#friends-panel):popover-open {opacity:0; transform:var(--popover-rest-transform,translateY(-6px) scale(.98))}
 }
 html[data-launcher-panels]:not([data-custom-profile]) #skin-wardrobe {
   background-color:color-mix(in srgb,var(--wardrobe-surface) max(65%,var(--launcher-opacity)),transparent);
@@ -114,5 +116,5 @@ html[data-launcher-panels]:not([data-custom-profile]) #skin-wardrobe {
 .wardrobe-swatch img {position:absolute; width:192px; max-width:none; height:auto; image-rendering:pixelated; left:-24px; top:-24px}
 .wardrobe-swatch.is-cape {width:20px; height:32px}
 .wardrobe-swatch.is-cape img {width:128px; left:-2px; top:-2px}
-@media(prefers-reduced-motion:reduce) {#skin-wardrobe {transition:none; transform:none}}
+@media(prefers-reduced-motion:reduce) {:is(#skin-wardrobe,#friends-panel) {transition:none; transform:none}}
 #skin-wardrobe [hidden] {display:none}

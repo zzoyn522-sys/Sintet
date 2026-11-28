@@ -116,7 +116,7 @@ namespace SintetUpdater {
     var file=new FileInfo(privateManifest);if(!file.Exists||file.Length>65536)throw new IOException(SetupLanguage.T("Персональный манифест недоступен."));
     manifest=File.ReadAllText(privateManifest,Encoding.UTF8);
    }else if(officialOnly){
-    try{manifest=FetchManifest(OfficialManifestUrl);}catch(WebException){manifest=FetchManifest(ManifestUrl);}
+    try{manifest=FetchManifest(ManifestUrl);}catch(WebException){manifest=FetchManifest(OfficialManifestUrl);}
    }else if(testBuild){
     manifest=AccountManifest();if(String.IsNullOrEmpty(manifest))return null;
    }else{
@@ -127,11 +127,10 @@ namespace SintetUpdater {
    var serializer=new System.Web.Script.Serialization.JavaScriptSerializer();var envelope=serializer.Deserialize<Dictionary<string,object>>(manifest);
    byte[] raw=Convert.FromBase64String(Convert.ToString(envelope["payload"]));var payload=serializer.Deserialize<Dictionary<string,object>>(Encoding.UTF8.GetString(raw));
    bool test=payload.ContainsKey("channel")&&Convert.ToString(payload["channel"])=="test";
-   bool beta=payload.ContainsKey("beta")&&payload["beta"] is bool&&(bool)payload["beta"];
-   if(officialOnly&&(test||beta)||testBuild&&!officialOnly&&!test&&String.IsNullOrEmpty(privateManifest))return null;
+   if(officialOnly&&test||testBuild&&!officialOnly&&!test&&String.IsNullOrEmpty(privateManifest))return null;
    string candidate=Convert.ToString(payload["version"]),url=Convert.ToString(payload["url"]),sha=Convert.ToString(payload["sha256"]);long size=Convert.ToInt64(payload["size"]);Version candidateVersion,current;
    if(!Version.TryParse(candidate,out candidateVersion)||!Version.TryParse(currentVersion,out current))throw new IOException(SetupLanguage.T("Версия Sintet некорректна."));
-   if(candidateVersion<=current)return null;
+   if(candidateVersion==current||candidateVersion<current&&!(officialOnly&&testBuild))return null;
    Uri uri;if(!Uri.TryCreate(url,UriKind.Absolute,out uri)||uri.Scheme!="https"||uri.Host!="sintet-updates.zzoyn522.workers.dev"||uri.AbsolutePath!="/stable/Sintet-"+candidate+".exe"||size<1||size>350L*1024*1024||sha.Length!=64)throw new IOException(SetupLanguage.T("Манифест содержит недопустимые параметры."));
    string directory=Path.GetDirectoryName(target);string manifestPath=Path.Combine(Path.GetTempPath(),"Sintet-update-"+Guid.NewGuid().ToString("N")+".json");
    string download=Path.Combine(directory,".sintet-update-"+Guid.NewGuid().ToString("N")+".tmp");
@@ -143,12 +142,7 @@ namespace SintetUpdater {
      while((count=input.Read(buffer,0,buffer.Length))>0){copied+=count;if(copied>size||copied>350L*1024*1024)throw new IOException(SetupLanguage.T("Сборка Sintet превышает размер из манифеста."));output.Write(buffer,0,count);int percent=(int)(copied*100/size);string amount=(copied/1048576.0).ToString("0.0",CultureInfo.InvariantCulture)+" / "+(size/1048576.0).ToString("0.0",CultureInfo.InvariantCulture)+SetupLanguage.T(" МБ");SetProgress(percent,amount);}
      output.Flush(true);if(copied!=size)throw new IOException(SetupLanguage.T("Размер обновления не совпадает с манифестом."));
     }
-    string label=candidate;if(payload.ContainsKey("channel")&&Convert.ToString(payload["channel"])=="test"){var parts=candidate.Split('.');label=parts[0]+"."+parts[1]+"."+parts[2]+" TEST";}
-    else if(payload.ContainsKey("beta")&&payload["beta"] is bool&&(bool)payload["beta"]){label=candidate+" BETA";}
-    else {
-     object displayValue; Version displayParsed;
-     if(payload.TryGetValue("displayVersion",out displayValue)&&Version.TryParse(Convert.ToString(displayValue),out displayParsed)&&displayParsed.Revision>=0)label=displayParsed.ToString();
-    }
+    string label=Sintet.ReleaseLabel.FromManifest(payload,candidate,test,Sintet.ReleaseLabel.IsBeta(payload));
     return new Release{Version=candidate,DisplayVersion=label,Url=url,Sha256=sha,Size=size,Manifest=manifestPath,DownloadPath=download};
    }catch{try{if(File.Exists(download))File.Delete(download);}catch{}try{if(File.Exists(manifestPath))File.Delete(manifestPath);}catch{}throw;}
   }

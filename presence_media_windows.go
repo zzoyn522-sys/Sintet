@@ -31,14 +31,8 @@ func (a *App) presenceMedia(enabled bool) (*presenceMusic, []byte) {
 	if bridge.handle == 0 || bridge.mediaEnable == 0 || bridge.mediaRead == 0 {
 		return nil, nil
 	}
-	if bridge.mediaEnabled != enabled {
-		flag := uintptr(0)
-		if enabled {
-			flag = 1
-		}
-		syscall.SyscallN(bridge.mediaEnable, flag)
-		bridge.mediaEnabled = enabled
-	}
+	bridge.presenceMediaEnabled = enabled
+	bridge.updateMedia()
 	if !enabled {
 		bridge.mediaCover = nil
 		return nil, nil
@@ -76,4 +70,45 @@ func (a *App) presenceMedia(enabled bool) (*presenceMusic, []byte) {
 	}
 	music.Digest = hex.EncodeToString(bridge.mediaCoverDigest[:])
 	return music, bridge.mediaCover
+}
+
+func (b *overlayBridge) updateMedia() {
+	enabled := b.presenceMediaEnabled || b.profileAudioEnabled
+	if b.mediaEnable == 0 || b.mediaEnabled == enabled {
+		return
+	}
+	flag := uintptr(0)
+	if enabled {
+		flag = 1
+	}
+	syscall.SyscallN(b.mediaEnable, flag)
+	b.mediaEnabled = enabled
+}
+
+func (a *App) ProfileAudioSpectrum(active bool) []uint32 {
+	a.overlayMu.Lock()
+	bridge := a.overlay
+	a.overlayMu.Unlock()
+	if bridge == nil {
+		return nil
+	}
+	bridge.mu.Lock()
+	defer bridge.mu.Unlock()
+	if bridge.handle == 0 || bridge.profileSpectrum == 0 {
+		return nil
+	}
+	bridge.profileAudioEnabled = active
+	if !active {
+		syscall.SyscallN(bridge.profileSpectrum, 0, 0)
+	}
+	bridge.updateMedia()
+	if !active {
+		return nil
+	}
+	var values [8]uint32
+	ok, _, _ := syscall.SyscallN(bridge.profileSpectrum, uintptr(unsafe.Pointer(&values[0])), uintptr(len(values)))
+	if ok == 0 {
+		return nil
+	}
+	return values[:]
 }

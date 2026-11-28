@@ -4,6 +4,7 @@
  const choices = document.querySelector('#account-choices');
  const profile = document.querySelector('#account-dialog');
  const addDialog = document.querySelector('#account-add-dialog');
+ const localToggle = document.querySelector('#account-local-toggle');
  const localForm = document.querySelector('#account-local-form');
  const localName = document.querySelector('#account-local-name');
  const localError = document.querySelector('#account-local-error');
@@ -69,12 +70,14 @@
  add.className = 'account-slot account-slot-add';
  add.innerHTML = '<button type="button" class="account-choice account-choice-add" aria-label="Добавить аккаунт" title="Добавить аккаунт"><span class="account-add-icon" aria-hidden="true"><svg class="account-add-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="account-choice-name">Добавить</span></button>';
  const addButton = add.firstElementChild;
- addButton.addEventListener('click', () => {
+ addButton.addEventListener('click', async () => {
   if (changing || !canAdd) return;
   setExpanded(false);
-  profile.close();
+  if(window.SintetAccount?.close)await window.SintetAccount.close();
+  else profile.close();
+  if(addDialog.open)return;
   localForm.reset();
-  localForm.hidden = true;
+  setLocalForm(false);
   localError.textContent = '';
   document.querySelector('#microsoft-login-status').hidden = true;
   addDialog.showModal();
@@ -143,10 +146,12 @@
  }
  document.querySelector('#account-add-close').addEventListener('click',backToProfile);
  addDialog.addEventListener('cancel',event=>{event.preventDefault();backToProfile()});
- document.querySelector('#account-local-toggle').addEventListener('click',()=>{
-  localForm.hidden=!localForm.hidden;
-  if(!localForm.hidden)localName.focus();
- });
+ function setLocalForm(open) {
+  localForm.hidden=!open;
+  localToggle.setAttribute('aria-expanded',String(open));
+  if(open)localName.focus();
+ }
+ localToggle.addEventListener('click',()=>setLocalForm(localForm.hidden));
  localForm.addEventListener('submit',async event=>{
   event.preventDefault();
   const submit=localForm.querySelector('button[type=submit]');

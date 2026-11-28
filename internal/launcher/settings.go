@@ -28,6 +28,7 @@ type Settings struct {
 	Height               int             `json:"height"`
 	Fullscreen           bool            `json:"fullscreen"`
 	JavaPath             string          `json:"javaPath"`
+	JVMProfile           string          `json:"jvmProfile"`
 	MemoryMB             int             `json:"memoryMB"`
 	AutoMemory           bool            `json:"autoMemory"`
 	AutoClose            bool            `json:"autoClose"`
@@ -78,6 +79,11 @@ func WriteSettings(path string, settings Settings) error {
 	return accountfiles.Write(path, data)
 }
 func ValidateSettings(s Settings) error {
+	switch s.JVMProfile {
+	case "", "g1gc", "zgc":
+	default:
+		return fmt.Errorf("неизвестный профиль JVM")
+	}
 	switch s.WorldBackupMinutes {
 	case 0, 15, 30, 60, 120, 240, 1440:
 	default:
@@ -159,6 +165,8 @@ type LaunchOptions struct {
 	OverlayAvatar            string
 	OverlayFont              string
 	OverlayNetworkPinFile    string
+	OverlayMiniPlayerPinFile string
+	OverlayScreenshotsRoot   string
 	InterfaceLanguage        string
 	OverlayHotkey            string
 	OverlayBuildName         string
@@ -180,6 +188,7 @@ type LaunchOptions struct {
 	Height                   int
 	Fullscreen               bool
 	JavaPath                 string
+	JVMProfile               string
 	JVMArgs                  []string
 	InstanceMode             string
 }
@@ -193,7 +202,7 @@ func (s Settings) LaunchOptions(total int) LaunchOptions {
 		}
 		backupInterval = time.Duration(minutes) * time.Minute
 	}
-	return LaunchOptions{WorldBackupInterval: backupInterval, MinMemoryMB: 512, MemoryMB: EffectiveMemory(s, total), Width: s.Width, Height: s.Height, Fullscreen: s.Fullscreen, JavaPath: s.JavaPath, InstanceMode: s.InstanceMode, GamePreferences: s.GamePreferences}
+	return LaunchOptions{WorldBackupInterval: backupInterval, MinMemoryMB: 512, MemoryMB: EffectiveMemory(s, total), Width: s.Width, Height: s.Height, Fullscreen: s.Fullscreen, JavaPath: s.JavaPath, JVMProfile: s.JVMProfile, InstanceMode: s.InstanceMode, GamePreferences: s.GamePreferences}
 }
 
 type JavaInfo struct {

@@ -38,7 +38,10 @@ const (
 	draftMagicV11   = "SLDB"
 	draftMagicV12   = "SLDC"
 	draftMagicV13   = "SLDD"
-	Version         = 13
+	draftMagicV14   = "SLDE"
+	draftMagicV15   = "SLDF"
+	draftMagicV16   = "SLDG"
+	Version         = 16
 	Extension       = ".sldcfg"
 	headerSize      = 74
 	signatureOffset = 6
@@ -101,6 +104,12 @@ func MarshalDraft(p Package) ([]byte, error) {
 		magic = draftMagicV12
 	case 13:
 		magic = draftMagicV13
+	case 14:
+		magic = draftMagicV14
+	case 15:
+		magic = draftMagicV15
+	case 16:
+		magic = draftMagicV16
 	}
 	return append([]byte(magic), plain...), nil
 }
@@ -136,6 +145,12 @@ func OpenDraft(data []byte) (Package, error) {
 		return decode(data[4:], 12)
 	case draftMagicV13:
 		return decode(data[4:], 13)
+	case draftMagicV14:
+		return decode(data[4:], 14)
+	case draftMagicV15:
+		return decode(data[4:], 15)
+	case draftMagicV16:
+		return decode(data[4:], 16)
 	default:
 		return Package{}, errors.New("Некорректный черновик оформления")
 	}
@@ -259,6 +274,15 @@ func ValidCreatorVersion(value string) bool { return creatorVersionPattern.Match
 
 func packageVersion(p Package) int {
 	settings, defaults := p.Settings, Default()
+	if settings.ProfileWaveAlpha != 0 || settings.ProfileWaveTrail != 0 {
+		return 16
+	}
+	if settings.ProfileWaveLine {
+		return 15
+	}
+	if settings.ProfileWaveOff || settings.ProfileWaveColor != "" || settings.ProfileWaveOpacity != 0 || settings.ProfileWaveHeight != 0 {
+		return 14
+	}
 	if settings.WaveStyle != defaults.WaveStyle {
 		return 13
 	}
@@ -413,6 +437,24 @@ func encode(p Package, version int) ([]byte, error) {
 			out = append(out, 1)
 		} else {
 			out = append(out, 0)
+		}
+	}
+	if version >= 14 {
+		write(p.Settings.ProfileWaveColor)
+		var disabled byte
+		if p.Settings.ProfileWaveOff {
+			disabled = 1
+		}
+		out = append(out, disabled, byte(p.Settings.ProfileWaveOpacity), byte(p.Settings.ProfileWaveHeight))
+		if version >= 15 {
+			line := byte(0)
+			if p.Settings.ProfileWaveLine {
+				line = 1
+			}
+			out = append(out, line)
+		}
+		if version >= 16 {
+			out = append(out, byte(p.Settings.ProfileWaveAlpha), byte(p.Settings.ProfileWaveTrail))
 		}
 	}
 	return out, nil
@@ -572,6 +614,29 @@ func decode(data []byte, version int) (Package, error) {
 			default:
 				d.bad = true
 			}
+		}
+	}
+	if version >= 14 {
+		p.Settings.ProfileWaveColor = d.text()
+		if raw := d.take(3); raw != nil && raw[0] <= 1 {
+			p.Settings.ProfileWaveOff = raw[0] == 1
+			p.Settings.ProfileWaveOpacity = int(raw[1])
+			p.Settings.ProfileWaveHeight = int(raw[2])
+		} else {
+			d.bad = true
+		}
+	}
+	if version >= 15 {
+		if raw := d.take(1); raw != nil && (raw[0] == 1 || version >= 16 && raw[0] == 0) {
+			p.Settings.ProfileWaveLine = raw[0] == 1
+		} else {
+			d.bad = true
+		}
+	}
+	if version >= 16 {
+		if raw := d.take(2); raw != nil {
+			p.Settings.ProfileWaveAlpha = int(raw[0])
+			p.Settings.ProfileWaveTrail = int(raw[1])
 		}
 	}
 	if d.bad || len(d.data) != 0 || version < 7 && p.Settings.BackgroundSaturation > 180 {

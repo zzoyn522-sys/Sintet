@@ -2,6 +2,7 @@ package launcher
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -79,6 +80,7 @@ func (s *Service) LaunchWithOptions(id, name string, options LaunchOptions) erro
 	validation.Height = options.Height
 	validation.InstanceMode = options.InstanceMode
 	validation.JavaPath = options.JavaPath
+	validation.JVMProfile = options.JVMProfile
 	validation.GamePreferences = options.GamePreferences
 	if e := ValidateSettings(validation); e != nil {
 		return e
@@ -164,6 +166,7 @@ func (s *Service) buildLaunch(r Receipt, name string, options LaunchOptions) (la
 		combined = append(combined, options.JVMArgs...)
 		args = append(combined, args[3:]...)
 	}
+	args = applyJVMProfile(args, options, r.Profile.JavaVersion.MajorVersion)
 	if log := r.Profile.Logging.Client; log.Argument != "" {
 		args = append(args, strings.ReplaceAll(log.Argument, "${path}", filepath.Join(s.Root, "assets", "log_configs", log.File.ID)))
 	}
@@ -217,6 +220,42 @@ func (s *Service) buildLaunch(r Receipt, name string, options LaunchOptions) (la
 	spec.Args = append(args, game...)
 	return spec, nil
 }
+func applyJVMProfile(args []string, options LaunchOptions, javaMajor int) []string {
+	collector := ""
+	switch options.JVMProfile {
+	case "g1gc":
+		collector = "-XX:+UseG1GC"
+	case "zgc":
+		if javaMajor >= 17 {
+			collector = "-XX:+UseZGC"
+		} else {
+			collector = "-XX:+UseG1GC"
+		}
+	}
+	if collector == "" {
+		return args
+	}
+	isCollector := func(arg string) bool {
+		switch strings.TrimPrefix(strings.TrimPrefix(arg, "-XX:+"), "-XX:-") {
+		case "UseG1GC", "UseZGC", "UseSerialGC", "UseParallelGC", "UseParallelOldGC", "UseConcMarkSweepGC", "UseShenandoahGC", "UseEpsilonGC", "UseParNewGC":
+			return strings.HasPrefix(arg, "-XX:")
+		}
+		return false
+	}
+	for _, arg := range options.JVMArgs {
+		if isCollector(arg) {
+			return args
+		}
+	}
+	filtered := args[:0]
+	for _, arg := range args {
+		if !isCollector(arg) {
+			filtered = append(filtered, arg)
+		}
+	}
+	return append(filtered, collector)
+}
+
 func appendQuickPlay(args []string, profile Profile, port int) []string {
 	address := strconv.Itoa(port)
 	if supportsQuickPlay(profile) {
@@ -376,9 +415,14 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	}
 	cmd := exec.Command(spec.Java, spec.Args...)
 	cmd.Dir = spec.Directory
+	var bridgeRun string
 	if overlayPath != "" || bridgeEnabled {
 		cmd.Env = append(cmd.Environ(), overlayEnvironment(r, name, options)...)
 		cmd.Env = append(cmd.Env, "SINTET_BRIDGE_MAPPINGS="+bridgeMappings)
+	}
+	if bridgeEnabled {
+		bridgeRun = rand.Text()
+		cmd.Env = append(cmd.Env, "SINTET_BRIDGE_RUN="+bridgeRun)
 	}
 	var logOutput io.Writer = log
 	if options.ObserveLog != nil {
@@ -412,6 +456,7 @@ func (s *Service) launch(ctx context.Context, cancel context.CancelFunc, r Recei
 	}
 	s.mu.Lock()
 	s.state.PID = cmd.Process.Pid
+	s.state.GameBridgeRun = bridgeRun
 	s.state.Directory = spec.Directory
 	s.state.GameVersion = r.Base
 	s.state.GameLoader = r.Loader
@@ -491,6 +536,8 @@ func overlayEnvironment(r Receipt, name string, options LaunchOptions) []string 
 		"SINTET_OVERLAY_AVATAR=" + options.OverlayAvatar,
 		"SINTET_OVERLAY_FONT=" + options.OverlayFont,
 		"SINTET_OVERLAY_NETWORK_PIN_FILE=" + options.OverlayNetworkPinFile,
+		"SINTET_OVERLAY_MINI_PLAYER_PIN_FILE=" + options.OverlayMiniPlayerPinFile,
+		"SINTET_OVERLAY_SCREENSHOTS_ROOT=" + options.OverlayScreenshotsRoot,
 		"SINTET_OVERLAY_ID=" + overlayIdentity(name, options),
 		"SINTET_OVERLAY_IPC=" + options.OverlayIPC,
 		"SINTET_OVERLAY_IPC_SECRET=" + options.OverlayIPCSecret,

@@ -38,6 +38,9 @@ type overlayBridge struct {
 	start, stop, setGame, enable, preview uintptr
 	previewFrame, previewInput            uintptr
 	mediaEnable, mediaRead                uintptr
+	profileSpectrum                       uintptr
+	profileAudioEnabled                   bool
+	presenceMediaEnabled                  bool
 	mediaEnabled                          bool
 	mediaCover                            []byte
 	mediaPixels, mediaCoverDigest         [32]byte
@@ -148,6 +151,7 @@ func openOverlay(root string) (*overlayBridge, error) {
 	}
 	b.mediaEnable, _ = windows.GetProcAddress(b.handle, "SintetPresenceMediaEnable")
 	b.mediaRead, _ = windows.GetProcAddress(b.handle, "SintetPresenceMediaRead")
+	b.profileSpectrum, _ = windows.GetProcAddress(b.handle, "SintetProfileSpectrum")
 	value, _, _ := syscall.SyscallN(b.start)
 	if value == 0 {
 		b.close()
@@ -163,6 +167,9 @@ func (b *overlayBridge) close() {
 	defer b.mu.Unlock()
 	if b.handle == 0 {
 		return
+	}
+	if b.profileSpectrum != 0 {
+		syscall.SyscallN(b.profileSpectrum, 0, 0)
 	}
 	if b.mediaEnabled {
 		syscall.SyscallN(b.mediaEnable, 0)

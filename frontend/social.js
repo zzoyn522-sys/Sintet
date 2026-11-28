@@ -19,7 +19,13 @@
  requestsButton.setAttribute('aria-expanded','false');
  requestsButton.title='Заявки в друзья';
  requestsButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="friends-requests-count" hidden></span>';
- titleActions.append(requestsButton);
+ const lobbySettingsButton=element('button','friends-requests-toggle lobby-settings-toggle');
+ lobbySettingsButton.type='button';
+ lobbySettingsButton.setAttribute('aria-label','Настройки лобби');
+ lobbySettingsButton.setAttribute('aria-controls','social-lobby-settings');
+ lobbySettingsButton.setAttribute('aria-expanded','false');
+ lobbySettingsButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h5m6 0h5M4 17h9m6 0h1"/><circle cx="12" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></svg>';
+ titleActions.append(requestsButton,lobbySettingsButton);
  const api=()=>window.go?.main?.App;
  const avatars=new Map();
  const guideKey='sintet-social-guide-v1';
@@ -108,16 +114,27 @@
  guideLink.textContent='О P2P и оверлее';
  guideLink.onclick=()=>{
   panel.hidePopover();
-  showGuide(()=>panel.showPopover());
+  guide.addEventListener('close',()=>{
+   panel.showPopover();
+   guideLink.focus({preventScroll:true});
+  },{once:true});
+  showGuide();
  };
 
  let busy=false,state=null,searchGeneration=0,activeTab='friends',showRequests=false,lastPackPhase='',lastPackProfile='';
+ let lobbySettingsOpen=false;
  let acceptedInvite=null,inviteError='',inviteView='',autoConnectPending=null,stateRead=0,stateApplied=0;
  const invitationBanner=document.createElement('aside');
  invitationBanner.className='launcher-invitation';
  invitationBanner.setAttribute('aria-label','Приглашение в лобби');
  invitationBanner.hidden=true;
  document.querySelector('.launcher-invitations').append(invitationBanner);
+ const friendRequestBanner=element('aside','launcher-invitation');
+ friendRequestBanner.setAttribute('aria-label','Заявка в друзья');
+ friendRequestBanner.hidden=true;
+ invitationBanner.after(friendRequestBanner);
+ const dismissedFriendRequests=new Set();
+ let friendRequestView='';
  const turnNotice=element('aside','launcher-invitation turn-notice');
  turnNotice.setAttribute('role','status');
  turnNotice.hidden=true;
@@ -218,6 +235,7 @@
  requestsPanel.hidden=true;
  tools.before(requestsPanel);
  requestsButton.onclick=()=>{
+  setLobbySettings(false,false);
   showRequests=!showRequests;
   requestsButton.setAttribute('aria-expanded',String(showRequests));
   render();
@@ -226,16 +244,55 @@
  const friendTab=element('button','','Друзья'),lobbyTab=element('button','','Лобби');
  const friendPage=element('section','social-tab-page'),lobbyPage=element('section','social-tab-page');
  friendPage.id='social-friends-page';lobbyPage.id='social-lobby-page';friendPage.setAttribute('role','tabpanel');lobbyPage.setAttribute('role','tabpanel');
+ const lobbySettings=element('section','social-tab-page lobby-settings-view');
+ lobbySettings.id='social-lobby-settings';
+ lobbySettings.hidden=true;
+ lobbySettings.setAttribute('aria-labelledby','social-lobby-settings-title');
+ const lobbySettingsHeading=element('div','lobby-settings-heading');
+ const lobbySettingsBack=element('button','friends-requests-toggle');
+ lobbySettingsBack.type='button';
+ lobbySettingsBack.setAttribute('aria-label','Назад');
+ lobbySettingsBack.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>';
+ const lobbySettingsTitle=element('h3','','Настройки лобби');
+ lobbySettingsTitle.id='social-lobby-settings-title';
+ lobbySettingsHeading.append(lobbySettingsBack,lobbySettingsTitle);
+ lobbySettings.append(lobbySettingsHeading);
  const offlineNotice=element('p','social-offline',window.SintetNetwork.message);
  offlineNotice.setAttribute('role','status');
  offlineNotice.hidden=true;
- panel.append(offlineNotice,tabs,friendPage,lobbyPage);friendPage.append(tools,list);lobbyPage.append(footer);
- function selectTab(name){activeTab=name;const friends=name==='friends';friendPage.hidden=!friends;lobbyPage.hidden=friends;friendTab.setAttribute('aria-selected',String(friends));lobbyTab.setAttribute('aria-selected',String(!friends));friendTab.tabIndex=friends?0:-1;lobbyTab.tabIndex=friends?-1:0;}
+ panel.append(offlineNotice,tabs,friendPage,lobbyPage,lobbySettings);friendPage.append(tools,list);lobbyPage.append(footer);
+ function selectTab(name){activeTab=name;const friends=name==='friends';friendPage.hidden=lobbySettingsOpen||!friends;lobbyPage.hidden=lobbySettingsOpen||friends;friendTab.setAttribute('aria-selected',String(friends));lobbyTab.setAttribute('aria-selected',String(!friends));friendTab.tabIndex=friends?0:-1;lobbyTab.tabIndex=friends?-1:0;}
+ function setLobbySettings(open,focus=true){
+  if(lobbySettingsOpen===open)return;
+  lobbySettingsOpen=open;
+  if(open){
+   showRequests=false;
+   requestsButton.setAttribute('aria-expanded','false');
+   panel.style.setProperty('--lobby-settings-height',Math.max(380,panel.offsetHeight)+'px');
+  }
+  panel.toggleAttribute('data-lobby-settings',open);
+  lobbySettingsButton.setAttribute('aria-expanded',String(open));
+  lobbySettingsButton.classList.toggle('active',open);
+  if(focus){
+   render();
+   if(open)lobbySettings.scrollTop=0;
+   (open?lobbySettingsBack:lobbySettingsButton).focus({preventScroll:true});
+  }
+ }
+ lobbySettingsButton.onclick=()=>setLobbySettings(!lobbySettingsOpen);
+ lobbySettingsBack.onclick=()=>setLobbySettings(false);
+ panel.addEventListener('keydown',event=>{
+  if(event.key!=='Escape'||!lobbySettingsOpen)return;
+  event.preventDefault();
+  event.stopPropagation();
+  setLobbySettings(false);
+ });
  for(const [button,name,page] of [[friendTab,'friends',friendPage],[lobbyTab,'lobby',lobbyPage]]){button.type='button';button.setAttribute('role','tab');button.id='social-tab-'+name;button.setAttribute('aria-controls',page.id);page.setAttribute('aria-labelledby',button.id);button.onclick=()=>selectTab(name);button.onkeydown=event=>{if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();selectTab(name==='friends'?'lobby':'friends');(name==='friends'?lobbyTab:friendTab).focus()}};tabs.append(button)}
  selectTab('friends');
  window.SintetLobbyTour={
   open(){
    showRequests=false;
+   setLobbySettings(false,false);
    panel.dataset.tourPreview='';
    selectTab('lobby');
    position();
@@ -250,6 +307,7 @@
  function openSocialTab(name){
   const open=()=>{
    showRequests=false;
+   setLobbySettings(false,false);
    selectTab(name);
    render();
    if(!panel.matches(':popover-open'))panel.showPopover();
@@ -271,7 +329,7 @@
  function element(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text)node.textContent=text;return node}
  function button(label,action,target){const node=element('button','friend-action',label);node.type='button';node.disabled=busy||state?.busy;node.onclick=()=>act(action,target);return node}
  async function act(action,target=''){
-  if(busy||state?.busy||!api()||window.SintetNetwork.offline)return false;
+  if(busy||state?.busy||!api()||window.SintetNetwork.offline&&!action.startsWith('voice-'))return false;
   if(action==='invite-accept'){
    acceptedInvite=state?.invites?.find(invite=>invite.id===target&&invite.account)||
     (acceptedInvite?.id===target?acceptedInvite:null);
@@ -283,7 +341,7 @@
    if(action==='request')toast('Заявка в друзья отправлена');
    if(action==='friend-accept')toast('Заявка принята, вы теперь друзья');
    if(action==='friend-remove')toast(state?.friends?.some(friend=>friend.account?.id===target&&friend.status==='accepted')?'Друг удалён':'Заявка удалена');
-   if(['host','join','invite-accept'].includes(action))selectTab('lobby');
+   if(['host','join','join-friend','invite-accept'].includes(action))selectTab('lobby');
    return true;
   }catch(error){
    const message=String(error?.message||error);
@@ -412,6 +470,39 @@
   const avatar=friendAvatar(invite.account);
   invitationBanner.replaceChildren(avatar,identity,controls);
   invitationBanner.hidden=false;
+  if(focused)controls.querySelector('[data-invite-action="'+focused+'"]')?.focus({preventScroll:true});
+ }
+ function renderFriendRequest(offline){
+  const request=state?.enabled&&!offline&&(state.friends||[]).find(friend=>
+   friend.status==='pending'&&friend.incoming&&friend.account&&!dismissedFriendRequests.has(friend.id));
+  if(!request){
+   friendRequestBanner.hidden=true;
+   friendRequestView='';
+   return;
+  }
+  const key=JSON.stringify([request.id,request.account,busy,!!state.busy]);
+  if(friendRequestView===key)return;
+  friendRequestView=key;
+  const focused=friendRequestBanner.contains(document.activeElement)?document.activeElement.dataset.inviteAction:'';
+  const copy=element('div','launcher-invitation-copy');
+  copy.setAttribute('role','status');
+  copy.append(element('strong','','Заявка в друзья'));
+  copy.append(element('span','',window.SintetText.format('%s хочет добавить тебя в друзья',request.account.username)));
+  const controls=element('div','launcher-invitation-actions');
+  const decline=button('Отклонить','friend-remove',request.account.id);
+  decline.dataset.inviteAction='decline';
+  const accept=button('Принять','friend-accept',request.account.id);
+  accept.dataset.inviteAction='accept';
+  const dismiss=element('button','','×');
+  dismiss.type='button';dismiss.dataset.inviteAction='close';
+  dismiss.setAttribute('aria-label','Скрыть уведомление');
+  dismiss.onclick=()=>{
+   dismissedFriendRequests.add(request.id);
+   renderFriendRequest(offline);
+  };
+  controls.append(decline,accept,dismiss);
+  friendRequestBanner.replaceChildren(friendAvatar(request.account),copy,controls);
+  friendRequestBanner.hidden=false;
   if(focused)controls.querySelector('[data-invite-action="'+focused+'"]')?.focus({preventScroll:true});
  }
  const expandedPresence=new Set();
@@ -574,7 +665,13 @@
   window.SintetAccount.renderName(playerName,account.username,account);
   playerName.append(profileMark(account.provider||'sintet'));
   identity.append(playerName);
-  if(account.handle)identity.append(element('small','presence-handle','@'+account.handle));
+  const publicID=/^[0-9]{9,16}$/.test(account.publicID||'')?account.publicID:'';
+  if(account.handle||publicID){
+   const metadata=element('span','presence-profile-meta');
+   if(account.handle)metadata.append(element('small','presence-handle','@'+account.handle));
+   if(publicID)metadata.append(element('code','presence-public-id','ID · '+publicID));
+   identity.append(metadata);
+  }
   const context=mode==='multiplayer'&&activity?.server?activity.server:activity?.build;
   if(context)identity.append(element('small','',context));
   const chevron=element('span','presence-chevron');chevron.setAttribute('aria-hidden','true');
@@ -608,13 +705,14 @@
    content.append(musicCard(music));
   }
   const actions=element('div','presence-card-actions');
+  if(friend.joinableLobby&&!state.room)actions.append(presenceButton('Присоединиться','join-friend',account.id));
   if(online&&mode!=='lobby')actions.append(presenceButton('Пригласить','invite',account.id));
   if(mode==='lobby'){
    const lobby=element('button','friend-action','Лобби');lobby.type='button';
    lobby.onclick=()=>openSocialTab('lobby');actions.append(lobby);
   }
   const copy=element('button','friend-action','Скопировать ID');copy.type='button';
-  copy.onclick=async()=>{try{await navigator.clipboard.writeText(account.id);toast('ID скопирован')}catch{toast('Не удалось скопировать ID')}};
+  copy.onclick=async()=>{try{await navigator.clipboard.writeText(publicID);toast('ID скопирован')}catch{toast('Не удалось скопировать ID')}};
   const remove=element('button','friend-action presence-remove','Удалить из друзей');remove.type='button';
   remove.disabled=busy||state?.busy;
   remove.onclick=()=>{
@@ -622,7 +720,8 @@
    removeDialog.querySelector('p').textContent=account.username;
    removeDialog.showModal();
   };
-  actions.append(copy,remove);
+  if(publicID)actions.append(copy);
+  actions.append(remove);
   content.append(actions);details.append(content);reveal.append(details);
   card.append(summary,reveal);
 
@@ -650,7 +749,7 @@
    const activity=friend.presence?.activity;
    const loader=activity?.loader&&loaderNames[activity.loader];
    const version=activity?.version?[activity.version,loader].filter(Boolean).join(' · '):displayGameVersion(friend.presence?.version);
-   return {account:friend.account,mode:friendMode(friend,!!friend.presence&&members.has(friend.account.id)),activity,version,totals:friend.totals};
+   return {joinableLobby:!!friend.joinableLobby&&!state.room,account:friend.account,mode:friendMode(friend,!!friend.presence&&members.has(friend.account.id)),activity,version,totals:friend.totals};
   }):[];
   const invites=enabled?(state.invites||[]).filter(invite=>invite.account):[];
   const snapshot=JSON.stringify([offline,!!state,enabled,!!state?.error,!!state?.reconnecting,busy,!!state?.busy,friends,invites]);
@@ -717,7 +816,7 @@
  document.querySelector('#friend-search-submit').onclick=search;
  document.querySelector('#friend-search').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();search()}};
  document.querySelector('#friends-join').onsubmit=event=>{event.preventDefault();act('join',document.querySelector('#friends-code').value.trim())};
- const lobbySetup=element('label','lobby-setup');lobbySetup.append(element('span','','Сборка лобби'));
+ const lobbySetup=element('label','lobby-setup');lobbySetup.append(element('span','','Версия или сборка'));
  const lobbyRoom=document.querySelector('#friends-room');
  const lobbyCount=lobbyRoom.querySelector('span');
  const lobbyCountTools=element('div','lobby-count-tools');
@@ -842,25 +941,93 @@
   const shown=matches.slice(0,memberLimit);
   showMore.hidden=matches.length<=memberLimit;
   noMembers.hidden=!!matches.length;
-  const key=JSON.stringify([state.leader,state.worldReady,shown]);
+  const key=JSON.stringify([state.leader,state.worldReady,state.voiceEnabled,state.lobbyProfile?.id,busy,!!state.busy,shown]);
   if(key===membersKey)return;
   membersKey=key;
   members.replaceChildren(...shown.map(person=>{
    const kick=state.leader&&!person.leader?button('×','kick',person.id):null;
    if(kick){kick.title='Исключить из лобби';kick.setAttribute('aria-label','Исключить '+person.username+' из лобби')}
    const status=person.leader?(state.worldReady?'Мир открыт':'Лидер лобби'):(preparationLabels[person.preparation]||'В лобби')+(['downloading','installing'].includes(person.preparation)?' · '+(person.percent||0)+'%':'');
-   return row(person,status,kick?[kick]:[]);
+   const actions=[];
+   const own=person.id===state.lobbyProfile?.id;
+   if(state.voiceEnabled){
+    const micLabel=own?(person.voiceMic?'Выключить микрофон':'Включить микрофон'):(person.voiceMic?'Микрофон включён':'Микрофон выключен');
+    const mic=own?button('','voice-mic',String(!person.voiceMic)):element('span','');
+    mic.classList.add('lobby-voice-icon');mic.setAttribute('aria-label',micLabel);mic.title=micLabel;
+    mic.dataset.active=String(!!person.voiceMic);mic.dataset.speaking=String(!!person.voiceSpeaking);
+    mic.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0m-7 7v3"/>'+(!person.voiceMic?'<path d="m4 4 16 16"/>':'')+'</svg>';
+    actions.push(mic);
+    if(!own){
+     const speaker=button('','voice-mute',person.id);speaker.classList.add('lobby-voice-icon');speaker.dataset.active=String(!person.voiceMuted);
+     const label=person.voiceMuted?'Включить звук игрока':'Заглушить игрока';speaker.setAttribute('aria-label',label);speaker.title=label;
+     speaker.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h4l5-4v14l-5-4H3Z"/>'+(person.voiceMuted?'<path d="m16 9 5 6m0-6-5 6"/>':'<path d="M16 9a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12"/>')+'</svg>';
+     actions.push(speaker);
+    }
+   }
+   if(kick)actions.push(kick);
+   const memberRow=row(person,status,actions);
+   memberRow.classList.add('lobby-member-row');
+   return memberRow;
   }));
  }
- const lobbyProfile=element('select','');lobbyProfile.setAttribute('aria-label','Сборка лобби');lobbySetup.append(lobbyProfile);
- const manualLobbyOption=()=>{const option=element('option','','Ничего не ставить');option.value=manualLobbyProfile;return option};
+ function lobbySwitch(title,hint){
+  const label=element('label','presence-switch lobby-settings-switch');
+  const copy=element('span','');
+  copy.append(element('strong','',title));
+  if(hint)copy.append(element('small','',hint));
+  const input=element('input','');input.type='checkbox';input.setAttribute('role','switch');
+  label.append(copy,input);
+  return {label,input};
+ }
+ const {label:friendsOpen,input:friendsOpenInput}=lobbySwitch('Открыть лобби для друзей','Друзья смогут присоединиться из списка друзей.');
+ friendsOpenInput.onchange=()=>{const open=friendsOpenInput.checked;friendsOpenInput.checked=!!state.room?.friends_open;void act('lobby-friends-open',String(open))};
+ const {label:voiceToggle,input:voiceToggleInput}=lobbySwitch('Голосовой чат');
+ voiceToggleInput.onchange=()=>{const enabled=voiceToggleInput.checked;voiceToggleInput.checked=!!state.voiceEnabled;void act('voice-enable',String(enabled))};
+ const {label:spatialToggle,input:spatialToggleInput}=lobbySwitch('Пространственный звук','Голос затихает с расстоянием и звучит со стороны игрока.');
+ spatialToggleInput.onchange=()=>{const enabled=spatialToggleInput.checked;spatialToggleInput.checked=state.voiceSpatial!==false;void act('voice-spatial',String(enabled))};
+ const voiceRange=element('label','lobby-settings-range');
+ const voiceRangeTitle=element('strong','','Дальность голоса');
+ const voiceRangeValue=element('output','lobby-settings-range-value');
+ const voiceRangeInput=element('input','');
+ voiceRangeInput.type='range';voiceRangeInput.min='8';voiceRangeInput.max='128';voiceRangeInput.value='48';
+ voiceRangeInput.setAttribute('aria-label','Дальность голоса в блоках');
+ voiceRange.append(voiceRangeTitle,voiceRangeValue,voiceRangeInput,element('small','','Дальность для всех участников меняет лидер.'));
+ voiceRangeInput.oninput=()=>{voiceRangeValue.value=voiceRangeInput.value;};
+ voiceRangeInput.onchange=()=>void act('voice-range',voiceRangeInput.value);
+ const voiceError=element('p','lobby-voice-error');voiceError.setAttribute('role','status');
+ const lobbySettingsHint=element('p','lobby-settings-hint','Голосовой чат доступен в лобби');
+ const lobbySettingsOptions=element('div','lobby-settings-options');
+ lobbySettingsOptions.append(friendsOpen,voiceToggle,spatialToggle,voiceRange,lobbySettingsHint,voiceError);
+ const lobbyConnection=element('section','lobby-settings-connection');
+ const guideArrow=element('span','lobby-settings-guide-arrow','↗');guideArrow.setAttribute('aria-hidden','true');
+ guideLink.append(guideArrow);
+ lobbyConnection.append(
+  element('h4','','P2P и оверлей'),
+  element('p','','Лаунчер сначала пробует прямое подключение. Если оно недоступно, используется ретранслятор TURN.'),
+  guideLink,
+ );
+ lobbySettings.append(lobbySettingsOptions,lobbyConnection);
+ const lobbyProfile=element('select','');lobbyProfile.setAttribute('aria-label','Версия или сборка');lobbySetup.append(lobbyProfile);
+ const manualLobbyOption=()=>{const option=element('option','','Версия из запущенной игры');option.value=manualLobbyProfile;return option};
  lobbyProfile.append(manualLobbyOption());
  const changePack=element('button','pack-cancel','Сменить сборку');changePack.type='button';changePack.hidden=true;
  lobbySetup.append(changePack);document.querySelector('#friends-host').before(lobbySetup);
- let currentLobbyProfile='';
- lobbyProfile.addEventListener('change',()=>{changePack.disabled=busy||state?.busy||!lobbyProfile.value||lobbyProfile.value===state?.hostProfile;});
+ let currentLobbyProfile='',lobbyProfileChosen=false;
+ lobbyProfile.addEventListener('change',()=>{lobbyProfileChosen=true;changePack.disabled=busy||state?.busy||!lobbyProfile.value||lobbyProfile.value===state?.hostProfile;});
  changePack.onclick=()=>act('change-lobby-pack',lobbyProfile.value);
  let lobbyProfilesAt=0,lobbyProfilesKey='';
+ function defaultLobbyVersion(){
+  if(lobbyProfileChosen||state?.room||state?.gameRunning)return;
+  try{
+   const selected=JSON.parse(localStorage.getItem('sintet.selectedProfile'));
+   if(!selected)return;
+   const id=selected.loader==='vanilla'?selected.base:`${selected.loader}-${selected.loaderVersion}-${selected.base}`;
+   if((!selected.id||selected.id===id)&&[...lobbyProfile.options].some(option=>option.value===id)&&lobbyProfile.value!==id){
+    lobbyProfile.value=id;
+    window.SintetUI?.select.refresh(lobbyProfile);
+   }
+  }catch{}
+ }
  async function refreshLobbyProfiles(){
   if(state?.room&&!state.leader||Date.now()-lobbyProfilesAt<15000)return;
   lobbyProfilesAt=Date.now();
@@ -868,10 +1035,11 @@
    const preferred=lobbyProfile.value;
    lobbyProfile.replaceChildren(manualLobbyOption());for(const profile of profiles||[]){const option=element('option','',profile.name?profile.name+' · '+profile.base:profile.base+' · '+(loaderNames[profile.loader]||profile.loader));option.value=profile.id;lobbyProfile.append(option)}
    if([...lobbyProfile.options].some(option=>option.value===preferred))lobbyProfile.value=preferred;
+   defaultLobbyVersion();
    window.SintetUI?.select.refresh(lobbyProfile);
   }catch{}
  }
- document.querySelector('#friends-host').onclick=()=>act(state?.room?'close':'host',lobbyProfile.value===manualLobbyProfile||!state?.gameRunning?lobbyProfile.value:'');
+ document.querySelector('#friends-host').onclick=()=>{defaultLobbyVersion();return act(state?.room?'close':'host',lobbyProfile.value===manualLobbyProfile||!state?.gameRunning?lobbyProfile.value:'')};
  document.querySelector('#friends-copy-room').onclick=()=>{if(state?.room?.code)navigator.clipboard.writeText(state.room.code).then(()=>toast('Код скопирован'))};
  document.querySelector('#friends-auto-join').onclick=()=>act('connect-game');
  document.querySelector('#friends-endpoint').onclick=()=>{
@@ -900,31 +1068,55 @@
   const working=['checking','downloading','stopping','installing','launching'].includes(pack.phase),required=['required','error'].includes(pack.phase);
   card.classList.toggle('requires-sync',required);card.classList.toggle('pack-working',working);
   card.classList.toggle('pack-error',pack.phase==='error');
-  const heading=({hosting:'Сборка доступна',checking:'Сверяем сборку',required:'Сборка отличается',downloading:'Скачиваем сборку',stopping:'Сохраняем и закрываем Minecraft',installing:'Готовим Minecraft',launching:'Запускаем Minecraft',ready:'Сборка готова',error:'Сборка не подготовлена'}[pack.phase]||'Сборка друга');
+  const packHeadings={hosting:'Сборка доступна',checking:'Сверяем сборку',required:'Сборка отличается',downloading:'Скачиваем сборку',stopping:'Сохраняем и закрываем Minecraft',installing:'Готовим Minecraft',launching:'Запускаем Minecraft',ready:'Сборка готова',error:'Сборка не подготовлена'};
+  const versionHeadings={hosting:'Версия лидера',checking:'Проверяем версию Minecraft',required:'Нужно установить версию',downloading:'Готовим версию',ready:'Версия готова',error:'Версия не подготовлена'};
+  const heading=(pack.versionOnly&&versionHeadings[pack.phase])||packHeadings[pack.phase]||'Сборка друга';
   card.append(element('strong','',heading));
-  if(pack.game)card.append(element('span','pack-version',[pack.name,pack.game,loaderNames[pack.loader]||pack.loader].filter(Boolean).join(' · ')));
+  if(pack.game){
+   const loader=loaderNames[pack.loader]||pack.loader;
+   const details=pack.versionOnly?[pack.name,[loader,pack.loaderVersion].filter(Boolean).join(' ')]:[pack.name,pack.game,loader];
+   card.append(element('span','pack-version',details.filter(Boolean).join(' · ')));
+  }
   if(required){
-   if(pack.phase==='required')card.querySelector('strong').textContent=pack.missing?window.SintetText.format('Нужно %d файлов · %s',pack.missing,packSize(pack.bytes)):state.preGameLobby?'Подготовить сборку':'Нужен перезапуск';
-   card.append(element('p','',pack.error||'Сборка сохраняется отдельно'));
+   if(pack.phase==='required'&&!pack.versionOnly)card.querySelector('strong').textContent=pack.missing?window.SintetText.format('Нужно %d файлов · %s',pack.missing,packSize(pack.bytes)):state.preGameLobby?'Подготовить сборку':'Нужен перезапуск';
+   card.append(element('p','',pack.error||(pack.versionOnly?'Лаунчер установит ту же версию Minecraft, что у лидера.':'Сборка сохраняется отдельно')));
    if(pack.digest){
-    const action=element('button','pack-sync-button',state.preGameLobby?'Подготовить':pack.restart?'Скачать и перезапустить':'Скачать и войти');
-    action.disabled=busy||state.busy;action.onclick=()=>confirmPack(pack);card.append(action);
+    const action=element('button','pack-sync-button',pack.versionOnly?'Подготовить версию':state.preGameLobby?'Подготовить':pack.restart?'Скачать и перезапустить':'Скачать и войти');
+    action.disabled=busy||state.busy;action.onclick=()=>pack.versionOnly?act('sync-pack',pack.digest):confirmPack(pack);card.append(action);
    }else if(pack.phase==='error'&&state.lobbyConnected){
     const retry=button('Повторить проверку','retry-pack');
     retry.classList.add('pack-sync-button');card.append(retry);
    }
   }
   if(working){const progress=element('progress','');progress.max=pack.total||100;if(pack.total)progress.value=pack.done;card.append(progress);if(pack.current)card.append(element('span','pack-current',pack.current));if(pack.total)card.append(element('small','',pack.phase==='installing'?Math.round(pack.done)+'%':packSize(pack.done)+' / '+packSize(pack.total)));if(pack.phase!=='checking'&&pack.phase!=='launching'){const cancel=element('button','pack-cancel','Отменить');cancel.onclick=()=>act('cancel-pack');card.append(cancel)}}
-  if(pack.phase==='hosting')card.append(element('small','','Передаются моды и обычные конфиги. Личные данные и скрипты не передаются.'));
-  if(pack.phase==='hosting'&&state.preGameLobby){const launch=button(state.gameRunning?'Игра запущена':'Запустить Minecraft','launch-host');launch.disabled=busy||state.busy||state.gameRunning;launch.classList.add('pack-sync-button');card.append(launch);const renew=button('Обновить файлы сборки','refresh-pack');renew.classList.add('pack-cancel');card.append(renew)}
+  if(pack.phase==='hosting'&&!pack.versionOnly)card.append(element('small','','Передаются моды и обычные конфиги. Личные данные и скрипты не передаются.'));
+  if(pack.phase==='hosting'&&state.preGameLobby&&state.hostProfile!==manualLobbyProfile){const launch=button(state.gameRunning?'Игра запущена':'Запустить Minecraft','launch-host');launch.disabled=busy||state.busy||state.gameRunning;launch.classList.add('pack-sync-button');card.append(launch);if(!pack.versionOnly){const renew=button('Обновить файлы сборки','refresh-pack');renew.classList.add('pack-cancel');card.append(renew)}}
  }
  function render(){
   const offline=window.SintetNetwork.offline||!!state?.offline;
   const tourPreview=panel.hasAttribute('data-tour-preview');
   renderInvitation(offline);
+  renderFriendRequest(offline);
   renderPresence(offline);
-  offlineNotice.hidden=!offline;
-  tabs.hidden=offline&&!tourPreview;
+  lobbySettings.hidden=!lobbySettingsOpen;
+  friendsOpen.hidden=!state?.leader||!state.friendLobbiesAvailable;
+  friendsOpenInput.checked=!!state?.room?.friends_open;
+  friendsOpenInput.disabled=offline||busy||!!state?.busy;
+  voiceToggleInput.checked=!!state?.voiceEnabled;
+  voiceToggleInput.disabled=!state?.room||busy||!!state.busy;
+  spatialToggleInput.checked=state?.voiceSpatial!==false;
+  spatialToggleInput.disabled=!state?.room||busy||!!state.busy;
+  voiceRange.hidden=!state?.room;
+  voiceRangeInput.disabled=!state?.leader||busy||!!state?.busy;
+  if(!voiceRangeInput.matches(':active')){
+   voiceRangeInput.value=state?.voiceRange||48;
+   voiceRangeValue.value=voiceRangeInput.value;
+  }
+  lobbySettingsHint.hidden=!!state?.room;
+  voiceError.hidden=!state?.voiceError;
+  voiceError.textContent=state?.voiceError||'';
+  offlineNotice.hidden=!offline||lobbySettingsOpen;
+  tabs.hidden=lobbySettingsOpen||(offline&&!tourPreview);
   requestsButton.hidden=offline;
   if(offline&&!tourPreview){friendPage.hidden=true;lobbyPage.hidden=true;requestsPanel.hidden=true;return}
   selectTab(activeTab);
@@ -966,12 +1158,14 @@
     invite.disabled=true;invite.title='Друг уже в лобби';
     buttons=[invite,button('×','friend-remove',friend.account.id)];
    }
+   if(friend.joinableLobby&&!state.room)buttons.unshift(button('Присоединиться','join-friend',friend.account.id));
    const node=row(friend.account,status,buttons);node.classList.toggle('friend-online',!!friend.presence);list.append(node);
   }
   if(!list.children.length&&!showRequests){const empty=element('div','friends-empty');empty.append(element('strong','',friendsEnabled?(filter?'Друзья не найдены':'Пока нет друзей'):'Подключаем профиль…'),element('span','',friendsEnabled?'Найди друга по нику, @юзернейму или ID':'В лобби можно войти по коду'));list.append(empty)}
   document.querySelector('#friends-join').hidden=!!state.room||!!state.localPort;
   const chooseLobbyProfile=state.hostNeedsPack||state.preGameLobby&&(!state.room||state.leader);
  lobbySetup.hidden=!chooseLobbyProfile;
+ defaultLobbyVersion();
  if(!state.hostProfile)currentLobbyProfile='';
   if(state.hostProfile&&state.hostProfile!==currentLobbyProfile&&[...lobbyProfile.options].some(option=>option.value===state.hostProfile)){
    currentLobbyProfile=state.hostProfile;lobbyProfile.value=state.hostProfile;window.SintetUI?.select.refresh(lobbyProfile);
@@ -984,7 +1178,7 @@
   renderCapacityWarning();
   capacityToggle.hidden=!state.leader;
   document.querySelector('#friends-copy-room').textContent=state.room?.code||'';
-  const connection=state.pack?.phase==='checking'?'Сверяем сборку':state.connection;
+  const connection=state.pack?.phase==='checking'?(state.pack.versionOnly?'Проверяем версию Minecraft':'Сверяем сборку'):state.connection;
   document.querySelector('#friends-connection').textContent=state.joinAttempt?(state.joinAttempt>1?'Повторная попытка · ':'')+(connection||'Входим в лобби…'):connection||(busy||state.busy?'Подождите…':'');
   const endpoint=document.querySelector('#friends-endpoint');
   endpoint.hidden=!state.worldReady||!state.localPort;
@@ -993,10 +1187,12 @@
   endpoint.title='Скопировать адрес';
   let address=document.querySelector('#lobby-address');if(!address){address=element('p','');address.id='lobby-address';endpoint.parentElement.before(address)}address.hidden=endpoint.hidden||overlayHidden;address.textContent=address.hidden?'':'127.0.0.1:'+state.localPort;
   const autoJoin=document.querySelector('#friends-auto-join');
-  autoJoin.hidden=!state.worldReady||!state.localPort||state.inWorld||state.gameJoining||state.noPack&&!state.gameReady||!!state.pack&&state.pack.phase!=='ready';
-  autoJoin.textContent=state.gameRunning?(state.pack?.restart?'Перезапустить и войти':'Присоединиться'):'Запустить и присоединиться';
-  autoJoin.title=state.gameReady?'Автоматически войти в мир':'Запустить Minecraft и войти в мир';
-  autoJoin.setAttribute('aria-label','Автоматически войти в мир');
+  const worldJoin=state.worldReady&&state.localPort;
+  const launchVersion=!state.leader&&state.lobbyConnected&&state.pack?.versionOnly&&state.pack.phase==='ready'&&(!state.gameRunning||state.pack.restart);
+  autoJoin.hidden=(!worldJoin&&!launchVersion)||state.inWorld||state.gameJoining||state.noPack&&!state.gameReady||!!state.pack&&state.pack.phase!=='ready';
+  autoJoin.textContent=worldJoin?(state.gameRunning?(state.pack?.restart?'Перезапустить и войти':'Присоединиться'):'Запустить и присоединиться'):(state.pack?.restart?'Перезапустить Minecraft':'Запустить Minecraft');
+  autoJoin.title=autoJoin.textContent;
+  autoJoin.setAttribute('aria-label',autoJoin.textContent);
   let manualNote=document.querySelector('#lobby-manual-note');
   if(!manualNote){manualNote=element('p','');manualNote.id='lobby-manual-note';document.querySelector('#friends-connection').after(manualNote);}
   manualNote.hidden=!state.noPack||state.leader;
@@ -1068,7 +1264,6 @@
  async function openCommunity(service){try{if(!api())throw Error('Запусти Sintet через Start.bat');await api().OpenCommunity(service)}catch(error){toast(String(error?.message||error))}}
  document.querySelector('#community-discord').onclick=()=>openCommunity('discord');
  document.querySelector('#community-telegram').onclick=()=>openCommunity('telegram');
- footer.append(guideLink);
  window.addEventListener('sintet:network',render);
  window.addEventListener('sintet:presence-layout',()=>renderPresence());
  setInterval(refresh,2000);render();refresh();

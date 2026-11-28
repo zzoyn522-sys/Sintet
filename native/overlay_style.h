@@ -11,18 +11,19 @@ struct Appearance {
  bool vertical=false;
  bool bottom=false;
  bool acrylic=true;
- float opacity=.75f;
- float blur=8.f;
- float dim=.4f;
+ float opacity=.72f;
+ float blur=21.f;
+ float dim=.21f;
  float scale=1.f;
- float width=414.f;
+ float width=360.f;
  float rounding=16.f;
- ImVec4 surface{18.f/255,18.f/255,20.f/255,1};
+ ImVec4 surface{24.f/255,24.f/255,24.f/255,1};
  ImVec4 text{237.f/255,237.f/255,237.f/255,1};
- ImVec4 accent{142.f/255,197.f/255,162.f/255,1};
+ ImVec4 accent{210.f/255,210.f/255,210.f/255,1};
 };
 inline Appearance style;
 inline bool preview=false;
+inline constexpr float secondaryTextSize=18.f;
 
 inline ImVec4 Blend(ImVec4 a,ImVec4 b,float amount){
  return {a.x+(b.x-a.x)*amount,a.y+(b.y-a.y)*amount,a.z+(b.z-a.z)*amount,a.w};
@@ -30,6 +31,12 @@ inline ImVec4 Blend(ImVec4 a,ImVec4 b,float amount){
 
 inline ImVec4 Surface(float amount){return Blend(style.surface,style.text,amount);}
 inline ImVec4 Accent(float amount){return Blend(style.surface,style.accent,amount);}
+
+// Inner controls let their panel's already blurred surface show through.
+inline ImVec4 ControlFill(ImVec4 color,float opacity=.76f){
+ if(style.opacity<1.f)color.w*=opacity;
+ return color;
+}
 
 inline bool Parse(const char* raw,Appearance& result){
  std::stringstream input(raw);

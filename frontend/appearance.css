@@ -49,7 +49,7 @@ html[data-launcher-panels] :is(.minecraft-panel,.launch-settings,.rich-presence,
 html[data-launcher-panels] :is(.panel-heading,.settings-actions,.launcher-chrome) {
   background-color: color-mix(in srgb,var(--launcher-bar,#101010) var(--launcher-opacity),transparent);
 }
-html[data-launcher-panels] #account-dialog {
+html[data-launcher-panels] :is(#account-dialog,#account-add-dialog) {
   border-radius: calc(var(--launcher-radius) + 8px);
   background-color: color-mix(in srgb,var(--launcher-surface,#171717) max(65%,var(--launcher-opacity)),transparent);
   backdrop-filter: blur(var(--launcher-blur));
@@ -312,7 +312,24 @@ html[data-nav-glass] .launcher-chrome::before {
   backdrop-filter:blur(var(--nav-blur));
   mask-image:linear-gradient(#000 calc(100% - min(12px,var(--nav-blur))),transparent);
 }
-html[data-nav-layout] main {height:calc(100vh - 84px - var(--nav-height,55px))}
+body {
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+}
+body > .launcher-chrome, body > .app-footer {flex:none}
+html body > main {
+  flex:1 1 0;
+  height:auto;
+  min-height:0;
+  background:transparent;
+}
+body > .app-footer {
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  backdrop-filter:none;
+}
 html[data-nav-layout] .top-navigation {
   height:var(--nav-height,55px);
   grid-template-columns:repeat(3,minmax(0,var(--nav-tab-width,130px)));
@@ -332,13 +349,27 @@ html[data-nav-layout][data-button-radius] .top-navigation .nav {border-radius:va
   html[data-nav-layout] .top-navigation {gap:clamp(4px,calc((100vw - 3 * var(--nav-tab-width,130px) - 24px) / 2),var(--nav-tab-gap,16px))}
 }
 
-html[data-custom-profile] #account-dialog {
+html[data-custom-profile] :is(#account-dialog,#account-add-dialog) {
   --profile-base:var(--profile-surface,var(--launcher-surface,#171717));
   --profile-secondary:color-mix(in srgb,var(--profile-auto-ink) 73%,var(--profile-base));
   --profile-tile:var(--profile-control,color-mix(in srgb,var(--profile-base) 91%,var(--profile-auto-ink)));
   --profile-tile-hover:color-mix(in srgb,var(--profile-tile) 88%,var(--profile-control-ink));
   background-color:var(--profile-base);
   color:var(--profile-auto-ink);
+}
+html[data-launcher-panels] #account-add-dialog {
+  --add-surface:var(--launcher-surface,#171717);
+}
+html[data-custom-profile] #account-add-dialog {
+  --add-surface:var(--profile-base);
+  --add-control:var(--profile-tile);
+  --add-control-ink:var(--profile-control-ink);
+}
+html[data-launcher-panels] #account-add-dialog {
+  background-color:color-mix(in srgb,var(--add-surface) max(65%,var(--launcher-opacity)),transparent);
+}
+html[data-custom-profile] #account-add-dialog [data-method=sintet] img {
+  filter:var(--profile-tile-logo);
 }
 html[data-custom-profile] #account-dialog :is(.account-identity h1,#account-title) {color:var(--profile-auto-ink)}
 html[data-custom-profile] #account-dialog :is(.account-identity>span,.account-choice-name,.account-status,.provider-section-label,.skin-sources legend) {
@@ -429,3 +460,15 @@ html[data-text-scale] #logs-dialog :where(pre,.journal-evidence code,.journal-ac
 .overlay-style-colors label {display:flex; align-items:center; gap:8px}
 .overlay-style-colors input[type=color] {width:32px; height:24px; padding:2px; cursor:pointer}
 @media(max-width:650px){.appearance-editor-tabs{top:8px}}
+
+.profile-wave-settings{margin-top:20px;padding-top:16px;border-top:1px solid #ffffff14}
+.profile-wave-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.profile-wave-heading h3{margin:0;font-size:14px}
+.profile-wave-heading .check-label{margin:0}
+.profile-wave-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:12px}
+.profile-wave-fields .appearance-element-colors{display:block;margin:0}
+.profile-wave-fields>label{display:grid;gap:7px;min-width:0}
+
+.profile-wave-fields .appearance-element-colors label{display:grid;gap:7px}
+.profile-wave-fields .appearance-element-colors input[type=color]{height:39px;margin:0}
+#appearance-form .profile-wave-fields input[type=color]:disabled{opacity:.35;cursor:default}

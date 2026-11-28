@@ -714,6 +714,7 @@ function updateLocalControls(){
  q('#ws-my-mod-update').disabled=modsBusy||!state.items.length;
  q('#ws-my-mod-disable').disabled=modsBusy||!state.items.some(item=>item.enabled&&!item.readOnly);
  localDropzone.hidden=!context||!!context.readOnly;
+ q('#workshop').toggleAttribute('data-local-drop',!!context&&!context.readOnly&&!localBusy&&!bulkBusy);
  q('#ws-local-add').disabled=localBusy||bulkBusy;
  for(const button of list.querySelectorAll('[data-local-change]'))button.disabled=localBusy||bulkBusy||!!context?.readOnly||button.hasAttribute('data-read-only');
  if(!context)return;
@@ -949,7 +950,7 @@ async function load(more=false){
     const result=await searchWorkshopSources((...args)=>api.SearchModsFiltered(...args),state.category,state.query,filters,state.sourceResults);
     if(request!==state.request)return;
     state.sourceResults=result.sources;
-    state.items=mergeWorkshopResults(result.sources,filters.sort);
+    state.items=mergeWorkshopResults(result.sources,filters.sort,more?state.items:[]);
     render();
     q('#ws-more').hidden=!result.more;
     q('#ws-more').textContent=result.failed.length&&!Object.values(result.sources).some(page=>page.next)?'Повторить':'Показать ещё';
@@ -994,22 +995,180 @@ async function load(more=false){
 async function renderLocalWorldContent(request){
  const worlds=state.category==='worlds';
  const rows=worlds
-  ?((await api.WorkshopWorlds(state.target))||[]).map(world=>({world}))
+  ?(await api.WorkshopWorldDetails(state.target))||[]
   :(await api.WorkshopLocalDataPacks(state.target))||[];
  if(request!==state.request)return;
- const visible=rows.filter(({world,packs})=>[world,...(packs||[])].some(value=>value.toLowerCase().includes(state.query.toLowerCase())));
+ const target=state.target, query=state.query.toLowerCase();
+ const visible=rows.filter(row=>[row.name,row.folder,...(row.packs||[]).map(pack=>pack.name)].some(value=>value.toLowerCase().includes(query)));
  q('#workshop-count').textContent=visible.length?String(visible.length):'';
- list.replaceChildren(...visible.map(({world,packs})=>{
+ list.replaceChildren(...visible.map(world=>{
   const row=node('article','ws-build-card');
+  row.setAttribute('role','listitem');
   const body=node('div','ws-build-card-info');
-  body.append(node('h3','',world));
-  if(!worlds)body.append(node('p','',packs?.length?packs.join(' · '):'Дата-паков нет'));
-  row.append(body);
+  const heading=node('h3','',world.name);heading.dataset.noTranslate='';
+  body.append(heading);
+  if(!worlds){
+   const summary=node('p','',world.packs.map(pack=>pack.name).join(' · '));
+   summary.dataset.noTranslate='';body.append(summary);
+  }
+  else if(world.name!==world.folder){
+   const folder=node('p','',world.folder);folder.dataset.noTranslate='';body.append(folder);
+  }
+  const icon=node('div','ws-build-icon');icon.setAttribute('aria-hidden','true');
+  const categoryIcon=categories.find(category=>category.id===(worlds?'worlds':'datapacks')).icon;
+  icon.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${categoryIcon}</svg>`;
+  const actions=node('div','ws-build-card-actions');
+  const manage=node('button','ws-build-secondary','Управлять');manage.type='button';
+  manage.onclick=()=>openWorkshopWorld(target,world,!worlds);
+  actions.append(manage);row.append(icon,body,actions);
   return row;
  }));
- if(!visible.length)empty(state.query?'Ничего не найдено':'Здесь пока нет миров','Создай мир в игре или скачай карту из каталога.');
+ if(!visible.length){
+  if(state.query)empty('Ничего не найдено',worlds?'Попробуй поискать по названию мира.':'Попробуй поискать по названию мира или дата-пака.');
+  else if(worlds)empty('Здесь пока нет миров','Создай мир в игре или скачай карту из каталога.');
+  else empty('Дата-паков нет','Выбери мир при установке дата-пака из каталога.');
+ }
  message('');
 }
+const worldDialog=q('#ws-world-dialog');
+const worldForm=worldDialog.querySelector('form');
+const worldName=worldForm.elements.worldName, worldDifficulty=worldForm.elements.difficulty;
+const worldCommands=worldForm.elements.commands;
+const worldConfirm=worldDialog.querySelector('[data-world-confirm]');
+const worldFileActions=worldDialog.querySelector('[data-world-file-actions]');
+const worldConfirmActions=worldDialog.querySelector('[data-world-confirm-actions]');
+const worldError=worldDialog.querySelector('[data-world-error]');
+const worldSave=worldDialog.querySelector('[data-world-save]');
+const worldTabs=[...worldForm.querySelectorAll('[data-world-tab]')];
+const worldPanels=[...worldForm.querySelectorAll('[data-world-panel]')];
+const packList=worldDialog.querySelector('[data-world-pack-list]');
+const packModes=[{value:'auto',label:'Автоматически'},{value:'enabled',label:'Включён'},{value:'disabled',label:'Выключен'}];
+let editingWorld=null,worldBusy=false;
+function showWorldError(error=''){
+ worldError.textContent=error?String(error?.message||error).replace(/^Error:\s*/,''):'';
+}
+function selectWorldTab(tab){
+ for(const button of worldTabs){
+  const selected=button.dataset.worldTab===tab;
+  button.setAttribute('aria-selected',String(selected));
+  button.tabIndex=selected?0:-1;
+ }
+ for(const panel of worldPanels){
+  panel.hidden=panel.dataset.worldPanel!==tab;
+  if(!panel.hidden)panel.scrollTop=0;
+ }
+}
+for(const tab of worldTabs)tab.onclick=()=>selectWorldTab(tab.dataset.worldTab);
+worldForm.querySelector('.ws-build-tabs').onkeydown=event=>{
+ const visible=worldTabs.filter(button=>!button.hidden);
+ const current=visible.indexOf(event.target);
+ if(current<0)return;
+ const last=visible.length-1;
+ const next={ArrowUp:current===0?last:current-1,ArrowDown:current===last?0:current+1,Home:0,End:last}[event.key];
+ if(next===undefined)return;
+ event.preventDefault();
+ selectWorldTab(visible[next].dataset.worldTab);
+ visible[next].focus();
+};
+function confirmWorldDeletion(confirm){
+ worldFileActions.hidden=confirm;
+ worldConfirm.hidden=worldConfirmActions.hidden=!confirm;
+ showWorldError();
+ if(confirm)worldConfirmActions.querySelector('[data-world-cancel-delete]').focus();
+ else worldForm.querySelector('[data-world-delete]').focus();
+}
+function packChanges(){
+ return [...packList.querySelectorAll('select')]
+  .filter(select=>select.value!==select.dataset.initialMode)
+  .map(select=>({name:select.name,mode:select.value}));
+}
+function openWorkshopWorld(target,world,packsOnly){
+ if(worldBusy)return;
+ editingWorld={target,world,packsOnly};
+ worldDialog.querySelector('#ws-world-title').textContent=packsOnly?'Настройки дата-паков':'Настройки мира';
+ worldDialog.querySelector('[data-world-folder]').textContent=world.name;
+ const icon=categories.find(category=>category.id===(packsOnly?'datapacks':'worlds')).icon;
+ worldDialog.querySelector('[data-world-icon]').innerHTML=`<svg viewBox="0 0 24 24">${icon}</svg>`;
+ worldTabs.find(button=>button.dataset.worldTab==='general').hidden=packsOnly;
+ worldTabs.find(button=>button.dataset.worldTab==='packs').hidden=!packsOnly;
+ worldDialog.querySelector('[data-world-delete]').hidden=packsOnly;
+ worldName.value=world.name;worldName.disabled=!world.editable;
+ worldDifficulty.value=String(world.difficulty);
+ worldDifficulty.disabled=!world.editable||world.difficulty<0;
+ worldDialog.querySelector('[data-world-difficulty]').hidden=worldDifficulty.disabled;
+ worldCommands.checked=world.commands===1;
+ worldCommands.disabled=!world.editable||world.commands<0;
+ worldDialog.querySelector('[data-world-commands]').hidden=worldCommands.disabled;
+ worldDialog.querySelector('[data-world-unreadable]').hidden=world.editable;
+ worldDialog.querySelector('[data-world-packs-unreadable]').hidden=world.editable;
+ packList.replaceChildren(...(world.packs||[]).map(pack=>{
+  const row=node('div','ws-build-mod ws-world-pack');
+  const info=node('div','ws-build-mod-info');
+  const label=node('strong','',pack.name);label.dataset.noTranslate='';
+  info.append(label);row.append(info);
+  if(world.editable){
+   const select=node('select');select.name=pack.name;select.setAttribute('aria-label',pack.name);
+   select.dataset.initialMode=pack.mode;
+   options(select,packModes,pack.mode);
+   select.onchange=()=>{worldSave.disabled=!packChanges().length};
+   row.append(select);
+  }
+  return row;
+ }));
+ worldSave.disabled=packsOnly||!world.editable;
+ worldFileActions.hidden=false;
+ worldConfirm.hidden=worldConfirmActions.hidden=true;showWorldError();
+ selectWorldTab(packsOnly?'packs':'general');
+ window.SintetUI?.select.refresh(worldDifficulty);
+ worldDialog.showModal();
+}
+async function worldAction(action){
+ if(!editingWorld||worldBusy)return;
+ const row=editingWorld;
+ worldBusy=true;worldDialog.classList.add('is-working');showWorldError();
+ const controls=[...worldDialog.querySelectorAll('button,input,select')].filter(item=>!item.disabled);
+ controls.forEach(item=>item.disabled=true);
+ try{await action(row)}catch(error){showWorldError(error)}
+ finally{controls.forEach(item=>item.disabled=false);worldBusy=false;worldDialog.classList.remove('is-working')}
+}
+worldDialog.addEventListener('cancel',event=>{if(worldBusy)event.preventDefault()});
+worldDialog.querySelector('[data-world-close]').onclick=()=>{if(!worldBusy)worldDialog.close()};
+worldDialog.querySelector('[data-world-dismiss]').onclick=()=>{if(!worldBusy)worldDialog.close()};
+worldDialog.querySelector('[data-world-open-folder]').onclick=()=>worldAction(({target,world,packsOnly})=>packsOnly
+ ?api.OpenWorkshopDataPacksFolder(target,world.folder):api.OpenWorkshopWorldFolder(target,world.folder));
+worldDialog.querySelector('[data-world-delete]').onclick=()=>confirmWorldDeletion(true);
+worldDialog.querySelector('[data-world-cancel-delete]').onclick=()=>confirmWorldDeletion(false);
+worldForm.onsubmit=event=>{
+ event.preventDefault();
+ if(!editingWorld?.world.editable||worldBusy)return;
+ if(editingWorld.packsOnly){
+  const changes=packChanges();
+  if(!changes.length)return;
+  void worldAction(async ({target,world})=>{
+   await api.EditWorkshopWorldDataPacks(target,world.folder,changes);
+   worldDialog.close();toast('Настройки дата-паков сохранены');void load();
+  });
+  return;
+ }
+ if(!worldName.value.trim()){
+  selectWorldTab('general');showWorldError('Введи название мира');worldName.focus();return;
+ }
+ const difficulty=worldDifficulty.disabled?-1:Number(worldDifficulty.value);
+ const commands=worldCommands.disabled?-1:Number(worldCommands.checked);
+ void worldAction(async ({target,world})=>{
+  await api.EditWorkshopWorld(target,world.folder,worldName.value,difficulty===world.difficulty?-1:difficulty,commands===world.commands?-1:commands);
+  worldDialog.close();toast('Настройки мира сохранены');void load();
+ });
+};
+worldDialog.querySelector('[data-world-confirm-delete]').onclick=()=>worldAction(async ({target,world})=>{
+ const undo=await api.TrashWorkshopWorld(target,world.folder);
+ worldDialog.close();
+ toast('Мир удалён',{label:'Вернуть',run:async()=>{
+  try{await api.RestoreWorkshopWorld(target,undo);toast('Мир восстановлен');void load()}
+  catch(error){toast(String(error))}
+ }});
+ void load();
+});
 function buildCard(build,shared){
  const row=node('article','ws-build-card');row.setAttribute('role','listitem');
  const icon=node('div','ws-build-icon');window.SintetBuildIcon.render(icon,build.icon||'grass');
@@ -1435,7 +1594,11 @@ function bindFileDrop(){
    return;
   }
   const context=localContext();
-  if(context&&!q('#workshop').classList.contains('hidden')&&!document.querySelector('dialog[open]')&&isDropInside(localDropzone,x,y))void importLocalFiles(context,paths);
+  const workshop=q('#workshop');
+  if(context&&!context.readOnly&&workshop.hasAttribute('data-local-drop')&&!workshop.classList.contains('hidden')&&
+     !document.querySelector('dialog[open]')&&isDropInside(workshop.closest('main'),x,y)){
+   void importLocalFiles(context,paths);
+  }
  },true);
  fileDropBound=true;
 }
@@ -1449,7 +1612,7 @@ function fillFilterGames(){const games=[...filterMetadata.games,...(state.snapsh
 async function initFilters(){
  filterMetadata=await api.WorkshopFilterOptions();if(filterMetadata.snapshots.includes(state.filters.game))state.snapshots=true;fillFilterGames();options(q('#ws-filter-topic'),[{value:'',label:'Все тематики'},...(state.category==='resources'?filterMetadata.resourceTopics:state.category==='modpacks'?filterMetadata.packTopics:filterMetadata.topics).map(topic=>({value:topic.id,label:topic.name}))],state.filters.topic);state.filters.topic=q('#ws-filter-topic').value;for(const key of ['loader','sort']){q('#ws-filter-'+key).value=state.filters[key];state.filters[key]=q('#ws-filter-'+key).value;window.SintetUI?.select.refresh(q('#ws-filter-'+key))};q('#ws-filter-snapshots').checked=state.snapshots;updateContentFilters();updateFilterSummary();
 }
-q('#ws-filter-toggle').onclick=()=>{state.filtersOpen=!state.filtersOpen;configure();if(state.filtersOpen)q('.ws-main').scrollTo({top:0,behavior:'smooth'})};
+q('#ws-filter-toggle').onclick=()=>{state.filtersOpen=!state.filtersOpen;configure();remember()};
 for(const key of ['game','loader','resolution','topic','sort'])q('#ws-filter-'+key).onchange=()=>{state.filters[key]=q('#ws-filter-'+key).value;remember();void load()};
 q('#ws-quick-topics').onclick=event=>{const button=event.target.closest('button[data-topic]');if(!button)return;state.filters.topic=state.filters.topic===button.dataset.topic?'':button.dataset.topic;q('#ws-filter-topic').value=state.filters.topic;window.SintetUI?.select.refresh(q('#ws-filter-topic'));remember();void load()};
 q('#ws-filter-snapshots').onchange=()=>{const old=state.filters.game;state.snapshots=q('#ws-filter-snapshots').checked;fillFilterGames();remember();if(old!==state.filters.game)void load()};
@@ -1464,6 +1627,7 @@ function closeMod(){if(plan?.kind==='modpacks')void api.DiscardCatalogPack(plan.
 const workshopLinkLabels={
  website:'Сайт',source:'Исходный код',issues:'Баг-трекер',discord:'Discord',telegram:'Telegram',other:'Другая ссылка',
 };
+const workshopDonationLabels={patreon:'Patreon',boosty:'Boosty','ko-fi':'Ko-fi',buymeacoffee:'Buy Me a Coffee',donationalerts:'DonationAlerts',paypal:'PayPal',other:'Другая платформа'};
 
 function projectMediaURL(value,allowHTTP=false){
  try{
@@ -1507,10 +1671,11 @@ function openProjectScreenshot(images,index){
 
 function renderProjectMedia(item){
  const media=q('#ws-mod-media'),children=[];
- const links=(item.links||[]).map(link=>{
+ function renderLinks(items,labels){
+ const links=(items||[]).map(link=>{
   const address=projectMediaURL(link.url,true);
   if(!address)return null;
-  const label=Object.hasOwn(workshopLinkLabels,link.type)?workshopLinkLabels[link.type]:workshopLinkLabels.other;
+  const label=Object.hasOwn(labels,link.type)?labels[link.type]:labels.other;
   const button=node('button','ws-project-link');
   button.type='button';
   const icon=projectMediaURL(link.icon);
@@ -1521,11 +1686,15 @@ function renderProjectMedia(item){
   button.onclick=()=>void api.OpenWorkshopAuthorLink(address).catch(reason=>window.toast?.(error(reason)));
   return button;
  }).filter(Boolean);
- if(links.length){
-  const list=node('div','ws-project-links');
-  list.append(...links);
-  children.push(list);
+ if(!links.length)return null;
+ const list=node('div','ws-project-links');
+ list.append(...links);
+ return list;
  }
+ const links=renderLinks(item.links,workshopLinkLabels);
+ if(links)children.push(links);
+ const donations=renderLinks(item.donations,workshopDonationLabels);
+ if(donations)children.push(node('h3','ws-project-media-heading','Поддержать автора'),donations);
  const images=(item.screenshots||[]).map(value=>projectMediaURL(value)).filter(Boolean).slice(0,5);
  if(images.length){
   const grid=node('div','ws-project-shots');
@@ -1608,7 +1777,7 @@ async function selectModSource(item){
  q('#ws-deps-option').hidden=true;
  q('#ws-mod-title').textContent=item.name;
  q('#ws-mod-author').textContent=item.author||names[item.provider];
- showCatalogDescription(q('#ws-mod-description'),item.description||'');
+ showCatalogDescription(q('#ws-mod-description'),item.body||item.description||'');
  renderModInfo(item);
  q('#ws-supported').open=false;
  image(q('#ws-mod-icon'),item.name,item.icon);
@@ -1628,7 +1797,7 @@ async function selectModSource(item){
    loaders:[...new Set([...(details.loaders||[]),...(item.loaders||[])])],
   };
   q('#ws-mod-author').textContent=project.author||item.author||names[item.provider];
-  showCatalogDescription(q('#ws-mod-description'),project.description||'');
+  showCatalogDescription(q('#ws-mod-description'),project.body||project.description||item.description||'');
   renderModInfo(project);
   const desired=targets.find(target=>target.id===modDialogTarget);
   const current=isExtra(project.kind)?(desired&&project.games.includes(desired.game)?desired:targets.find(t=>project.games.includes(t.game))):preferredTarget(targets,desired,project);

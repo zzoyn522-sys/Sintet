@@ -180,11 +180,13 @@ std::array<Volume,3> Snapshot(){
 }
 
 void SetLevel(Target target,float level){
+ if(target==Target::Voice)return;
  std::lock_guard<std::mutex> lock(mutex);
  changes[static_cast<size_t>(target)].level=std::clamp(level,0.f,1.f);
 }
 
 void SetMuted(Target target,bool muted){
+ if(target==Target::Voice)return;
  std::lock_guard<std::mutex> lock(mutex);
  changes[static_cast<size_t>(target)].muted=muted;
 }

@@ -105,7 +105,14 @@ func (a *App) workshopSnapshot() (workshopSnapshot, error) {
 		if name == "" {
 			name = "Minecraft " + build.Game
 		}
+		var icon string
+		if name := customBuildIconName(build.Icon); name != "" {
+			if data, err := readLimitedFile(filepath.Join(a.profiles.root, "BuildIcons", name), iconFileLimit); err == nil {
+				icon = workshopThumbnail(data)
+			}
+		}
 		snapshot.Entries = append(snapshot.Entries, workshopEntry{
+			Icon:    icon,
 			ID:      workshopEntryID("modpacks", build.ID, ""),
 			Kind:    "modpacks",
 			Name:    name,
@@ -138,6 +145,16 @@ func (a *App) workshopSnapshot() (workshopSnapshot, error) {
 				snapshot.Entries = append(snapshot.Entries, workshopEntry{ID: workshopEntryID(kind, target.ID, item.Filename), Kind: kind, Name: item.Name, Version: item.Version, Game: target.Game, Loader: target.Loader, Provider: item.Provider, Enabled: item.Enabled, Icon: icon, Description: item.Description})
 			}
 		}
+		worlds, err := workshop.LocalWorldDataPacks(target.Directory)
+		if err != nil {
+			return snapshot, err
+		}
+		for _, world := range worlds {
+			snapshot.Entries = append(snapshot.Entries, workshopEntry{ID: workshopEntryID("worlds", target.ID, world.World), Kind: "worlds", Name: world.World, Game: target.Game, Enabled: true})
+			for _, pack := range world.Packs {
+				snapshot.Entries = append(snapshot.Entries, workshopEntry{ID: workshopEntryID("datapacks", target.ID, world.World+"\x00"+pack), Kind: "datapacks", Name: pack, Game: target.Game, Enabled: true, Description: world.World})
+			}
+		}
 	}
 	library := a.GetAppearanceLibrary()
 	for i, slot := range library.Slots {
@@ -158,6 +175,18 @@ func (a *App) workshopSnapshot() (workshopSnapshot, error) {
 		return snapshot, errors.New("слишком много элементов мастерской")
 	}
 	sort.Slice(snapshot.Entries, func(i, j int) bool { return snapshot.Entries[i].ID < snapshot.Entries[j].ID })
+	// Keep inventory updates below the transport limit even with many embedded icons.
+	budget := 1 << 20
+	for i := range snapshot.Entries {
+		icon := snapshot.Entries[i].Icon
+		if strings.HasPrefix(icon, "data:") {
+			if len(icon) > budget {
+				snapshot.Entries[i].Icon = ""
+			} else {
+				budget -= len(icon)
+			}
+		}
+	}
 	return snapshot, nil
 }
 func (a *App) syncWorkshop(ctx context.Context) {

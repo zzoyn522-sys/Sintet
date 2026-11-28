@@ -9,8 +9,10 @@ function page(id) {
  const target = document.getElementById(id);
  if (!target?.classList.contains('page')) return;
  const changed = target.classList.contains('hidden');
- const from = navTabs.findIndex(button=>button.classList.contains('active'));
- const to = navTabs.findIndex(button=>button.dataset.page === id);
+ const galleryIndex = navTabs.length;
+ const from = document.querySelector('#screenshots:not(.hidden)')
+  ? galleryIndex : navTabs.findIndex(button=>button.classList.contains('active'));
+ const to = id === 'screenshots' ? galleryIndex : navTabs.findIndex(button=>button.dataset.page === id);
  document.querySelectorAll('.page').forEach(view => view.classList.toggle('hidden',view !== target));
  document.querySelectorAll('.nav').forEach(button => button.classList.toggle('active',button.dataset.page === id));
  document.querySelector('#screenshots-toggle')?.setAttribute('aria-pressed',String(id === 'screenshots'));
@@ -19,9 +21,9 @@ function page(id) {
  // Opacity below 1 makes the page a new backdrop root, so its glass
  // panels can no longer sample the launcher background during the slide.
  if (from >= 0 && to >= 0 && !reduceMotion.matches && target.animate) {
-  const offset = Math.sign(to - from) * 18;
+  const offset = id === 'screenshots' ? '0 -18px' : `${Math.sign(to - from) * 18}px 0`;
   pageTransition = target.animate([
-   {translate:offset+'px 0'},
+   {translate:offset},
    {translate:'none'}
   ],{duration:185,easing:'cubic-bezier(.2,.75,.3,1)'});
  }

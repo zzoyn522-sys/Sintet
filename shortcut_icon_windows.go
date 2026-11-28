@@ -59,7 +59,7 @@ func refreshLauncherInstallation() {
 	if err := refreshLauncherInstallMarker(executable, &marker, launcherVersion); err != nil {
 		log.Printf("refresh Sintet installation metadata: %v", err)
 	} else {
-		refreshLauncherDisplayVersion(dir, launcherVersion)
+		refreshLauncherDisplayVersion(dir, currentReleaseLabel())
 	}
 
 	icon := filepath.Join(dir, "Sintet.ico")

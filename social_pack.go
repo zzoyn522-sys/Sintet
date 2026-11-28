@@ -37,15 +37,17 @@ type packStatus struct {
 	NeedsGame     bool   `json:"needsGame"`
 	Error         string `json:"error"`
 	Profile       string `json:"profile,omitempty"`
+	VersionOnly   bool   `json:"versionOnly,omitempty"`
 }
 type guestPack struct {
-	manifest   packsync.Manifest
-	peer       *p2p.Peer
-	epoch      uint64
-	host       string
-	profile    string
-	local      map[string]string
-	fromInvite bool
+	manifest    packsync.Manifest
+	peer        *p2p.Peer
+	epoch       uint64
+	host        string
+	profile     string
+	local       map[string]string
+	fromInvite  bool
+	versionOnly bool
 }
 
 const lobbyDiskFullMessage = "Не хватает места для сборки лобби. Освободи место или перенеси папку Minecraft на другой диск."
@@ -119,8 +121,9 @@ func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, ep
 		return nil
 	}
 	m.packChecking = true
+	versionOnly := m.guestVersionOnly
 	m.guestPack = nil
-	m.state.Pack = &packStatus{Phase: "checking", Name: host.Username}
+	m.state.Pack = &packStatus{Phase: "checking", Name: host.Username, VersionOnly: versionOnly}
 	m.mu.Unlock()
 	defer func() {
 		m.mu.Lock()
@@ -137,14 +140,28 @@ func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, ep
 		m.packFailure(epoch, lobbyManifestError(err))
 		return nil
 	}
-	plan := &guestPack{manifest: manifest, peer: peer, epoch: epoch, host: host.ID, local: map[string]string{}, fromInvite: fromInvite}
+	if versionOnly && len(manifest.Files) != 0 {
+		m.packFailure(epoch, errors.New("версия Minecraft изменилась; повтори проверку"))
+		return nil
+	}
+	plan := &guestPack{manifest: manifest, peer: peer, epoch: epoch, host: host.ID, local: map[string]string{}, fromInvite: fromInvite, versionOnly: versionOnly}
 	m.app.mu.RLock()
 	service := m.app.service
 	mode := m.app.settings.InstanceMode
 	m.app.mu.RUnlock()
 	running := service.State()
 	sameRunning := false
-	for _, profile := range service.Installations() {
+	var profiles []launcher.InstalledProfile
+	if versionOnly {
+		id := launcher.ProfileID(manifest.Game, manifest.Loader, manifest.LoaderVersion)
+		if service.Installed(id) {
+			plan.profile = id
+			sameRunning = running.Running && running.Profile == id
+		}
+	} else {
+		profiles = service.Installations()
+	}
+	for _, profile := range profiles {
 		if err := check.Err(); err != nil {
 			m.packFailure(epoch, errors.New("сверка сборки заняла слишком долго; подключитесь к лобби ещё раз"))
 			return nil
@@ -174,7 +191,7 @@ func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, ep
 			}
 		}
 	}
-	status := packStatus{Phase: "required", Name: manifest.Name, Game: manifest.Game, Loader: manifest.Loader, LoaderVersion: manifest.LoaderVersion, Digest: manifest.Digest, Restart: running.Running && !sameRunning, NeedsGame: plan.profile == ""}
+	status := packStatus{Phase: "required", Name: manifest.Name, Game: manifest.Game, Loader: manifest.Loader, LoaderVersion: manifest.LoaderVersion, Digest: manifest.Digest, Restart: running.Running && !sameRunning, NeedsGame: plan.profile == "", VersionOnly: versionOnly}
 	if mode, _, _ := m.game(); mode == "world" && sameRunning && peer.GameConnections() == 0 {
 		sameRunning = false
 		status.Restart = true
@@ -186,14 +203,17 @@ func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, ep
 			status.Bytes += file.Size
 		}
 	}
-	if sameRunning || (!running.Running && plan.profile != "") {
+	if sameRunning || ((!running.Running || versionOnly) && plan.profile != "") {
 		status.Phase = "ready"
 		status.Profile = plan.profile
 		status.Missing, status.Bytes = 0, 0
-		status.Restart, status.NeedsGame = false, false
+		status.NeedsGame = false
 	}
 	m.mu.Lock()
-	if m.epoch != epoch || m.state.NoPack || m.peers[m.guest] != peer || !peer.Connected() {
+	if m.epoch != epoch || m.state.NoPack || m.peers[m.guest] != peer || !peer.Connected() || m.guestVersionOnly != versionOnly || (m.guestWorldDigest != "" && m.guestWorldDigest != manifest.Digest) {
+		if m.epoch == epoch && m.state.Pack != nil && m.state.Pack.Phase == "checking" {
+			m.state.Pack = nil
+		}
 		m.mu.Unlock()
 		return context.Canceled
 	}
@@ -203,7 +223,7 @@ func (m *socialManager) prepareGuestPack(ctx context.Context, peer *p2p.Peer, ep
 		m.state.LocalPort = m.guestPort
 	}
 	m.mu.Unlock()
-	if status.Phase != "ready" && fromInvite && !running.Running && len(manifest.Files) == 0 && status.NeedsGame {
+	if !versionOnly && status.Phase != "ready" && fromInvite && !running.Running && len(manifest.Files) == 0 && status.NeedsGame {
 		return m.startPackSync(manifest.Digest)
 	}
 	return nil
@@ -269,6 +289,10 @@ func (m *socialManager) retryGuestPack(ctx context.Context) error {
 func (m *socialManager) packFailure(epoch uint64, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.packFailureLocked(epoch, err)
+}
+
+func (m *socialManager) packFailureLocked(epoch uint64, err error) {
 	if m.epoch != epoch || m.state.NoPack || m.guest == "" || m.peers[m.guest] == nil {
 		return
 	}
@@ -308,7 +332,10 @@ func (m *socialManager) connectPreparedPack(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if digest != "" && digest != currentPlan.manifest.Digest {
+		m.mu.Lock()
+		changed := m.guestVersionOnly != currentPlan.versionOnly
+		m.mu.Unlock()
+		if digest != "" && (digest != currentPlan.manifest.Digest || changed) {
 			_ = m.prepareGuestPack(ctx, currentPlan.peer, currentPlan.epoch, socialAccount{ID: currentPlan.host}, false)
 			return errors.New("сборка обновилась; проверь подготовку файлов")
 		}
@@ -328,11 +355,14 @@ func (m *socialManager) connectPreparedPack(ctx context.Context) error {
 	port := m.state.LocalPort
 	restart := status.Restart
 	m.mu.Unlock()
-	if !plan.peer.Connected() || port <= 0 {
+	if !plan.peer.Connected() || (port <= 0 && !plan.versionOnly) {
 		return errors.New("ждём, пока лидер откроет мир для сети")
 	}
 	if m.app.State().Running {
 		if !restart && m.app.State().Profile == profile {
+			if port <= 0 {
+				return nil
+			}
 			return m.connectGame()
 		}
 		if err := m.closeLobbyGame(ctx); err != nil {
@@ -358,7 +388,11 @@ func (m *socialManager) connectPreparedPack(ctx context.Context) error {
 		}
 	}
 	m.updatePack(plan.epoch, "launching", "Запускаем Minecraft", 0, 0)
-	if err := m.app.launchInstance(profile, m.lobbyPlayerName(), port, plan.fromInvite, func(useBridge bool) { m.queueColdLobbyJoin(plan, port, useBridge) }); err != nil {
+	var queueJoin func(bool)
+	if port > 0 {
+		queueJoin = func(useBridge bool) { m.queueColdLobbyJoin(plan, port, useBridge) }
+	}
+	if err := m.app.launchInstance(profile, m.lobbyPlayerName(), port, plan.fromInvite && port > 0, queueJoin); err != nil {
 		m.packFailure(plan.epoch, err)
 		return err
 	}
@@ -386,7 +420,7 @@ func (m *socialManager) finishPackLaunch(plan *guestPack, profile string) {
 			}
 			if state.Running {
 				m.mu.Lock()
-				if m.epoch == plan.epoch && m.state.Pack != nil {
+				if m.epoch == plan.epoch && m.guestPack == plan && m.state.Pack != nil {
 					m.state.Pack.Phase = "ready"
 					m.state.Pack.Profile = profile
 					m.state.Pack.Restart = false
@@ -408,7 +442,8 @@ func (m *socialManager) finishPackLaunch(plan *guestPack, profile string) {
 func (m *socialManager) startPackSync(digest string) error {
 	m.mu.Lock()
 	plan := m.guestPack
-	if plan == nil || m.state.Pack == nil || plan.epoch != m.epoch || digest != plan.manifest.Digest {
+	if plan == nil || m.state.Pack == nil || plan.epoch != m.epoch || digest != plan.manifest.Digest ||
+		(m.guestWorldDigest != "" && (digest != m.guestWorldDigest || plan.versionOnly != m.guestVersionOnly)) {
 		m.mu.Unlock()
 		return errors.New("сборка хоста изменилась; подключитесь к лобби заново")
 	}
@@ -453,18 +488,30 @@ func (m *socialManager) startPackSync(digest string) error {
 			if err == nil || launcher.IsDiskFull(err) {
 				m.packConsent = ""
 			}
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					err = errors.New("подготовка отменена")
+				}
+				m.packFailureLocked(plan.epoch, err)
+			}
 		}
 		m.mu.Unlock()
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				err = errors.New("синхронизация отменена; исходная сборка сохранена")
-			}
-			m.packFailure(plan.epoch, err)
-		}
 	}()
 	return nil
 }
 func (m *socialManager) syncPack(ctx context.Context, plan *guestPack) error {
+	profile := launcher.ProfileID(plan.manifest.Game, plan.manifest.Loader, plan.manifest.LoaderVersion)
+	if !plan.versionOnly {
+		var err error
+		profile, err = m.downloadLobbyPack(ctx, plan)
+		if err != nil {
+			return err
+		}
+	}
+	return m.installLobbyProfile(ctx, plan, profile)
+}
+
+func (m *socialManager) downloadLobbyPack(ctx context.Context, plan *guestPack) (string, error) {
 	options := packsync.DownloadOptions{}
 	if m.app.workshop != nil {
 		client := m.app.workshop.Client
@@ -476,26 +523,32 @@ func (m *socialManager) syncPack(ctx context.Context, plan *guestPack) error {
 	}
 	if err := packsync.DownloadWithOptions(ctx, plan.manifest, m.packCache(), fetcher, plan.local, func(name string, done, total int64) { m.updatePack(plan.epoch, "downloading", name, done, total) }, options); err != nil {
 		if !plan.peer.PackFilesAvailable() && errors.Is(err, packsync.ErrPeerFilesUnavailable) {
-			return errors.New("Файлы хоста доступны только при прямом соединении")
+			return "", errors.New("Файлы хоста доступны только при прямом соединении")
 		}
-		return err
+		return "", err
 	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if m.app.service.State().Busy {
+		return "", errors.New("дождитесь текущего запуска или установки Minecraft")
+	}
+	m.updatePack(plan.epoch, "downloading", "Подготавливаем отдельную сборку", 0, 0)
+	m.app.contentMu.Lock()
+	defer m.app.contentMu.Unlock()
+	return m.materializePack(ctx, plan)
+}
+
+func (m *socialManager) installLobbyProfile(ctx context.Context, plan *guestPack, profile string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	service := m.app.service
-	if state := service.State(); state.Busy {
+	if service.State().Busy {
 		return errors.New("дождитесь текущего запуска или установки Minecraft")
 	}
-	m.updatePack(plan.epoch, "downloading", "Подготавливаем отдельную сборку", 0, 0)
-	m.app.contentMu.Lock()
-	profile, err := m.materializePack(ctx, plan)
-	m.app.contentMu.Unlock()
-	if err != nil {
-		return err
-	}
 	m.mu.Lock()
-	if m.epoch != plan.epoch || m.state.Pack == nil {
+	if m.epoch != plan.epoch || m.guestPack != plan || m.state.Pack == nil {
 		m.mu.Unlock()
 		return context.Canceled
 	}
@@ -503,6 +556,9 @@ func (m *socialManager) syncPack(ctx context.Context, plan *guestPack) error {
 	m.mu.Unlock()
 	// Preparation never closes a running world. Restart only on a join action.
 	if service.State().Running && !service.Installed(profile) {
+		if plan.versionOnly {
+			return errors.New("закрой текущую игру, чтобы установить версию из лобби")
+		}
 		m.updatePack(plan.epoch, "ready", "Закрой текущую игру перед установкой Minecraft", 0, 0)
 		m.mu.Lock()
 		if m.epoch != plan.epoch || m.state.Pack == nil {
@@ -546,7 +602,7 @@ func (m *socialManager) syncPack(ctx context.Context, plan *guestPack) error {
 		return err
 	}
 	m.mu.Lock()
-	if m.epoch != plan.epoch || !plan.peer.Connected() {
+	if m.epoch != plan.epoch || m.guestPack != plan || m.state.Pack == nil || !plan.peer.Connected() {
 		m.mu.Unlock()
 		return errors.New("хост закрыл лобби")
 	}

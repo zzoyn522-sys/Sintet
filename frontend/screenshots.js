@@ -262,6 +262,7 @@
   if (!screen.classList.contains('hidden')) { page('home'); return; }
   page('screenshots');
   screen.closest('main').scrollTop = 0;
+  screen.querySelector('.shots-scroll').scrollTop = 0;
   void refresh();
  };
  q('#shots-refresh').onclick = () => void refresh();

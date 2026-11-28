@@ -159,6 +159,27 @@ func TestPreparedGuestWaitsForHostInsteadOfLaunchingGame(t *testing.T) {
 	if _, err = guest.exchangeLobby(ctx, peer, 1); err != nil {
 		t.Fatal(err)
 	}
+	if got := guest.snapshot().VoiceRange; got != 48 {
+		t.Fatalf("default voice range is %d", got)
+	}
+	guest.account = "guest"
+	if err := guest.voiceAction("voice-range", "128"); err == nil {
+		t.Fatal("guest was allowed to change the range")
+	}
+	for _, radius := range []string{"129", "7", "bad"} {
+		if err := hostManager.voiceAction("voice-range", radius); err == nil {
+			t.Fatalf("invalid range accepted: %s", radius)
+		}
+	}
+	if err := hostManager.voiceAction("voice-range", "72"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = guest.exchangeLobby(ctx, peer, 1); err != nil {
+		t.Fatal(err)
+	}
+	if got := guest.snapshot().VoiceRange; got != 72 {
+		t.Fatalf("guest did not apply the host's range: %d", got)
+	}
 	if err = guest.prepareGuestPack(ctx, peer, 1, socialAccount{ID: "host"}, true); err != nil {
 		t.Fatal(err)
 	}
@@ -243,5 +264,40 @@ func TestPreparedGuestWaitsForHostInsteadOfLaunchingGame(t *testing.T) {
 	}
 	if _, commandPort := guest.pollGameCommand(true); commandPort != port || guest.app.State().Busy {
 		t.Fatal("manual lobby started installation instead of handing off to Minecraft")
+	}
+
+	version, err := hostManager.prepareLobbyHost(ctx, "1.21.1")
+	if err != nil || !version.versionOnly || version.pack == nil || len(version.pack.Manifest.Files) != 0 {
+		t.Fatalf("regular Minecraft should only advertise its version: %+v, %v", version, err)
+	}
+	// A host can advertise its running version without changing the signaling room.
+	version.profile = manualLobbyProfile
+	hostManager.mu.Lock()
+	hostManager.applyLobbyHostLocked(version)
+	hostManager.state.WorldReady = false
+	hostManager.mu.Unlock()
+	installedService := guest.app.service
+	guest.app.service = launcher.New(t.TempDir())
+	if _, err = guest.exchangeLobby(ctx, peer, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err = guest.prepareGuestPack(ctx, peer, 1, socialAccount{ID: "host"}, true); err != nil {
+		t.Fatal(err)
+	}
+	if state := guest.snapshot(); state.NoPack || state.WorldReady || state.Pack == nil || !state.Pack.VersionOnly || state.Pack.Phase != "required" || !state.Pack.NeedsGame || guest.app.remotePackBusy.Load() {
+		t.Fatalf("guest should be offered the ordinary version before the LAN world: %+v", state)
+	}
+	guest.app.service = installedService
+	if err = guest.syncPack(ctx, guest.guestPack); err != nil {
+		t.Fatal(err)
+	}
+	if state := guest.snapshot(); state.Pack.Phase != "ready" || state.Pack.Profile != "1.21.1" || state.Pack.NeedsGame || state.LocalPort != 0 {
+		t.Fatalf("version preparation should reuse the regular profile: %+v", state.Pack)
+	}
+	if err = guest.prepareGuestPack(ctx, peer, 1, socialAccount{ID: "host"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if state := guest.snapshot(); state.Pack.Phase != "ready" || state.Pack.Profile != "1.21.1" {
+		t.Fatalf("guest should skip preparation when already installed: %+v", state.Pack)
 	}
 }

@@ -12,10 +12,12 @@
  --shots-radius:var(--launcher-radius,14px);
  color:var(--shots-ink);
 }
-#screenshots {max-width:1260px; margin:0 auto}
-.shots-sticky {position:sticky;top:0;z-index:8}
+body > main:has(> #screenshots:not(.hidden)) {overflow:hidden}
+#screenshots {display:flex;flex-direction:column;height:100%;min-height:0;max-width:1260px;margin:0 auto}
+.shots-sticky {flex:none}
+.shots-scroll {flex:1;min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#444 transparent}
 .shots-heading {display:flex;justify-content:space-between;align-items:center;gap:16px;margin:8px 0 16px}
-.shots-heading h1 {font-size:calc(25px * var(--text-scale,1));font-weight:700;margin:0}
+.shots-heading h1 {font-size:calc(25px * var(--text-scale,1));font-weight:700;margin:0;text-shadow:0 1px 4px #0006}
 .shots-status {margin:0;color:var(--shots-muted);font-size:13px}
 .shots-toolbar {display:grid;grid-template-columns:minmax(0,1fr) minmax(135px,19%) minmax(125px,17%);gap:8px;margin-bottom:25px}
 .shots-toolbar :is(input,select,.s-select) {width:100%;min-width:0}
@@ -58,9 +60,11 @@
  background:var(--shots-surface);backdrop-filter:blur(var(--launcher-blur,0px));
  border:0;border-radius:var(--shots-radius);box-shadow:0 20px 72px #0008;
 }
-#shots-detail[open] {display:flex;flex-direction:column;animation:shots-view-enter .15s ease-out}
+#shots-detail[open] {display:flex;flex-direction:column;animation:shots-view-enter .24s cubic-bezier(.2,.75,.3,1)}
 #shots-detail::backdrop {background:#000b;backdrop-filter:blur(6px)}
-@keyframes shots-view-enter {from {opacity:0;transform:scale(.987)}}
+#shots-detail[open]::backdrop {animation:shots-backdrop-enter .24s ease-out}
+@keyframes shots-view-enter {from {translate:0 14px;scale:.965}}
+@keyframes shots-backdrop-enter {from {background:transparent;backdrop-filter:blur(0)}}
 .shots-view-header,.shots-view-footer {display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;padding:10px 14px}
 .shots-view-header > div {min-width:0}
 #shots-name,#shots-meta {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -113,6 +117,6 @@
  #shots-detail {width:calc(100vw - 20px);height:calc(100vh - 24px)}
 }
 @media(prefers-reduced-motion:reduce) {
- #shots-detail[open],#shots-context:popover-open,.shots-thumb img,.shots-thumb::after {animation:none;transition:none}
+ #shots-detail[open],#shots-detail[open]::backdrop,#shots-context:popover-open,.shots-thumb img,.shots-thumb::after {animation:none;transition:none}
 
 }

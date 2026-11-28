@@ -38,7 +38,7 @@ function resizeSurfaces() {
   drawWave(elapsed);
 }
 
-function heightAt(x, heights) {
+function heightAt(x, heights, slopeScale) {
   const endIndex = points.findIndex(point => point.x >= x);
   const start = points[endIndex - 1];
   const end = points[endIndex];
@@ -46,10 +46,10 @@ function heightAt(x, heights) {
   const t = (x - start.x) / span;
   const blend = t * t * (3 - 2 * t);
   return heights[endIndex - 1] * (1 - blend) + heights[endIndex] * blend
-    + span * t * (1 - t) * ((1 - t) * start.slope - t * end.slope);
+    + slopeScale * span * t * (1 - t) * ((1 - t) * start.slope - t * end.slope);
 }
 
-function slopeAt(x, heights) {
+function slopeAt(x, heights, slopeScale) {
   const endIndex = points.findIndex(point => point.x >= x);
   const start = points[endIndex - 1];
   const end = points[endIndex];
@@ -57,11 +57,11 @@ function slopeAt(x, heights) {
   const t = (x - start.x) / span;
   const averageSlope = (heights[endIndex] - heights[endIndex - 1]) / span;
   return 6 * t * (1 - t) * averageSlope
-    + (1 - t) * (1 - 3 * t) * start.slope
-    + t * (3 * t - 2) * end.slope;
+    + (1 - t) * (1 - 3 * t) * start.slope * slopeScale
+    + t * (3 * t - 2) * end.slope * slopeScale;
 }
 
-function renderSurface({ context, image, preview }, heights) {
+function renderSurface({ context, image, preview }, heights, config, color) {
   const { width, height, data } = image;
   const step = waveWidth / width;
   const scaleY = height / (waveHeight + (preview ? maxOffset : 0));
@@ -73,13 +73,14 @@ function renderSurface({ context, image, preview }, heights) {
   const trailDepth = trailStrength > 0 ? (22 + 64 * trailStrength) * scaleY : 0;
   const pixelated = config.style === 'pixel';
   const [red, green, blue] = color;
+  const slopeScale=config.flatEnds?0:1;
   data.fill(0);
 
   for (let column = 0; column < width; column++) {
     const x = (column + .5) * step;
-    const edgeY = offsetY + heightAt(x, heights) * scaleY;
-    const slope = slopeAt(x, heights);
-    const bend = slopeAt(x + sampleRadius, heights) - slopeAt(x - sampleRadius, heights);
+    const edgeY = offsetY + heightAt(x, heights, slopeScale) * scaleY;
+    const slope = slopeAt(x, heights, slopeScale);
+    const bend = slopeAt(x + sampleRadius, heights, slopeScale) - slopeAt(x - sampleRadius, heights, slopeScale);
     const normal = Math.sqrt(1 + slope * slope);
     const curvature = bend / (2 * sampleRadius * normal * normal * normal);
     const bendIntensity = curvature / .0023;
@@ -135,12 +136,40 @@ function renderSurface({ context, image, preview }, heights) {
   context.putImageData(image, 0, 0);
 }
 
-function drawWave(time) {
+let profileImage;
+export function drawProfileWave(context, {color:hex, amplitude, intensity, bands, trail}) {
+  const {width,height}=context.canvas;
+  if(!width||!height)return;
+  if(profileImage?.width!==width||profileImage?.height!==height)profileImage=context.createImageData(width,height);
+  const color=[1,3,5].map(index=>Number.parseInt(hex.slice(index,index+2),16));
+  const bass=Math.max(bands[0],bands[1],bands[2]);
+  const mids=Math.max(bands[3],bands[4],bands[5]);
+  const highs=Math.max(bands[6],bands[7]);
+  // Drive the broad crests across the entire panel, even on a bass-only beat.
+  const pulse=Math.sqrt(bass*.65+Math.max(mids,highs)*.35);
+  const displacements=[
+    0,
+    -pulse*10-mids*6,
+    pulse*17+highs*6,
+    -pulse*13-highs*6,
+    pulse*12+mids*8,
+    0,
+  ];
+  const heights=displacements.map(value=>26+value*amplitude);
+  renderSurface({context,image:profileImage,preview:false},heights,
+    {style:'smooth',flatEnds:true,intensity,trail:trail?Number(trail):config.trail??50},color);
+}
+
+function waveHeights(time,amplitude) {
   const phase = 2 * Math.PI * (time % period) / period;
-  const heights = points.map(point => point.y + point.amplitude * (config.amplitude / 100) * Math.sin(phase + point.offset));
+  return points.map(point => point.y + point.amplitude * (amplitude / 100) * Math.sin(phase + point.offset));
+}
+
+function drawWave(time) {
+  const heights=waveHeights(time,config.amplitude);
   for (const surface of surfaces) {
     if (!surface.visible) continue;
-    if (config.enabled && config.intensity > 0) renderSurface(surface, heights);
+    if (config.enabled && config.intensity > 0) renderSurface(surface, heights, config, color);
     else surface.context.clearRect(0, 0, surface.image.width, surface.image.height);
   }
 }

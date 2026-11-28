@@ -18,6 +18,7 @@ import (
 )
 
 type State struct {
+	GameBridgeRun string  `json:"-"`
 	GameVersion   string  `json:"-"`
 	GameLoader    string  `json:"-"`
 	GameBuild     string  `json:"-"`

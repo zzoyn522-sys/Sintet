@@ -57,12 +57,12 @@
   try{await app.AcknowledgeSupportNotice(version)}
   catch(error){console.info('Sintet support notice:',String(error?.message||error))}
  }
- function open(kind,version){
+ function open(kind,version,label=version){
   automaticHandled=true;
   clearTimeout(pollTimer);
   const text=copy[kind]||copy.manual;
   dialog.querySelector('h2').textContent=text.title;
-  dialog.querySelector('.support-intro').textContent=kind==='update'&&version?'Sintet '+version+' · '+text.intro:text.intro;
+  dialog.querySelector('.support-intro').textContent=kind==='update'&&label?'Sintet '+label+' · '+text.intro:text.intro;
   dialog.querySelector('.support-error').hidden=true;
   if(!dialog.open)dialog.showModal();
   dialog.querySelector('.support-story').scrollTop=0;
@@ -101,7 +101,7 @@
     pollTimer=setTimeout(check,2000);
     return;
    }
-   open(notice.kind,notice.version);
+   open(notice.kind,notice.version,notice.label);
   }catch{}
  }
  void ready.then(value=>{

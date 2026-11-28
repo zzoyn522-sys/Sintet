@@ -41,7 +41,7 @@ Get-ChildItem -LiteralPath (Join-Path $classes 'org/objectweb/asm') -File -Filte
     $data=$data.Replace('org/objectweb/asm','sintet/bridge/asm').Replace('org.objectweb.asm','sintet.bridge.asm')
     [IO.File]::WriteAllBytes((Join-Path $asmClasses $_.Name),$binary.GetBytes($data))
 }
-& $javac --release 8 -encoding UTF-8 -cp $classes -d $classes (Join-Path $PSScriptRoot 'SintetBridge.java') (Join-Path $PSScriptRoot 'GameLobbyLimit.java') (Join-Path $PSScriptRoot 'MixedLobbyLogin.java')
+& $javac --release 8 -encoding UTF-8 -cp $classes -d $classes (Join-Path $PSScriptRoot 'SintetBridge.java') (Join-Path $PSScriptRoot 'GameLobbyLimit.java') (Join-Path $PSScriptRoot 'MixedLobbyLogin.java') (Join-Path $PSScriptRoot 'VoicePose.java')
 if($LASTEXITCODE -ne 0){throw 'Java bridge compilation failed'}
 & $jar cfm (Join-Path $PSScriptRoot 'sintet-bridge.jar') (Join-Path $PSScriptRoot 'MANIFEST.MF') -C $classes sintet -C $PSScriptRoot ASM-LICENSE.txt
 if($LASTEXITCODE -ne 0){throw 'Java bridge packaging failed'}

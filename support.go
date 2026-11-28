@@ -13,6 +13,7 @@ import (
 type supportNotice struct {
 	Kind     string `json:"kind"`
 	Version  string `json:"version"`
+	Label    string `json:"label,omitempty"`
 	Deferred bool   `json:"deferred"`
 }
 
@@ -78,6 +79,7 @@ func (a *App) SupportNotice() supportNotice {
 		return supportNotice{}
 	}
 	notice := a.support.notice(launcherVersion)
+	notice.Label = currentReleaseLabel()
 	notice.Deferred = a.windowHidden.Load()
 	return notice
 }

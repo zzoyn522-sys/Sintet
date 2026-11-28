@@ -104,7 +104,7 @@ func (a *App) PublishPortalTheme(index int) error {
 	if err = client.UploadThemePackage(upload, account, id, data); err != nil {
 		return err
 	}
-	return client.UploadThemePreviews(upload, account, id, launcherVersion, previews)
+	return client.UploadThemePreviews(upload, account, id, currentReleaseNumber(), previews)
 }
 
 func (a *App) themeForSharing(index int, current *Appearance) ([]byte, error) {
@@ -152,7 +152,7 @@ func (a *App) themeForSharing(index int, current *Appearance) ([]byte, error) {
 func (a *App) appearanceDraft(index int, current *Appearance) (int, AppearanceSlot, []byte, error) {
 	a.appearanceMu.Lock()
 	defer a.appearanceMu.Unlock()
-	slot := AppearanceSlot{Name: "Оформление Sintet", CreatorVersion: launcherVersion}
+	slot := AppearanceSlot{Name: "Оформление Sintet", CreatorVersion: currentReleaseNumber()}
 	if current != nil {
 		index = a.appearanceActive - 1
 	}
@@ -163,7 +163,7 @@ func (a *App) appearanceDraft(index int, current *Appearance) (int, AppearanceSl
 	}
 	if current != nil {
 		if slot.Settings != *current {
-			slot.CreatorVersion = launcherVersion
+			slot.CreatorVersion = currentReleaseNumber()
 		}
 		slot.Settings = *current
 	}

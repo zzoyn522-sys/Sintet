@@ -356,7 +356,7 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 	service := a.service
 	settings := a.settings
 	options := settings.LaunchOptions(systemMemoryMB())
-	options.LauncherVersion = launcherVersion
+	options.LauncherVersion = currentReleaseNumber()
 	options.QuickPlayPort = quickPlayPort
 	options.OpenOverlayLobby = openLobby && settings.OverlayEnabled
 	options.OverlayHotkey = settings.OverlayHotkey
@@ -385,6 +385,8 @@ func (a *App) launchSharedInstance(id, name string, quickPlayPort int, openLobby
 		options.PrepareOverlay = a.prepareGameOverlay
 		options.OverlayAvatar = overlayAvatar
 		options.OverlayNetworkPinFile = filepath.Join(a.profiles.root, "overlay-network-pinned")
+		options.OverlayMiniPlayerPinFile = filepath.Join(a.profiles.root, "overlay-mini-player-pinned")
+		options.OverlayScreenshotsRoot = a.service.Root
 		appearance := a.GetAppearance()
 		options.OverlayAppearance = appearance.Overlay.RendererSettings(appearance.Accent)
 		options.OverlayFont = a.overlayFontPath(settings.ApplyOverlayFont)

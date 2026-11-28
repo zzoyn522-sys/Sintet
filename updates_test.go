@@ -6,9 +6,79 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"sintet/internal/releaseversion"
 	"strings"
 	"testing"
 )
+
+func TestIndependentReleaseBranches(t *testing.T) {
+	build := func(version, channel string) updatePayload {
+		t.Helper()
+		id, err := releaseversion.Build(version, channel)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p := updatePayload{
+			Version: id, DisplayVersion: version, Channel: channel, Size: 1, SHA256: strings.Repeat("a", 64),
+			URL: "https://sintet-updates.zzoyn522.workers.dev/stable/Sintet-" + id + ".exe",
+		}
+		if channel == "beta" {
+			p.Channel, p.Beta = "", true
+		}
+		if !validUpdatePayload(p) {
+			t.Fatalf("rejected %s build %s", version, id)
+		}
+		return p
+	}
+	preview := build("0.1.0", "test")
+	previewNext := build("0.1.1", "test")
+	official := build("1.1.0", "")
+	beta := build("1.1.0", "beta")
+	betaNext := build("1.1.1", "beta")
+	if preview.displayLabel() != "0.1.0 TEST" || official.displayLabel() != "1.1.0" || beta.displayLabel() != "1.1.0 BETA" {
+		t.Fatal("release labels lost their branch versions")
+	}
+	for _, transition := range [][2]string{
+		{preview.Version, "1.10.2.85"}, {official.Version, "1.10.2.70"}, {previewNext.Version, preview.Version},
+		{official.Version, beta.Version}, {betaNext.Version, official.Version},
+	} {
+		if !versionIsNewer(transition[0], transition[1]) {
+			t.Errorf("update blocked: %v", transition)
+		}
+	}
+	for _, scenario := range []struct {
+		current, channel string
+		officialOnly     bool
+		want             updatePayload
+	}{
+		{official.Version, "", false, preview},
+		{preview.Version, "test", true, official},
+	} {
+		got := selectUpdate(official, preview, scenario.current, scenario.channel, scenario.officialOnly)
+		if got.Version != scenario.want.Version || !updateAvailable(got, scenario.current, scenario.channel, scenario.officialOnly) {
+			t.Fatalf("branch switch failed: %+v -> %+v", scenario, got)
+		}
+	}
+	if got := selectUpdate(beta, preview, preview.Version, "test", true); got.Version != beta.Version {
+		t.Fatal("public channel selected a TEST build")
+	}
+	if !updateAvailable(beta, preview.Version, "test", true) ||
+		updateAvailable(beta, preview.Version, "test", false) {
+		t.Fatal("switching from TEST to official updates should allow a public BETA")
+	}
+	if got := selectUpdate(official, updatePayload{}, preview.Version, "test", false); got.Version != preview.Version {
+		t.Fatal("TEST unexpectedly downloaded a public upgrade")
+	}
+	for _, invalid := range [][2]string{{"1.1.0", "test"}, {"0.1.0", ""}, {"0.1.0", "beta"}, {"1.2.0", ""}, {"0.01.0", "test"}} {
+		if _, err := releaseversion.Build(invalid[0], invalid[1]); err == nil {
+			t.Errorf("accepted invalid branch version: %v", invalid)
+		}
+	}
+	preview.DisplayVersion = "0.1.1"
+	if validUpdatePayload(preview) {
+		t.Fatal("accepted a label that identifies a different TEST build")
+	}
+}
 
 func TestTesterChannelSelection(t *testing.T) {
 	official := updatePayload{Version: "1.10.1.0"}
@@ -54,6 +124,11 @@ func TestScopedReleasesStillRequireSignatureAndDoNotTreatCurrentStableAsAnError(
 	if err != nil || !beta.Beta || beta.Channel != "" || releaseVersionLabel(beta.Version, "beta") != "0.9.9.1 BETA" {
 		t.Fatal("public beta must keep the existing manifest format and show its label", beta, err)
 	}
+	p.Beta, p.PublicBeta = false, true
+	if compat, err := parseSignedUpdate(encode(p)); err != nil || !compat.Beta || compat.Channel != "" {
+		t.Fatalf("legacy official feed lost the BETA designation: %+v, %v", compat, err)
+	}
+	p.PublicBeta, p.Beta = false, true
 	p.Channel = "test"
 	if _, err = parseSignedUpdate(encode(p)); err == nil {
 		t.Fatal("accepted a manifest for both beta and test")

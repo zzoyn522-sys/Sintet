@@ -148,6 +148,8 @@
 .presence-identity strong,.presence-identity small {overflow: hidden; text-overflow: ellipsis; white-space: nowrap}
 .presence-identity strong {font-size: calc(15px * var(--text-scale,1)); font-weight: 700}
 .presence-identity small {color: #a4a4a4; font-size: calc(11px * var(--text-scale,1))}
+.presence-profile-meta {display: flex; align-items: baseline; flex-wrap: wrap; gap: 3px 7px; min-width: 0}
+.presence-public-id {color: #bcbcbc; font-size: calc(10px * var(--text-scale,1)); font-variant-numeric: tabular-nums; overflow-wrap: anywhere}
 .presence-status {
   display: inline-flex;
   align-items: center;

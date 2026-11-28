@@ -57,7 +57,7 @@ function sameProject(a,b){
 
 export function projectSources(project){return project.sources||[project]}
 
-export function mergeWorkshopResults(sources,sort){
+export function mergeWorkshopResults(sources,sort,displayed=[]){
  const groups=[],byTitle=new Map(),seen=new Set();
  for(const provider of searchProviders){
   for(const [rank,item] of (sources[provider]?.items||[]).entries()){
@@ -74,6 +74,11 @@ export function mergeWorkshopResults(sources,sort){
    groups.push(created);
   }
  }
+ // Keep the positions of cards already shown. A new source can still join an existing card.
+ const displayedPositions=new Map();
+ displayed.forEach((card,index)=>{
+  for(const item of projectSources(card))displayedPositions.set(item.provider+'/'+item.id,index);
+ });
  const cards=groups.map(({items,rank,order})=>{
   const primary=items[0];
   const ordered=[...items].sort((a,b)=>Number(b.provider==='sintedmods')-Number(a.provider==='sintedmods'));
@@ -82,8 +87,9 @@ export function mergeWorkshopResults(sources,sort){
   const loaders=[...new Set(items.flatMap(item=>item.loaders||[]))];
   const timestamp=sort==='newest'?'createdAt':'updatedAt';
   const date=Math.max(...items.map(item=>Date.parse(item[timestamp])||0));
-  return {card:{...primary,games,loaders,downloads,sources:ordered},rank,order,date};
+  const position=Math.min(...items.map(item=>displayedPositions.get(item.provider+'/'+item.id)??displayed.length));
+  return {card:{...primary,games,loaders,downloads,sources:ordered},rank,order,date,position};
  });
- cards.sort((a,b)=>(sort==='downloads'?b.card.downloads-a.card.downloads:sort==='updated'||sort==='newest'?b.date-a.date:0)||a.rank-b.rank||a.order-b.order);
+ cards.sort((a,b)=>a.position-b.position||(sort==='downloads'?b.card.downloads-a.card.downloads:sort==='updated'||sort==='newest'?b.date-a.date:0)||a.rank-b.rank||a.order-b.order);
  return cards.map(entry=>entry.card);
 }

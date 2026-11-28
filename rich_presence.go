@@ -150,31 +150,42 @@ func (a *App) SavePresencePrivacy(invisible, shareMusic bool) (presencePrivacy, 
 }
 
 func (a *App) FriendsMusicCover(account, digest string) (string, error) {
-	if a.social == nil || len(digest) != sha256.Size*2 {
+	if a.social == nil {
 		return "", nil
+	}
+	cover, err := a.social.friendMusicCover(a.social.ctx, account, digest)
+	if err != nil || len(cover) == 0 {
+		return "", err
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(cover), nil
+}
+
+func (m *socialManager) friendMusicCover(ctx context.Context, account, digest string) ([]byte, error) {
+	if len(digest) != sha256.Size*2 {
+		return nil, nil
 	}
 	if _, err := uuid.Parse(account); err != nil {
-		return "", nil
+		return nil, nil
 	}
 	if _, err := hex.DecodeString(digest); err != nil {
-		return "", nil
+		return nil, nil
 	}
 	query := url.Values{"account": {account}, "digest": {digest}}
 	var result struct {
 		Cover string `json:"cover"`
 	}
-	if err := a.social.request(a.social.ctx, "GET", "/api/social/music-cover?"+query.Encode(), nil, &result); err != nil {
-		return "", err
+	if err := m.request(ctx, "GET", "/api/social/music-cover?"+query.Encode(), nil, &result); err != nil {
+		return nil, err
 	}
 	decoded, err := base64.StdEncoding.DecodeString(result.Cover)
 	if err != nil || len(decoded) > 40*1024 {
-		return "", nil
+		return nil, nil
 	}
 	actual := sha256.Sum256(decoded)
 	if hex.EncodeToString(actual[:]) != digest {
-		return "", nil
+		return nil, nil
 	}
-	return "data:image/png;base64," + result.Cover, nil
+	return decoded, nil
 }
 
 func (a socialActivity) legacyStatus() string {

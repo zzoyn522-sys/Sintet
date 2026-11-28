@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,7 +38,7 @@ func TestOverlayComponent(t *testing.T) {
 		for deadline := time.Now().Add(3 * time.Second); ; {
 			response := httptest.NewRecorder()
 			app.serveLauncherAssets(http.NotFoundHandler()).ServeHTTP(response, httptest.NewRequest("GET", "/overlay-preview/frame?after=0", nil))
-			if response.Code == http.StatusOK && response.Body.Len() == overlayPreviewFrameBytes && bytes.Contains(response.Body.Bytes(), []byte{84, 13, 48}) {
+			if response.Code == http.StatusOK && response.Body.Len() == overlayPreviewFrameBytes && hasPreviewDockAccent(response.Body.Bytes()) {
 				break
 			}
 			if time.Now().After(deadline) {
@@ -64,4 +63,17 @@ func TestOverlayComponent(t *testing.T) {
 	if _, err = openOverlay(root); err == nil {
 		t.Fatal("modified component was accepted")
 	}
+}
+
+func hasPreviewDockAccent(frame []byte) bool {
+	const dockRows = 54 * 704 * 4 // The OpenGL frame starts at the bottom row.
+	var accented int
+	for i := 0; i < dockRows; i += 4 {
+		red, green, blue := int(frame[i]), int(frame[i+1]), int(frame[i+2])
+		// The pink accent blends with the backdrop, so its RGB varies by pixel.
+		if red-blue >= 14 && blue-green >= 13 && red < 100 {
+			accented++
+		}
+	}
+	return accented >= 40
 }

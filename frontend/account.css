@@ -8,9 +8,6 @@
 .account-identity-brand{display:block;width:115px;height:31px;object-fit:contain;margin-top:3px}.skin-sintet-icon{display:block;width:28px;height:28px;object-fit:contain}.nickname-field{position:relative;width:100%}.nickname-field #nickname{width:100%;box-sizing:border-box}.nickname-field.has-identity #nickname{padding-right:48px}.nickname-source{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:25px;height:25px;object-fit:contain;pointer-events:none}.nickname-source[hidden]{display:none!important}
 .ely-login-card{margin-top:12px}.provider-section-label{display:block;font-size:12px;font-weight:550;color:#888;margin:23px 0 12px}.provider-source{display:flex;align-items:center;gap:12px;padding:15px;background:#222;border-radius:12px}.provider-source>img{width:33px;height:33px;object-fit:contain}.provider-source>div{display:flex;flex:1;flex-direction:column;gap:6px}.provider-source strong{font-size:13px;font-weight:650}.provider-source>div>span{font-size:11px;color:#888;line-height:1.5}.provider-bound{font-size:9px;color:#777}.ely-form-brand{display:block;width:128px;height:45px;object-fit:contain;object-position:left;margin:0 0 20px}.ely-auth-dialog h1{font-size:28px;letter-spacing:-.8px;margin:0 0 11px}.ely-auth-intro{font-size:13px;color:#888;margin:0 0 24px}.ely-auth-dialog form>label,.ely-auth-dialog #ely-totp-group>label{display:block;font-size:12px;color:#aaa;margin:17px 0 9px}.ely-auth-dialog input{display:block;width:100%;height:43px;padding:0 13px;color:#eee;background:#252525;border:0;border-radius:9px;box-sizing:border-box;outline-offset:3px}.ely-auth-error{font-size:12px;line-height:1.6;color:#b99;min-height:20px;margin:16px 0 10px}.ely-auth-cancel{display:block;margin:18px auto 0;background:none;border:0;color:#888;font-size:12px;cursor:pointer}.ely-password-note{text-align:center;font-size:10px;color:#666;line-height:1.7;margin:24px 0 0}.ely-auth-dialog [hidden],.account-provider-details[hidden]{display:none!important}
 .ely-signup{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:23px;font-size:12px;color:#777}.ely-signup button{border:0;background:none;padding:3px 0;color:#ddd;font-size:12px;font-weight:550;cursor:pointer}.ely-signup button:hover{color:#fff;text-decoration:underline}
-/* Centered sign-in brand buttons. */
-.provider-login.sintet-id-card{display:flex;align-items:center;justify-content:center;width:100%;min-height:54px;height:54px;padding:5px 20px;border:0;border-radius:11px;gap:0;transition:background .18s,transform .18s;cursor:pointer}.provider-login-sintet.sintet-id-card{background:#080808;box-shadow:inset 0 1px 0 #ffffff05}.provider-login-sintet.sintet-id-card:hover:not(:disabled){background:#030303;transform:translateY(-1px)}.provider-login .provider-wordmark{display:block;flex:none;width:147px;height:44px;object-fit:contain;pointer-events:none}.provider-login-ely.sintet-id-card{min-height:50px;height:50px;margin-top:10px;background:#252525}.provider-login-ely.sintet-id-card .provider-wordmark{width:112px;height:39px}.provider-login-ely.sintet-id-card:hover:not(:disabled){background:#303030;transform:translateY(-1px)}.provider-login:active:not(:disabled){transform:translateY(0)!important}.provider-login:disabled{opacity:.45;cursor:wait}@media(prefers-reduced-motion:reduce){.provider-login.sintet-id-card{transition:none}}
-.provider-login.sintet-id-card{min-height:40px;height:40px;padding:3px 18px;border-radius:9px}.provider-login .provider-wordmark{width:128px;height:34px}.provider-login-ely.sintet-id-card{min-height:38px;height:38px;margin-top:8px}.provider-login-ely.sintet-id-card .provider-wordmark{width:96px;height:31px}
 #avatar,#account-avatar{overflow:hidden}#avatar img,#account-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .account-stack {
   position: relative;
@@ -175,8 +172,11 @@
   scrollbar-color: #454545 transparent;
 }
 @keyframes account-profile-fade {from {opacity:0} to {opacity:1}}
+.account-audio-wave{opacity:var(--profile-wave-alpha,1);position:absolute;inset:0 0 auto;width:100%;height:130px;pointer-events:none;border-radius:inherit}
+#account-dialog-content{position:relative}
+#account-dialog>#account-close{z-index:1}
 @media (prefers-reduced-motion:no-preference) {
-  #account-dialog {animation:account-profile-fade .18s ease-out}
+  #account-dialog[open] {animation:account-profile-fade .12s ease-out both}
 }
 #account-dialog.resizing {overflow-y: hidden}
 #account-dialog .account-identity {padding-bottom: 22px}
@@ -198,12 +198,74 @@
   gap: 5px;
 }
 .account-add-dialog h1 {font-size: 22px; margin: 0 0 20px; letter-spacing: -.5px}
-#account-local-form {margin-top: 14px}
-#account-local-form label {display: block; margin-bottom: 8px; color: #aaa}
-.account-local-row {display: flex; gap: 8px}
-.account-local-row input {min-width: 0; flex: 1; padding: 0 10px; border: 0; border-radius: 9px; background: #242424}
-.account-local-row button {padding: 10px 12px; border-radius: 9px; background: #ddd; color: #171717; font-weight: 650}
-#account-local-error {color: #dbabab; margin: 8px 0 0}
+#account-add-dialog {
+  --add-surface: #181818;
+  --add-control: #232323;
+  --add-control-ink: #ededed;
+  --add-control-hover: color-mix(in srgb,var(--add-control) 89%,var(--add-control-ink));
+  --add-control-muted: color-mix(in srgb,var(--add-control-ink) 72%,var(--add-control));
+  --add-muted: color-mix(in srgb,currentColor 73%,var(--add-surface));
+  width: 448px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: clamp(17px,5vw,26px);
+  box-sizing: border-box;
+  background: var(--add-surface);
+  scrollbar-width: thin;
+  animation: none;
+}
+@media(prefers-reduced-motion:no-preference) {
+  #account-add-dialog[open] {animation: account-profile-fade .12s ease-out both}
+}
+#account-add-dialog h1 {padding-right: 32px; margin-bottom: 16px; font-size: calc(22px * var(--text-scale,1)); line-height: 1.2}
+#account-add-close {background: var(--add-control); color: var(--add-control-muted)}
+#account-add-close:hover {background: var(--add-control-hover); color: var(--add-control-ink)}
+.account-methods {display: grid; gap: 6px}
+.account-method {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 56px;
+  padding: 8px 11px;
+  text-align: start;
+  border-radius: var(--button-radius,11px);
+  background: var(--add-control);
+  color: var(--add-control-ink);
+  cursor: pointer;
+  transition: none;
+}
+.account-method:hover:not(:disabled),.account-method[aria-expanded=true] {background-color: var(--add-control-hover)}
+.account-method:disabled {opacity: .5; cursor: default}
+.account-method-copy {display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere}
+.account-method-copy strong {font-size: calc(14px * var(--text-scale,1)); font-weight: 650; line-height: 1.2}
+.account-method-copy small {font-size: calc(11px * var(--text-scale,1)); color: var(--add-control-muted); line-height: 1.3}
+.account-method-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: min(9px,var(--button-radius,9px));
+  background: color-mix(in srgb,var(--add-control) 89%,var(--method-tint,var(--add-control-ink)));
+  pointer-events: none;
+}
+.account-method[data-method=sintet] {--method-tint: var(--launcher-accent,#999fe3)}
+.account-method[data-method=ely] {--method-tint: #a2c4e6}
+.account-method-icon img,.account-method-icon svg {display: block; width: 20px; height: 20px; object-fit: contain}
+.account-method[data-method=sintet] img {width: 23px; height: 23px}
+.account-method[data-method=ely] img {width: 22px; height: 22px}
+.account-method svg {fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round}
+.account-method-chevron {width: 16px; height: 16px; color: var(--add-control-muted); pointer-events: none; transition: transform .16s ease}
+.account-method[aria-expanded=true] .account-method-chevron {transform: rotate(90deg)}
+#account-local-form {margin-top: 10px; padding: 12px; border-radius: var(--button-radius,11px); background: var(--add-control); color: var(--add-control-ink)}
+#account-local-form label {display: block; margin-bottom: 6px; color: var(--add-control-muted); font-size: calc(12px * var(--text-scale,1))}
+.account-local-row {display: flex; flex-wrap: wrap; gap: 8px}
+.account-local-row input {min-width: 0; flex: 1 1 100px; padding: 9px 10px; border: 0; border-radius: var(--button-radius,9px); background: var(--add-control-hover); color: inherit}
+.account-local-row input::placeholder {color: var(--add-control-muted)}
+.account-local-row button {padding: 9px 12px; border-radius: var(--button-radius,9px); background: var(--launcher-accent,#ededed); color: var(--launcher-accent-text,#191919); font-weight: 650}
+#account-local-error {color: inherit; margin: 8px 0 0; font-size: calc(12px * var(--text-scale,1))}
+#account-local-error:empty {display: none}
+@media(prefers-reduced-motion:reduce) {.account-method-chevron {transition: none}}
 #account-status[hidden],#account-id[hidden],#account-local-form[hidden] {display: none}
 #account-provider-details {margin: 0}
 @media(prefers-reduced-motion:reduce) {
@@ -216,18 +278,11 @@
 #account-id-copy:hover {color: #eee}
 #account-dialog .account-id::before {content: 'ID · '; user-select: none; -webkit-user-select: none}
 
-.provider-login-microsoft.sintet-id-card {
-  margin-top: 8px;
-  height: 38px;
-  min-height: 38px;
-  color: #fff;
-  background: #216341;
-}
-.provider-login-microsoft.sintet-id-card:hover:not(:disabled) {background: #287750; transform: translateY(-1px)}
 .microsoft-wordmark {display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 650}
 .microsoft-wordmark img {width: 19px; height: 19px; flex: none; pointer-events: none}
-.account-add-note {margin: 16px 0 0; font-size: 12px; line-height: 1.5; color: #aaa}
+.account-add-note {margin: 12px 0 0; font-size: calc(12px * var(--text-scale,1)); line-height: 1.5; color: var(--add-muted)}
 .microsoft-login-status {font-size: 12px; line-height: 1.5; margin: 10px 0 0; color: #d5d5d5}
+#account-add-dialog .microsoft-login-status {color: var(--add-muted); font-size: calc(12px * var(--text-scale,1))}
 #microsoft-device-dialog > p:first-of-type {font-size: 13px; line-height: 1.5; color: #aaa}
 .microsoft-code {display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; border-radius: 9px; background: #252525; margin: 12px 0 16px}
 .microsoft-code code {font-size: 20px; letter-spacing: .05em; user-select: text}

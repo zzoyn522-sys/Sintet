@@ -17,7 +17,7 @@
 .launcher-tour[open] { animation: tour-enter .25s ease-out both; }
 .launcher-tour::backdrop { background: transparent; }
 
-#friends-panel[popover][data-tour-preview] { display: block; z-index: 30; }
+#friends-panel[popover][data-tour-preview] { display: block; z-index: 30; opacity: 1; transform: none; transition: none; }
 
 #account-dialog[data-tour-preview] {
   position: fixed;

@@ -42,6 +42,7 @@ type Peer struct {
 	gameStreams atomic.Int32
 	tunnelBytes atomic.Uint64
 	quality     peerQuality
+	voice       voiceLink
 }
 
 func NewPeer(hostPort int, stun bool) (*Peer, error) {
@@ -130,6 +131,10 @@ func newPeer(hostPort int, stun bool, relay []webrtc.ICEServer, trace *ICETrace)
 		}
 	})
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) {
+		if hostPort != 0 && dc.Label() == voiceChannel {
+			p.attachVoice(dc)
+			return
+		}
 		if hostPort != 0 && dc.Label() == qualityChannel {
 			p.attachQuality(dc)
 			return
@@ -302,6 +307,9 @@ func (p *Peer) StartOffer() (func(context.Context) (*webrtc.SessionDescription, 
 	ordered, retransmits := false, uint16(0)
 	if probes, err := p.pc.CreateDataChannel(qualityChannel, &webrtc.DataChannelInit{Ordered: &ordered, MaxRetransmits: &retransmits}); err == nil {
 		p.attachQuality(probes)
+	}
+	if voice, err := p.pc.CreateDataChannel(voiceChannel, &webrtc.DataChannelInit{Ordered: &ordered, MaxRetransmits: &retransmits}); err == nil {
+		p.attachVoice(voice)
 	}
 	return p.startDescription(true)
 }

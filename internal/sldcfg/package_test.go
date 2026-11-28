@@ -441,7 +441,25 @@ func TestOverlayLayoutOptionsRoundTrip(t *testing.T) {
 	if err != nil || verified.Settings != settings || verified.FormatVersion != 11 {
 		t.Fatalf("signed layout settings lost: %+v, %v", verified.Settings.Overlay, err)
 	}
-	if got := settings.Overlay.RendererSettings("#ff77aa"); got != "bottom,acrylic,#121214,#ededed,#ff77aa,75,8,40,115,475,21" {
+	if got := settings.Overlay.RendererSettings("#ff77aa"); got != "bottom,acrylic,#181818,#ededed,#ff77aa,72,21,21,115,475,21" {
 		t.Fatalf("unexpected renderer settings: %q", got)
+	}
+}
+
+func TestOverlayMigratesOnlyPreviousAcrylicDefaults(t *testing.T) {
+	want := DefaultOverlay()
+	want.Width = 475
+	previous := want
+	previous.Opacity, previous.Blur, previous.Dim = 88, 14, 18
+	if got := previous.WithCurrentDefaults(); got != want {
+		t.Fatalf("previous acrylic defaults became %+v, want %+v", got, want)
+	}
+	previous.Opacity, previous.Blur = want.Opacity, want.Blur
+	if got := previous.WithCurrentDefaults(); got != want {
+		t.Fatalf("previous dimming default became %+v, want %+v", got, want)
+	}
+	previous.Opacity = 86
+	if got := previous.WithCurrentDefaults(); got != previous {
+		t.Fatalf("custom acrylic values changed: %+v", got)
 	}
 }

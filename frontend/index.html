@@ -74,9 +74,11 @@
    <select id="shots-sort" aria-label="Сортировка"><option value="recent">Сначала новые</option><option value="old">Сначала старые</option><option value="name">По имени</option></select>
   </div>
  </div>
- <p class="shots-status" id="shots-status" role="status"></p>
- <div id="shots-grid"></div>
- <button type="button" id="shots-more" class="soft-button" hidden>Показать ещё</button>
+ <div class="shots-scroll">
+  <p class="shots-status" id="shots-status" role="status"></p>
+  <div id="shots-grid"></div>
+  <button type="button" id="shots-more" class="soft-button" hidden>Показать ещё</button>
+ </div>
 </section>
 <dialog id="shots-detail" aria-labelledby="shots-name">
  <header class="shots-view-header">
@@ -180,6 +182,7 @@
 <article class="preference-card wide"><div class="preference-title"><h2>Java</h2><select id="java-mode" aria-label="Выбор Java"><option value="auto">Автоматически для версии игры</option><option value="custom">Указать java.exe вручную</option></select></div><div class="path-row"><input id="java-path" type="text" placeholder="Подходящая Java загружается автоматически" spellcheck="false" aria-label="Путь к Java"><button id="browse-java" type="button" class="soft-button">Обзор</button><button id="check-java" type="button" class="soft-button">Проверить</button></div><p id="java-info" class="preference-hint" role="status">Выбирается по требованиям Minecraft</p></article>
   </section>
   <section id="launcher-settings-minecraft" class="settings-section" aria-label="Интерфейс и звук" tabindex="-1">
+<article class="preference-card wide"><div class="preference-title"><h2>Профиль JVM</h2><select id="jvm-profile" aria-label="Профиль JVM"><option value="">Автоматически</option><option value="g1gc">G1GC</option><option value="zgc">ZGC</option></select></div><p class="preference-hint">Для ZGC нужна Java 17 или новее. На старых версиях используется G1GC.</p></article>
 <article class="preference-card wide"><div class="preference-title"><h2>Оперативная память</h2><label class="check-label"><input id="auto-memory" type="checkbox"> Авто</label></div><label for="memory-mb" id="memory-system">Память для Minecraft</label><div class="memory-row"><input id="ram" type="range" min="512" max="32768" step="256" value="4096" aria-label="Оперативная память"><input id="memory-mb" type="number" min="512" max="131072" step="256" required aria-label="Память в мегабайтах"><span>МБ</span></div><output id="ram-value" class="preference-hint">4 ГБ</output></article>
 <article class="preference-card behavior-card wide">
   <h2>Интерфейс и звук Minecraft</h2>
@@ -354,6 +357,20 @@
 
         </div>
           <label class="check-label"><input type="checkbox" name="profileGradientOff"> Убрать градиент профиля</label>
+          <section class="profile-wave-settings">
+          <div class="profile-wave-heading"><h3>Музыкальная волна</h3><label class="check-label"><input type="checkbox" name="profileWaveOff"> Выключить музыкальную волну</label></div>
+          <div class="profile-wave-fields">
+          <div class="appearance-element-colors">
+            <label><span>Цвет музыкальной волны</span><input type="color" name="profileWaveColor" value="#ffffff"></label>
+          </div>
+          <label><span>Стиль музыкальной волны</span><select name="profileWaveLine"><option value="fill">Заливка</option><option value="line">Светящаяся кромка</option></select></label>
+          </div>
+          <label class="check-label"><input type="checkbox" name="profileWaveAvatarColor" checked> Брать цвет волны из аватарки</label>
+          <label class="appearance-range"><span>Яркость музыкальной волны</span><output></output><input name="profileWaveOpacity" type="range" min="5" max="150" value="100"></label>
+          <label class="appearance-range"><span>Высота музыкальной волны</span><output></output><input name="profileWaveHeight" type="range" min="20" max="140" value="80"></label>
+          <label class="appearance-range"><span>Прозрачность музыкальной волны</span><output></output><input name="profileWaveAlpha" type="range" min="0" max="100" value="67"></label>
+          <label class="appearance-range"><span>Шлейф кромки</span><output></output><input name="profileWaveTrail" type="range" min="0" max="101" value="0"></label>
+          </section>
       </article>
       <article class="preference-card appearance-editor-panel" id="appearance-pane-background" role="tabpanel" aria-labelledby="appearance-tab-background">
         <div class="appearance-section-heading"><div class="appearance-heading-title"><h2>Фон и глубина</h2><label class="check-label appearance-switch"><input type="checkbox" name="waveEnabled" checked> Показывать волну</label></div><button type="button" class="soft-button" data-reset-pane="background">Сбросить вкладку</button></div>
@@ -493,7 +510,9 @@
   <div id="workshop-categories" class="ws-categories" role="tablist" aria-label="Категории мастерской"></div>
   <div class="ws-sidebar-bottom"><label for="ws-target">Текущая сборка</label><select id="ws-target" aria-label="Сборка мастерской"></select><button type="button" id="ws-open-folder">Открыть папку</button></div>
  </aside>
- <div class="ws-main"><div class="ws-toolbar"><div><h2 id="workshop-catalog-title">Моды</h2><span id="workshop-count"></span><small id="ws-bulk-hint" hidden>ПКМ по карточкам для выделения</small></div><div id="ws-bulk-toolbar" class="ws-bulk-toolbar" hidden><span id="ws-bulk-count" role="status"></span><button type="button" id="ws-bulk-disable" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H6v14h3zM18 5h-3v14h3z"/></svg><span>Отключить</span></button><button type="button" id="ws-bulk-remove" class="danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M6 7l1 13h10l1-13M9 7V4h6v3m-5 4v5m4-5v5"/></svg><span>Удалить</span></button><button type="button" id="ws-bulk-clear" aria-label="Снять выделение" title="Снять выделение">×</button></div><div id="ws-my-mod-actions" class="ws-build-file-actions" hidden><button type="button" id="ws-my-mod-update" class="ws-action">Обновить все моды</button><button type="button" id="ws-my-mod-disable" class="ws-action">Отключить все моды</button></div><div id="ws-build-file-actions" class="ws-build-file-actions" hidden><button type="button" id="ws-import-pack" class="ws-action"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m-4-4 4 4 4-4M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></svg><span>Импорт .mrpack</span></button><button type="button" id="ws-create-build" class="ws-create-build">＋ <span>Создать сборку</span></button></div><div id="ws-theme-toolbar" class="ws-theme-toolbar" hidden><button type="button" class="ws-action" id="ws-theme-add">Сохранить текущий вид</button><button type="button" class="ws-action" id="ws-theme-import" title="Только подписанные файлы .sldcfg">Импорт .sldcfg</button><button type="button" class="ws-action" id="ws-theme-portal" hidden>Из кабинета</button></div><button type="button" id="ws-filter-toggle" class="ws-filter-toggle" aria-expanded="false" aria-controls="ws-filters">Фильтры <span id="ws-filter-count" hidden>0</span></button><select id="ws-provider" aria-label="Источник модов"><option value="all">Все источники</option><option value="modrinth">Modrinth</option><option value="sintedmods">SintedMods</option><option value="curseforge">CurseForge</option></select><label class="mods-search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="workshop-search" type="search" placeholder="Поиск модов" aria-label="Поиск в мастерской" autocomplete="off"><button type="button" id="workshop-clear" aria-label="Очистить поиск" hidden>×</button></label></div>
+ <div class="ws-main">
+ <div class="ws-catalog-header">
+ <div class="ws-toolbar"><div><h2 id="workshop-catalog-title">Моды</h2><span id="workshop-count"></span><small id="ws-bulk-hint" hidden>ПКМ по карточкам для выделения</small></div><div id="ws-bulk-toolbar" class="ws-bulk-toolbar" hidden><span id="ws-bulk-count" role="status"></span><button type="button" id="ws-bulk-disable" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H6v14h3zM18 5h-3v14h3z"/></svg><span>Отключить</span></button><button type="button" id="ws-bulk-remove" class="danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M6 7l1 13h10l1-13M9 7V4h6v3m-5 4v5m4-5v5"/></svg><span>Удалить</span></button><button type="button" id="ws-bulk-clear" aria-label="Снять выделение" title="Снять выделение">×</button></div><div id="ws-my-mod-actions" class="ws-build-file-actions" hidden><button type="button" id="ws-my-mod-update" class="ws-action">Обновить все моды</button><button type="button" id="ws-my-mod-disable" class="ws-action">Отключить все моды</button></div><div id="ws-build-file-actions" class="ws-build-file-actions" hidden><button type="button" id="ws-import-pack" class="ws-action"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m-4-4 4 4 4-4M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></svg><span>Импорт .mrpack</span></button><button type="button" id="ws-create-build" class="ws-create-build">＋ <span>Создать сборку</span></button></div><div id="ws-theme-toolbar" class="ws-theme-toolbar" hidden><button type="button" class="ws-action" id="ws-theme-add">Сохранить текущий вид</button><button type="button" class="ws-action" id="ws-theme-import" title="Только подписанные файлы .sldcfg">Импорт .sldcfg</button><button type="button" class="ws-action" id="ws-theme-portal" hidden>Из кабинета</button></div><button type="button" id="ws-filter-toggle" class="ws-filter-toggle" aria-expanded="false" aria-controls="ws-filters">Фильтры <span id="ws-filter-count" hidden>0</span></button><select id="ws-provider" aria-label="Источник модов"><option value="all">Все источники</option><option value="modrinth">Modrinth</option><option value="sintedmods">SintedMods</option><option value="curseforge">CurseForge</option></select><label class="mods-search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input id="workshop-search" type="search" placeholder="Поиск модов" aria-label="Поиск в мастерской" autocomplete="off"><button type="button" id="workshop-clear" aria-label="Очистить поиск" hidden>×</button></label></div>
  <div id="ws-filters" class="ws-filters" hidden>
   <div class="ws-filter-grid">
    <label>Minecraft<select id="ws-filter-game" aria-label="Фильтр по версии Minecraft"><option value="">Любая версия</option></select></label>
@@ -504,6 +523,7 @@
   <div class="ws-filter-bottom"><div id="ws-quick-topics" class="ws-quick-topics" aria-label="Быстрые тематики"><button type="button" data-topic="pvp" aria-pressed="false">PvP</button><button type="button" data-topic="survival" aria-pressed="false">Выживание</button><button type="button" data-topic="optimization" aria-pressed="false">Оптимизация</button><button type="button" data-topic="adventure" aria-pressed="false">Приключения</button></div><label class="ws-filter-snapshots"><input id="ws-filter-snapshots" type="checkbox">Снапшоты в списке</label><button id="ws-filter-reset" type="button">Сбросить</button></div>
   <span id="ws-topic-hint" class="ws-topic-hint" hidden></span>
  </div>
+ </div>
  <div id="ws-local-dropzone" class="ws-build-dropzone ws-local-dropzone" hidden>
   <div><strong id="ws-local-drop-title"></strong><span id="ws-local-drop-hint"></span></div>
   <button type="button" id="ws-local-add" class="ws-build-secondary">Добавить файлы</button>
@@ -511,6 +531,55 @@
   <div id="workshop-results" class="ws-message" role="status" aria-live="polite"></div><div id="workshop-list" class="mods-list" role="list" aria-label="Содержимое мастерской"></div><button type="button" id="ws-more" class="ws-more" hidden>Показать ещё</button>
  </div>
 </section>
+<dialog id="ws-world-dialog" class="ws-dialog ws-build-dialog ws-build-manage ws-world-manage" aria-labelledby="ws-world-title">
+ <header class="ws-build-header">
+  <div class="mod-avatar ws-build-manage-icon ws-utility-icon" data-world-icon aria-hidden="true"></div>
+  <div><h1 id="ws-world-title">Настройки мира</h1><span data-world-folder data-no-translate></span></div>
+  <button type="button" class="account-close" data-world-close aria-label="Закрыть">×</button>
+ </header>
+ <form id="ws-world-form" class="ws-build-workspace">
+  <nav class="ws-build-tabs" role="tablist" aria-label="Разделы настроек" aria-orientation="vertical">
+   <button type="button" id="ws-world-tab-general" role="tab" aria-controls="ws-world-panel-general" data-world-tab="general"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M9 4v6m6 4v6"/></svg>Главное</button>
+   <button type="button" id="ws-world-tab-packs" role="tab" aria-controls="ws-world-panel-packs" data-world-tab="packs" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m9 9-3 3 3 3m6-6 3 3-3 3m-2-7-2 8"/></svg>Дата-паки</button>
+   <button type="button" id="ws-world-tab-files" role="tab" aria-controls="ws-world-panel-files" data-world-tab="files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Файлы</button>
+  </nav>
+  <section id="ws-world-panel-general" class="ws-build-panel" role="tabpanel" aria-labelledby="ws-world-tab-general" data-world-panel="general">
+   <div class="ws-build-section ws-build-control-card">
+    <div class="ws-build-section-title"><h2>Главное</h2></div>
+    <div class="ws-build-form-row">
+     <label>Название мира<input name="worldName" maxlength="48" autocomplete="off"></label>
+     <label data-world-difficulty>Сложность<select name="difficulty"><option value="0">Мирная</option><option value="1">Лёгкая</option><option value="2">Нормальная</option><option value="3">Сложная</option></select></label>
+    </div>
+    <label class="ws-build-check" data-world-commands><input name="commands" type="checkbox">Разрешить команды</label>
+    <p data-world-unreadable hidden>Настройки этого мира не удалось прочитать.</p>
+   </div>
+  </section>
+  <section id="ws-world-panel-packs" class="ws-build-panel" role="tabpanel" aria-labelledby="ws-world-tab-packs" data-world-panel="packs" hidden>
+   <div class="ws-build-mod-toolbar"><h2>Дата-паки</h2></div>
+   <div class="ws-build-mods" data-world-pack-list></div>
+   <p class="ws-build-no-mods" data-world-packs-unreadable hidden>Не удалось прочитать настройки дата-паков этого мира.</p>
+  </section>
+  <section id="ws-world-panel-files" class="ws-build-panel" role="tabpanel" aria-labelledby="ws-world-tab-files" data-world-panel="files" hidden>
+   <div class="ws-build-section ws-build-control-card">
+    <div class="ws-build-section-title"><h2>Файлы</h2></div>
+    <div class="ws-build-actions" data-world-file-actions>
+     <button type="button" data-world-open-folder>Открыть папку</button>
+     <button type="button" class="danger" data-world-delete>Удалить мир</button>
+    </div>
+    <p data-world-confirm hidden>Мир исчезнет из списка Minecraft. Кнопка отмены появится после удаления.</p>
+    <div class="ws-build-actions" data-world-confirm-actions hidden>
+     <button type="button" data-world-cancel-delete>Отмена</button>
+     <button type="button" data-world-confirm-delete class="danger">Удалить мир</button>
+    </div>
+   </div>
+  </section>
+ </form>
+ <footer class="ws-build-footer">
+  <div class="ws-build-footer-copy"><div data-world-error role="status"></div></div>
+  <button type="button" data-world-dismiss>Отмена</button>
+  <button type="submit" form="ws-world-form" class="primary" data-world-save>Сохранить</button>
+ </footer>
+</dialog>
 <dialog id="ws-create-build-dialog" class="ws-dialog ws-build-dialog" aria-labelledby="ws-create-build-title">
  <button type="button" class="account-close" data-close-build-create aria-label="Закрыть создание сборки">×</button>
  <div class="ws-build-dialog-header"><span>МАСТЕРСКАЯ · НОВАЯ СБОРКА</span><h1 id="ws-create-build-title">Своя сборка Minecraft</h1><p>Выбери версию и загрузчик – папки и основу лаунчер подготовит сам.</p></div>
@@ -658,17 +727,17 @@
  </div>
  <footer><span id="ws-local-state" class="ws-local-state"></span><button type="button" id="ws-local-shader-options" class="soft-button" hidden>Настроить шейдер</button><button type="button" id="ws-local-detail-delete" class="danger">Удалить из сборки</button></footer>
 </dialog>
-<dialog id="ws-shader-options" class="ws-dialog ws-shader-options" aria-labelledby="ws-shader-title">
+<dialog id="ws-shader-options" class="ws-dialog ws-shader-options ws-workshop-settings" aria-labelledby="ws-shader-title">
  <header><div><h2 id="ws-shader-title">Настройки шейдера</h2><p id="ws-shader-pack"></p></div><button type="button" id="ws-shader-close" class="account-close" aria-label="Закрыть">×</button></header>
  <div class="ws-shader-tools" hidden>
   <input type="search" id="ws-shader-search" placeholder="Найти параметр" aria-label="Найти параметр" autocomplete="off">
   <label id="ws-shader-preset-label">Пресет <select id="ws-shader-preset" aria-label="Пресет" data-compact-select></select></label>
  </div>
  <div class="ws-shader-layout" hidden>
-  <nav id="ws-shader-sections" aria-label="Разделы настроек шейдера"></nav>
+  <nav id="ws-shader-sections" class="ws-settings-sections" aria-label="Разделы настроек шейдера"></nav>
   <div class="ws-shader-groups"></div>
  </div>
- <p id="ws-shader-status" role="status"></p>
+ <p id="ws-shader-status" class="ws-settings-status" role="status"></p>
  <div id="ws-shader-preparation" hidden>
   <progress id="ws-shader-progress" aria-label="Перевод настроек шейдера"></progress>
   <button type="button" id="ws-shader-skip-translation" class="soft-button">Открыть сейчас</button>
@@ -693,7 +762,7 @@
 <dialog id="mod-install-dialog" class="ws-dialog" aria-labelledby="ws-mod-title">
  <button type="button" class="account-close" id="ws-mod-close" aria-label="Закрыть установку мода">×</button>
  <div class="ws-mod-header"><div id="ws-mod-icon" class="mod-avatar"></div><div><h1 id="ws-mod-title"></h1><span id="ws-mod-author"></span></div><div id="ws-mod-sources" class="ws-mod-sources" role="group" aria-label="Источник установки" hidden></div></div>
- <div class="ws-mod-columns"><section class="ws-mod-info"><div id="ws-resource-preview" class="ws-resource-preview" hidden><img id="ws-pack-cover" alt="Превью ресурс-пака" draggable="false" referrerpolicy="no-referrer"></div><h2 id="ws-info-heading" class="ws-info-heading">О моде</h2><p id="ws-mod-description"></p><div id="ws-mod-media" hidden></div><dl><dt>Источник</dt><dd id="ws-mod-source"></dd><dt>Minecraft</dt><dd id="ws-mod-games"></dd><dt id="ws-content-type-label">Загрузчики</dt><dd id="ws-mod-loaders"></dd><dt>Скачиваний</dt><dd id="ws-mod-downloads">–</dd><dt>Размер</dt><dd id="ws-mod-size">–</dd></dl><details id="ws-supported" class="ws-supported"><summary>Поддерживаемые версии <span id="ws-supported-count"></span></summary><div id="ws-supported-list"></div></details><p id="ws-content-hint" class="ws-hint">Файлы проверяются по контрольной сумме перед установкой.</p></section>
+ <div class="ws-mod-columns"><section class="ws-mod-info"><div id="ws-resource-preview" class="ws-resource-preview" hidden><img id="ws-pack-cover" alt="Превью ресурс-пака" draggable="false" referrerpolicy="no-referrer"></div><h2 id="ws-info-heading" class="ws-info-heading">О моде</h2><div id="ws-mod-description" class="ws-markdown"></div><div id="ws-mod-media" hidden></div><dl><dt>Источник</dt><dd id="ws-mod-source"></dd><dt>Minecraft</dt><dd id="ws-mod-games"></dd><dt id="ws-content-type-label">Загрузчики</dt><dd id="ws-mod-loaders"></dd><dt>Скачиваний</dt><dd id="ws-mod-downloads">–</dd><dt>Размер</dt><dd id="ws-mod-size">–</dd></dl><details id="ws-supported" class="ws-supported"><summary>Поддерживаемые версии <span id="ws-supported-count"></span></summary><div id="ws-supported-list"></div></details><p id="ws-content-hint" class="ws-hint">Файлы проверяются по контрольной сумме перед установкой.</p></section>
  <section class="ws-mod-controls"><label>Версия Minecraft<select id="ws-mod-game" aria-label="Версия Minecraft для мода"></select></label><label>Загрузчик<select id="ws-mod-loader" aria-label="Загрузчик мода"></select></label><label>Версия мода<select id="ws-mod-version" aria-label="Версия мода"></select></label><label>Установить в сборку<select id="ws-mod-target" aria-label="Сборка для установки мода"></select></label>
  <label id="ws-mod-world-row" hidden>Установить в мир<select id="ws-mod-world"></select></label>
  <label id="ws-pack-name-row" hidden>Название новой сборки<input id="ws-pack-name" type="text" minlength="2" maxlength="40" autocomplete="off" spellcheck="false"></label><div id="ws-install-destination" class="ws-install-destination"><span>Папка установки</span><div id="ws-install-path"></div></div><div id="ws-requirements"><h3 id="ws-requirements-title">Зависимости</h3><div id="ws-dependencies"></div><label id="ws-deps-option" class="ws-deps-option" hidden><input type="checkbox" id="ws-with-deps" checked>Установить недостающие зависимости</label></div></section></div>
@@ -761,16 +830,34 @@
 <dialog id="account-add-dialog" class="account-dialog account-add-dialog" aria-labelledby="account-add-title">
   <button type="button" class="account-close" id="account-add-close" aria-label="Закрыть добавление аккаунта">×</button>
   <h1 id="account-add-title">Добавить аккаунт</h1>
-  <button type="button" class="sintet-id-card provider-login provider-login-sintet" id="sintet-id-login" aria-label="Войти через Sintet ID"><img class="provider-wordmark" src="assets/brand/sintet-id-signin.svg" alt="Sintet ID"></button><button type="button" class="sintet-id-card provider-login provider-login-ely" id="ely-login" aria-label="Войти через Ely.by"><img class="provider-wordmark" src="assets/brand/ely-light.svg" alt="Ely.by"></button>
-  <button type="button" class="sintet-id-card provider-login provider-login-microsoft" id="microsoft-login" aria-label="Войти через Microsoft"><span class="microsoft-wordmark"><img src="assets/brand/microsoft.svg" alt="">Microsoft</span></button>
-  <button type="button" class="account-done" id="account-local-toggle">Локальный профиль</button>
+  <div class="account-methods">
+    <button type="button" class="account-method" data-method="sintet" id="sintet-id-login" aria-label="Войти через Sintet ID" aria-describedby="sintet-id-login-hint">
+      <span class="account-method-icon" aria-hidden="true"><img src="assets/brand/sintet-id-icon-light.svg" alt=""></span>
+      <span class="account-method-copy"><strong>Sintet ID</strong><small id="sintet-id-login-hint">Друзья, лобби и профиль Sintet</small></span>
+      <svg class="account-method-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+    </button>
+    <button type="button" class="account-method" data-method="ely" id="ely-login" aria-label="Войти через Ely.by" aria-describedby="ely-login-hint">
+      <span class="account-method-icon" aria-hidden="true"><img src="assets/brand/ely-icon-light.svg" alt=""></span>
+      <span class="account-method-copy"><strong>Ely.by</strong><small id="ely-login-hint">Скины из профиля Ely.by</small></span>
+      <svg class="account-method-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+    </button>
+    <button type="button" class="account-method" data-method="microsoft" id="microsoft-login" aria-label="Войти через Microsoft" aria-describedby="microsoft-login-hint">
+      <span class="account-method-icon" aria-hidden="true"><img src="assets/brand/microsoft.svg" alt=""></span>
+      <span class="account-method-copy"><strong>Microsoft</strong><small id="microsoft-login-hint">Лицензия Minecraft Java Edition</small></span>
+      <svg class="account-method-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+    </button>
+    <button type="button" class="account-method" data-method="local" id="account-local-toggle" aria-expanded="false" aria-controls="account-local-form" aria-describedby="account-local-toggle-hint">
+      <span class="account-method-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 19v-1a4 4 0 0 1 4-4h5a4 4 0 0 1 4 4v1"/></svg></span>
+      <span class="account-method-copy"><strong>Локальный профиль</strong><small id="account-local-toggle-hint">Свой ник без регистрации</small></span>
+      <svg class="account-method-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg>
+    </button>
+  </div>
   <form id="account-local-form" hidden>
     <label for="account-local-name">Никнейм</label>
     <div class="account-local-row"><input id="account-local-name" placeholder="Player" minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" required autocomplete="off" spellcheck="false"><button type="submit">Добавить</button></div>
     <p id="account-local-error" role="status"></p>
   </form>
   <p id="account-network-note" class="account-add-note" role="status" hidden>Без доступа к интернету. Можно добавить локальный профиль.</p>
-  <p class="account-add-note">Через Microsoft можно войти с лицензией Minecraft Java Edition. Добавленные аккаунты можно переключать в профиле.</p>
   <p id="microsoft-login-status" class="microsoft-login-status" role="status" hidden></p>
 </dialog>
 <dialog id="microsoft-device-dialog" class="account-dialog account-add-dialog" aria-labelledby="microsoft-device-title">
